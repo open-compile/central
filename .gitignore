@@ -1,0 +1,18 @@
+
+# Editors related
+**/*~
+**/*.swp
+**/.idea
+**/.vscode
+**/.eclipse
+
+# Python
+**/__pycache__
+**/*.pyc
+
+# C++/C Object Files
+**/*.o
+**/*.W
+**/*.I
+**/*.v
+**/*.spin
