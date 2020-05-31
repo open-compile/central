@@ -17,6 +17,10 @@ IR 设计
 1. Opcode: [Opcode from WHIRL, to be used](common/opcode_gen)
 2. Symbol Table: [common/symtab.h](common/symtab.h)
 
+构建工具
+
+实际上使用CMake, configure, Makefile, build.sh 都只是cmake的简单wrapper
+
 ## 代码风格规范
 
 - 松散化的 Google 风格
@@ -26,6 +30,19 @@ IR 设计
 - 使用 class
 - 尽可能避免使用全局变量
 - 基本的内存管理（应该问题不大）
+
+## 模块
+
+- fe: 前端 LEX + Parser    
+- common: IR 以及公共文件  
+- opt: 优化  
+- cg: 代码生成  
+- driver: 总体调度工具，负责运行 fe, opt, cg
+
+## 实现
+
+[Symbol Table 定义](common/symtab.h)  
+[Opcode 定义](common/opcode.h)  
 
 ## 参考资料
 
