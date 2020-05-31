@@ -12,6 +12,11 @@
 3. Optimizer -> MLIR (Low level, AST + Symbol Table)
 4. Code generation -> Assembly (ARMV7-EABI 32bit)
 
+IR 设计
+
+1. Opcode: [Opcode from WHIRL, to be used](common/opcode_gen)
+2. Symbol Table: [common/symtab.h](common/symtab.h)
+
 ## 代码风格规范
 
 - 松散化的 Google 风格
@@ -44,6 +49,8 @@ GCC 作为比较基准（我们的benchmark基准）
 - opencti-src  
 - opencti-testware  
 
+访问：
+http://cti.anitago.com/CTI/
 
 ### 5. 类似的现有项目作为参照
 
@@ -62,10 +69,12 @@ https://gitlab.com/szucompiler/openarkcompiler/-/blob/master/src/maple_ir/includ
 
 - WHIRL 的 Opcode 定义  
 https://gitlab.com/szucompiler/docs/-/blob/master/open64A.pdf  
+https://gitlab.com/szucompiler/open64/-/blob/master/osprey/common/com/opcode_gen
+[Opcode from WHIRL, to be used](common/opcode_gen)
 
 - GCC 的 Opcode 定义  
-。。。
+https://gitlab.com/szucompiler/open64/-/blob/master/osprey/kgccfe/gnu/cp/operators.def  
 
 - LLVM 的 Opcode 定义  
-
+To be reviewed. (not so important though)  
 

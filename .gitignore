@@ -16,3 +16,9 @@
 **/*.I
 **/*.v
 **/*.spin
+
+# output dir
+build
+out
+target
+**/CMakeFiles
