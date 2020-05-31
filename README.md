@@ -3,24 +3,6 @@
 这个项目是深大参加比赛专用的代码主仓库
 其他辅助项目都在szucompiler 这个群里，大家记得项目要设置Visibility 为 Private，防止知识产权侵权纠纷。
 
-## 我们的设计
-
-整体流程应该是 
-
-1. Lexer -> Token Stream
-2. Parser -> MLIR (High level, AST + Symbol Table)
-3. Optimizer -> MLIR (Low level, AST + Symbol Table)
-4. Code generation -> Assembly (ARMV7-EABI 32bit)
-
-IR 设计
-
-1. Opcode: [Opcode from WHIRL, to be used](common/opcode_gen)
-2. Symbol Table: [common/symtab.h](common/symtab.h)
-
-构建工具
-
-实际上使用CMake, configure, Makefile, build.sh 都只是cmake的简单wrapper
-
 ## 代码风格规范
 
 - 松散化的 Google 风格
@@ -31,7 +13,12 @@ IR 设计
 - 尽可能避免使用全局变量
 - 基本的内存管理（应该问题不大）
 
-## 模块
+## 上手必看
+
+[Symbol Table 定义](common/symtab.h)  
+[Opcode 定义](common/opcode.h)  
+
+### 模块
 
 - fe: 前端 LEX + Parser    
 - common: IR 以及公共文件  
@@ -39,10 +26,55 @@ IR 设计
 - cg: 代码生成  
 - driver: 总体调度工具，负责运行 fe, opt, cg
 
-## 实现
+### 构建工具
 
-[Symbol Table 定义](common/symtab.h)  
-[Opcode 定义](common/opcode.h)  
+实际上使用CMake, configure, Makefile, build.sh 都只是cmake的简单wrapper
+
+### 克隆项目并开始开发
+
+#### 环境依赖
+```
+Ubuntu:
+sudo apt install cmake, git, make, gcc, g++, binutils  
+
+CentOS:
+sudo yum install cmake, git, make, gcc, g++, binutils  
+
+macOS:
+sudo brew install cmake git make gcc g++  
+
+Windows CLion:
+Use Cygwin panel to install libraries.
+
+Windows Visual Studio:
+Not supported
+
+```
+
+
+构建  
+
+```bash
+git clone git@gitlab.com:szucompiler/central.git
+cd central
+./configure
+make
+```
+
+
+## 我们的设计
+
+### 整体流程
+
+1. Lexer -> Token Stream
+2. Parser -> MLIR (High level, AST + Symbol Table)
+3. Optimizer -> MLIR (Low level, AST + Symbol Table)
+4. Code generation -> Assembly (ARMV7-EABI 32bit)
+
+### IR 设计灵感
+
+1. WHIRL Opcode: [Opcode from WHIRL, to be used](common/opcode_gen)
+2. Symbol Table: [common/symtab.h](common/symtab.h)
 
 ## 参考资料
 
@@ -85,8 +117,8 @@ https://gitlab.com/szucompiler/amacc
 https://gitlab.com/szucompiler/openarkcompiler/-/blob/master/src/maple_ir/include/opcodes.def  
 
 - WHIRL 的 Opcode 定义  
-https://gitlab.com/szucompiler/docs/-/blob/master/open64A.pdf  
-https://gitlab.com/szucompiler/open64/-/blob/master/osprey/common/com/opcode_gen
+https://gitlab.com/szucompiler/docs/-/blob/master/open64A.pdf    
+https://gitlab.com/szucompiler/open64/-/blob/master/osprey/common/com/opcode_gen  
 [Opcode from WHIRL, to be used](common/opcode_gen)
 
 - GCC 的 Opcode 定义  
