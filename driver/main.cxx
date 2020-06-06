@@ -58,6 +58,12 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   args::ValueFlag<int> optimization_level(opt_group, "optlevel",
                                          "Optimisation level, within [1,4]",
                                          {'O'});
+  args::ValueFlag<int> architecture_width(opt_group, "width",
+                                         "Address bit width, between 8, 16, 32, 64",
+                                         {'m', "width"});
+  args::ValueFlag<std::string> architecture_name(opt_group, "architecture",
+                                          "Specify target architecture",
+                                          {"march", "arch"});
   args::PositionalList<std::string> files(parser, "files", "The file of input");
   args::CompletionFlag completion(parser, {"complete"});
   try {
