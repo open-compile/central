@@ -132,7 +132,7 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     // If not, then we'd calculate a default file name for the user.
     // Finding base name of file (without directory names)
     AssertThat(file_vec.size() > 0, ("Failed to find any file"));
-    const std::set<char> delims({"\\", "/"});
+    const std::set<char> delims({'\\', '/'});
     std::vector<std::string> result = File_split_path(file_vec[0], delims);
     AssertThat(result.size() > 0, ("Unknwon filename met : %s", file_vec[0].c_str()));
 
