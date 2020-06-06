@@ -9,6 +9,7 @@
 #include <set>
 #include <vector>
 #include <string>
+#include <string.h>
 #include "subprocess.h" // Unlicense
 
 /**
