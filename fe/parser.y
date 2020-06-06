@@ -101,7 +101,7 @@ type_dec: INT       { printf("TYPE:INT\n"); }
 
 %%
 
-int main(int argc, const char *args[])
+int femain(int argc, const char *args[])
 {
     /* yydebug = 1; */
 

@@ -1,5 +1,4 @@
-*.tab.*
-scanner.c
+*.tab.o
 parser.output
 *.o
 test

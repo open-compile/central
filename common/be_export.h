@@ -1,0 +1,2 @@
+#define BE_MAIN_NAME bemain
+#define BE_EXTERNAL_MAIN_NAME Opt_run_optimizer

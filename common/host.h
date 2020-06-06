@@ -1,13 +1,26 @@
+#ifndef _OCC_HOST_H_
+#define _OCC_HOST_H_
+
 // Host definitions
-#define BOOL int
-#define INT int
-#define SHORT short
-#define BYTE unsigned char
-#define INT8 char
-#define INT16 short
-#define INT32 int
-#define INT64 long long
-#define UINT8 unsigned char
-#define UINT16 unsigned short
-#define UINT32 unsigned int
-#define UINT64 unsigned long long
+typedef int INT;
+typedef bool BOOL;
+typedef short SHORT;
+typedef char INT8;
+typedef short INT16;
+typedef unsigned char BYTE;
+typedef int INT32;
+typedef long long INT64;
+typedef unsigned int UINT;
+typedef unsigned char UINT8;
+typedef unsigned short UINT16;
+typedef unsigned int UINT32;
+typedef unsigned long long UINT64;
+
+
+#define TRUE true
+#define FALSE false
+
+#define ASSEMBLY_EXT_SUFFIX ".s"
+#define OBJECT_EXT_SUFFIX ".o"
+
+#endif
