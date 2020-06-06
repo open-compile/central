@@ -1,5 +1,5 @@
 #!/bin/sh
-
+set -x;
 #$1 is the local compiler location
 CTI_HOME=/home/ubuntu/opencti-src
 CTI_SRC=/home/ubuntu/opencti-src
@@ -97,6 +97,6 @@ echo "[CTI.sh] [CMD] ${cmd}"
 
 my_pwd=`pwd`
 cd $cmplr
-tar jhcf - bin lib include \
+tar jhcf - bin \
   | ssh $CTI_SERVER "$cmd"
 cd $my_pwd
