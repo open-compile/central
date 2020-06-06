@@ -52,6 +52,9 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   args::ValueFlag<std::string> output_file(file_group, "output",
                                           "Output file location",
                                           {'o', "output"});
+  args::ValueFlag<std::string> language(file_group, "language",
+                                          "Specify the source code language",
+                                          {'x', "language"});
   args::ValueFlag<int> optimization_level(opt_group, "optlevel",
                                          "Optimisation level, within [1,4]",
                                          {'O'});
