@@ -14,8 +14,11 @@ INT32 BE_MAIN_NAME(INT32 argc, char **argv) {
 
 INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
     AssertThat(conf.opt_level >= 0, ("not enough compile level"));
-    if (fexists(conf.output_file)) {
-        // delete.
+    Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS), 
+             (TFile, "Writing assembly to %s\n", conf.output_file.c_str()));
+    AssertThat(conf.output_file.size() > 2, ("Incorrect output file name"));
+    if (File_exists(conf.output_file)) {
+        // delete the file if it exists
         Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS), 
                  (TFile, "Removing old output file under %s\n", conf.output_file.c_str()));
         if(remove(conf.output_file.c_str()) != 0) {
@@ -23,10 +26,9 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
         }
         return 0;
     }
-    Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS), 
-             (TFile, "Writing assembly to %s\n", conf.output_file.c_str()));
+    
     ofstream myfile;
-    myfile.open (conf.output_file);
+    myfile.open (conf.output_file.c_str());
     myfile << ".section text\n";
     myfile << ".byte 0x0\n";
     myfile.close();

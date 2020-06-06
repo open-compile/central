@@ -29,3 +29,5 @@ endforeach()
 foreach(ONE_TARG IN LISTS GLOBAL_OCC_TARG)
   add_subdirectory(${ONE_TARG})
 endforeach()
+
+message(STATUS "CMake install destination: " ${CMAKE_INSTALL_PREFIX} ".")

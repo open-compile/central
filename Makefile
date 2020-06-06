@@ -1,8 +1,12 @@
 # Merely a wrapper for cmake
 .PHONY: all
 all:
-	./configure
-	./build.sh
+	-mkdir build
+	cd ./build && ../configure
+	cd ./build && ../build.sh
 
 clean:
-	./clean.sh
+	cd ./build && make clean
+
+install:
+	cd build && make install

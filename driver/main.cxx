@@ -3,7 +3,12 @@
 #include "basic.h"
 #include "options.h"
 #include "fe_export.h"
+#include "be_export.h"
 #include "main.h"
+#include "file_util.h"
+#include <set>
+#include <vector>
+#include <string>
 #include "subprocess.h" // Unlicense
 
 /**
@@ -112,16 +117,32 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   }
 
   if (optimization_level) {
-    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Optimisation Level: %d", optimization_level.Get()));
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Optimisation Level: %d\n", optimization_level.Get()));
     conf.opt_level = optimization_level.Get();
   }
 
+  // Check if use has specified an output file name.
   if (output_file) {
-    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Output file : %s", output_file.Get().c_str()));
-    conf.output_file = output_file;
+    // If so, use the user specified file name.
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Output file : %s\n", output_file.Get().c_str()));
+    conf.output_file = output_file.Get();
+    AssertThat(strlen(conf.output_file.c_str()) > 0, ("Invalid file name specified"));
+  } else {
+    // If not, then we'd calculate a default file name for the user.
+    // Finding base name of file (without directory names)
+    AssertThat(file_vec.size() > 0, ("Failed to find any file"));
+    const std::set<char> delims({"\\", "/"});
+    std::vector<std::string> result = File_split_path(file_vec[0], delims);
+    AssertThat(result.size() > 0, ("Unknwon filename met : %s", file_vec[0].c_str()));
+
+    // Changing extension
+    std::string base_name = result[result.size() - 1];
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Input file base name : %s\n", base_name.c_str()));
+    File_change_extension(base_name, "s"); // This will change the base_name, by replacing the extension part
+    conf.output_file = base_name;
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Default output file : %s\n", conf.output_file.c_str()));
   }
 
-  return 0;
   return 0;
 }
 
@@ -134,8 +155,9 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
  */
 int main(int argc, char **argv, char **envp) {
   COMPILER_CONFIG *conf = new COMPILER_CONFIG();
+  // Parsing the arguments to thhe conf object
   Parse_args(argc, argv, envp, *conf);
-  // Construct Workflow List
+  // Construct Workflow List and Execute the Compilation
   try {
     return Execute(*conf);
   } catch (std::exception err) {
@@ -187,9 +209,8 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
       break;
     }
     case COMPONENT_BE: {
-      operands[0] = "be";
-      operands[1] = config.files[0].c_str();
-      Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Skipping sub-process [%s %s]\n", operands[0], operands[1]));
+      Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking direct sub-process: back-end\n"));
+      BE_EXTERNAL_MAIN_NAME(config);
       break;
     }
     case COMPONENT_ASM: {
