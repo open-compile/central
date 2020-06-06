@@ -6,7 +6,7 @@ PREVDIR=$(pwd)
 echo "Current : $(pwd)"
 RET=0
 RUN_TEST_MODE="NORMAL"
-./utils/setup-env.sh
+./ci/setup-env.sh
 
 if test -f ./BASE_DIR
 then
@@ -49,9 +49,9 @@ mkdir testresult
 
 echo "${DBAR}"
 echo "Prepare to perform XcalScan check."
-./utils/sanity.sh || exit 4
+./ci/sanity.sh || exit 4
 echo $DBAR
-./utils/cti.sh || exit 4
+./ci/cti.sh || exit 4
 echo $DBAR
 
 echo "--------- Copying to Gitlab --------------"

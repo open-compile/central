@@ -15,7 +15,7 @@ goto_correct_dir() {
 	echo "FOUND BASE_DIR : $LASTTIME_DIR"
     fi
 
-    ./utils/setup-env.sh
+    ./ci/setup-env.sh
 
     #Determine Time
     TZ='Asia/Chongqing'
@@ -37,7 +37,7 @@ goto_correct_dir() {
 	pwd > $ORIG_DIR/BASE_DIR
 	pwd > ./BASE_DIR
 	LASTTIME_DIR=$(pwd)
-	cp -rf $ORIG_DIR/utils $LASTTIME_DIR/utils # This will copy only util related files
+	cp -rf $ORIG_DIR/ci $LASTTIME_DIR/ci # This will copy only util related files
     cp -rf $ORIG_DIR $LASTTIME_DIR/occ # This will copy all files
     fi
 
@@ -185,13 +185,13 @@ final_tips() {
     echo " For Debugging, enter the data dir     "
     echo " cd $LASTTIME_DIR                      "
     echo " To redo the build process             "
-    echo " ./utils/debug.sh                      "
+    echo " ./ci/debug.sh                      "
     echo " To add the installed opencc to PATH   "
-    echo " ./utils/reuse.sh                      "
+    echo " ./ci/reuse.sh                      "
     echo " To run sanity tests                   "
-    echo " ./utils/sanity.sh                     "
+    echo " ./ci/sanity.sh                     "
     echo " To run cti tests                      "
-    echo " ./utils/cti.sh                        "
+    echo " ./ci/cti.sh                        "
     echo " See the running results via HTTP at   "
     echo " http://compiler.anitago.com/occ-build/"
     echo " See the testing results via HTTP at   "

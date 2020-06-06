@@ -32,7 +32,7 @@ rm -rf ./mastiff
 rm -rf ./build
 
 echo " ---------  Sanity Starting  ----------------"
-./utils/analyze/sanity.sh
+./ci/analyze/sanity.sh
 
 if [ $? -ne 0 ]
 then
@@ -48,7 +48,7 @@ fi
 
 echo $DBAR
 echo " ---------  CTI Starting  ----------------"
-./utils/analyze/cti.sh
+./ci/analyze/cti.sh
 
 if test -f ./testresult/FAILED
 then   
@@ -59,7 +59,7 @@ fi
 # AliOS
 echo $DBAR
 echo " ---------  AliOS Starting  ----------------"
-# ./utils/analyze/alios.sh
+# ./ci/analyze/alios.sh
 echo "Skipping ..."
 if [ $? -ne 0 ]
 then
