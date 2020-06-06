@@ -64,6 +64,12 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   args::ValueFlag<std::string> architecture_name(opt_group, "architecture",
                                           "Specify target architecture",
                                           {"march", "arch"});
+  args::ValueFlagList<std::string> include_list(file_group, "includeDir",
+                                          "Specify include directories that preceed normal include dir",
+                                          {'I', "include"});
+  args::ValueFlagList<std::string> include_sys_list(file_group, "includeSysDir",
+                                          "Specify include directories that preceed system include dir",
+                                          {'i', "include-sys"});
   args::PositionalList<std::string> files(parser, "files", "The file of input");
   args::CompletionFlag completion(parser, {"complete"});
   try {
