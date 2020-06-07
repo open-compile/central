@@ -4,6 +4,7 @@
 #include "be_export.h"
 #include "file_util.h"
 #include <fstream>
+#include "symtab.h"
 
 using std::ofstream;
 
@@ -26,6 +27,8 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
         }
         return 0;
     }
+    // Loading the IR tree;
+    
     
     ofstream myfile;
     myfile.open (conf.output_file.c_str());
