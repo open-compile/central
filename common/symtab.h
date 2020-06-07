@@ -1,6 +1,7 @@
 #include "basic.h"
 #include <map>
 #include <string>
+#include <string.h>
 #include <vector>
 
 typedef UINT32 STR_IDX; // string table index
