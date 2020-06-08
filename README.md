@@ -22,7 +22,7 @@
 
 - fe: 前端 LEX + Parser    
 - common: IR 以及公共文件  
-- opt: 优化  
+- opt: 优化  (开发中)
 - cg: 代码生成  
 - driver: 总体调度工具，负责运行 fe, opt, cg
 
