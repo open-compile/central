@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 #include <string.h>
+#include <ir.h>
 #include "subprocess.h" // Unlicense
 
 /**
@@ -174,6 +175,7 @@ int main(int argc, char **argv, char **envp) {
   // Parsing the arguments to thhe conf object
   Parse_args(argc, argv, envp, *conf);
   // Construct Workflow List and Execute the Compilation
+  File();
   try {
     return Execute(*conf);
   } catch (std::exception err) {

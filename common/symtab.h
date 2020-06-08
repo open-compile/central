@@ -4,158 +4,211 @@
 #include <string.h>
 #include <vector>
 
+#ifndef OCC_SYMTAB_H
+#define OCC_SYMTAB_H
+
+#define OCC_STRINGIFY( name ) # name
+
 typedef UINT32 STR_IDX; // string table index
 typedef UINT32 ST_IDX; // symbol info idx
+typedef UINT32 LABEL_IDX;
+typedef UINT32 PREG_IDX;
 typedef UINT32 TY_IDX; //type info idx
+typedef UINT32 TYLIST_IDX; //type info list idx
 typedef UINT32 PU_IDX; //program unit idx
 typedef UINT32 TCON_IDX;
-typedef UINT32 mTYPE_ID;
 typedef UINT32 ARB_IDX;
 typedef UINT32 INITV_IDX;
 typedef UINT32 INITO_IDX;
-typedef UINT32 LABEL_IDX;
+typedef UINT32 PU_INFO_IDX;
+typedef UINT8 SCOPE_IDX;
+typedef UINT16 mTYPE_ID;
+
+// Forward declare
+class SCOPE;
+class SCOPE_MANAGER;
+class FILE_SYMTAB;
+class FILE_MANAGER;
+class TREE;
 
 // Symbol Table Frame Work
-enum SYM_ATTR
-{
-    ST_CONST = 0,
-} ;
-
-enum SYM_SCLASS
-{
-    SYMC_UNKNOWN = 0,
-    SYMC_AUTO = 1,
-    SYMC_FUNC_STATIC = 2,
-    SYMC_FILE_STATIC = 3,
-    SYMC_EXTERN = 4,
-    SYMC_GLOBAL_UNDEF = 5,
-    SYMC_GLOBAL_DEF = 6,
-    SYMC_TEXT = 7,
+enum SYM_ATTR {
+  ST_CONST = 0,
 };
 
-typedef enum
-{
-    SYME_UNKNOWN = 0,
-    SYME_INTERNAL = 1,
-    SYME_EXTERNAL = 2,
-    SYME_PREEMPTIBLE = 3,
+// Must be smaller than 64
+enum MTYPE_ID {
+  MTYPE_UNKNOWN = 0,
+  MTYPE_BEGIN = 1,
+  MTYPE_B = 1,
+  MTYPE_I1 = 2,
+  MTYPE_I2 = 3,
+  MTYPE_I4 = 4,
+  MTYPE_I8 = 5,
+  MTYPE_U1 = 6,
+  MTYPE_U2 = 7,
+  MTYPE_U4 = 8,
+  MTYPE_U8 = 9,
+  MTYPE_F4 = 10,
+  MTYPE_F8 = 11,
+  MTYPE_M = 12,
+  MTYPE_V = 13,
+  MTYPE_A4 = 14,
+  MTYPE_A8 = 15,
+  MTYPE_BS = 16,
+  MTYPE_COUNT = 17,
+};
+
+enum SYM_SCLASS {
+  SYMC_UNKNOWN      = 0,
+  SYMC_AUTO         = 1,
+  SYMC_FUNC_STATIC  = 2,
+  SYMC_FILE_STATIC  = 3,
+  SYMC_EXTERN       = 4,
+  SYMC_GLOBAL_UNDEF = 5,
+  SYMC_GLOBAL_DEF   = 6,
+  SYMC_TEXT         = 7,
+};
+
+typedef enum {
+  SYME_UNKNOWN     = 0,
+  SYME_INTERNAL    = 1,
+  SYME_EXTERNAL    = 2,
+  SYME_PREEMPTIBLE = 3,
 } SYM_ECLASS;
 
-enum SYM_CLASS
-{
-    CLASS_UNK	= 0,
-    CLASS_VAR	= 1,			// data variable
-    CLASS_FUNC	= 2,			// addrress of a function.
-    CLASS_CONST	= 3,			// constant value
-    CLASS_PREG	= 4,			// pseudo register
-    CLASS_BLOCK	= 5,			// base to a block of data
-    CLASS_NAME  = 6,			// just hold an ST name
-    CLASS_COUNT = 7			// total number of classes
+enum SYM_CLASS {
+  SYM_CLASS_UNK    = 0,
+  SYM_CLASS_VAR    = 1,      // data variable
+  SYM_CLASS_FUNC   = 2,      // addrress of a function.
+  SYM_CLASS_CONST  = 3,      // constant value
+  SYM_CLASS_PREG   = 4,      // pseudo register
+  SYM_CLASS_BLOCK  = 5,      // base to a block of data
+  SYM_CLASS_NAME   = 6,      // just hold an ST name
+  SYM_CLASS_COUNT  = 7      // total number of classes
 }; // SYM_CLASS
 
 typedef enum {
-    TLS_NONE = 0
+  TLS_NONE = 0
 } ST_TLS_MODEL;
 
+typedef struct { TY_IDX ty_id; } TYLIST;
 
 /* Kinds of types: */
-enum TY_KIND
-{
-    KIND_INVALID	= 0,		// Invalid
-    KIND_SCALAR		= 1,		// integer/floating point
-    KIND_ARRAY		= 2,		// array
-    KIND_STRUCT		= 3,		// struct/union
-    KIND_POINTER	= 4,		// pointer
-    KIND_FUNCTION	= 5,		// function/procedure
-    KIND_VOID		= 6,		// C void type
-    KIND_LAST		= 8
+enum TY_KIND {
+  KIND_INVALID  = 0,    // Invalid
+  KIND_SCALAR   = 1,    // integer/floating point
+  KIND_ARRAY    = 2,    // array
+  KIND_STRUCT   = 3,    // struct/union
+  KIND_POINTER  = 4,    // pointer
+  KIND_FUNCTION = 5,    // function/procedure
+  KIND_VOID     = 6,    // C void type
+  KIND_LAST     = 7
 };
+
 
 // Type flags
-enum TY_FLAG
-{
-  TY_ANONYMOUS	= 0x1,	/* Anonymous structs/classes/unions */
+enum TY_FLAG {
+  TY_ANONYMOUS       = 0x1,  /* Anonymous structs/classes/unions */
+  TY_FLAG_CONST      = 0x2,
+  TY_FLAG_INTERNAL   = 0x4,
 };
 
-class TY
-{
+class TY {
 public:
-    UINT64 size;			// size of the type in bytes
+  UINT64 size;      // size of the type in bytes
 
-    TY_KIND kind   : 8;			// kind of type
-    mTYPE_ID mtype : 8;			// WHIRL data type
-    UINT16 flags;			// misc. attributes
+  TY_KIND kind     : 8;      // kind of type
+  MTYPE_ID mtype   : 8;      // WHIRL data type
+  TY_FLAG flags    : 16;      // misc. attributes
+  INT32 align;        // alignment
 
-    union {
-      // FLD_IDX fld;
-      // TYLIST_IDX tylist;
-      ARB_IDX arb;
-    } u1;				// idx to FLD_TAB, TYLIST_TAB, etc.
+  union {
+    // FLD_IDX fld;
+    TYLIST_IDX tylist;  // basically TY_IDX, because we use flag to see that
+    ARB_IDX arb;
+  } u1;        // idx to FLD_TAB, TYLIST_TAB, etc.
 
-    STR_IDX name_idx;			// name 
+  STR_IDX name_idx;      // name
 
-    union {
-      TY_IDX etype;			// type of array element (array only)
-      TY_IDX pointed;			// pointed-to type (pointers only)
-      UINT32 pu_flags;		// attributes for KIND_FUNCTION
-      ST_IDX copy_constructor;	// copy constructor X(X&) (record only)
-    } u2;
-  
-    ST_IDX vtable;
+  union {
+    TY_IDX etype;      // type of array element (array only)
+    TY_IDX pointed;      // pointed-to type (pointers only)
+    UINT32 pu_flags;    // attributes for KIND_FUNCTION
+    ST_IDX copy_constructor;  // copy constructor X(X&) (record only)
+  } u2;
 
-    // access function for unions
-    // FLD_IDX Fld () const		{ return u1.fld; }
-    // void Set_fld (FLD_IDX idx)		{ u1.fld = idx; }
-    
-    // TYLIST_IDX Tylist () const		{ return u1.tylist; }
-    // void Set_tylist (TYLIST_IDX idx)	{ u1.tylist = idx; }
-    
-    ARB_IDX Arb () const		{ return u1.arb; }
-    void Set_arb (ARB_IDX idx)		{ u1.arb = idx; }
+  ST_IDX vtable;
 
-    TY_IDX Etype () const
-    {
+  // access function for unions
+  // FLD_IDX Fld () const		{ return u1.fld; }
+  // void Set_fld (FLD_IDX idx)		{ u1.fld = idx; }
+
+   TYLIST_IDX Tylist () const		{ return u1.tylist; }
+   void Set_tylist (TYLIST_IDX idx)	{ u1.tylist = idx; }
+
+  ARB_IDX Arb() const { return u1.arb; }
+
+  void Set_arb(ARB_IDX idx) { u1.arb = idx; }
+
+  TY_IDX Etype() const {
       AssertThat(kind == KIND_ARRAY,
                  ("non-KIND_ARRAY type has no element type"));
-      return u2.etype;
-    }
-    void Set_etype (TY_IDX idx)		{ u2.etype = idx; }
-    
-    TY_IDX Pointed () const
-    {
-        AssertThat(kind == KIND_POINTER,
-                 ("non-KIND_POINTER type doesn't point"));
-        return u2.pointed;
-    }
-    void Set_pointed (TY_IDX idx)	{ u2.pointed = idx; }
+    return u2.etype;
+  }
 
-    ST_IDX Copy_constructor () const
-    {
+  void Set_etype(TY_IDX idx) { u2.etype = idx; }
+
+  TY_IDX Pointed() const {
+      AssertThat(kind == KIND_POINTER,
+                 ("non-KIND_POINTER type doesn't point"));
+    return u2.pointed;
+  }
+
+  void Set_pointed(TY_IDX idx) { u2.pointed = idx; }
+
+  ST_IDX Copy_constructor() const {
       AssertThat(kind == KIND_STRUCT,
                  ("non-KIND_STRUCT type has no copy constructor"));
-      return u2.copy_constructor;
-    }
-    void Set_copy_constructor (ST_IDX idx)	{ u2.copy_constructor = idx; }
+    return u2.copy_constructor;
+  }
 
-    ST_IDX Vtable () const
-    {
+  void Set_copy_constructor(ST_IDX idx) { u2.copy_constructor = idx; }
+
+  ST_IDX Vtable() const {
       AssertThat(kind == KIND_STRUCT,
-                  ("non-KIND_STRUCT type has no vtable"));
-      return vtable;
-    }
-    void Set_vtable (ST_IDX idx)	{ vtable = idx; }
+                 ("non-KIND_STRUCT type has no vtable"));
+    return vtable;
+  }
+
+  void Set_vtable(ST_IDX idx) { vtable = idx; }
 
 
-    PU_IDX Pu_flags () const		{ return u2.pu_flags; }
-    // void Set_pu_flag (TY_PU_FLAGS f)	{ u2.pu_flags |= f; }
-    // void Clear_pu_flag (TY_PU_FLAGS f)	{ u2.pu_flags &= ~f; }
+  PU_IDX Pu_flags() const { return u2.pu_flags; }
+  // void Set_pu_flag (TY_PU_FLAGS f)	{ u2.pu_flags |= f; }
+  // void Clear_pu_flag (TY_PU_FLAGS f)	{ u2.pu_flags &= ~f; }
 
-    // operations
-    TY ();
-    void Verify(UINT level) const;
-    void Print (FILE *f) const;
+  // operations
+  TY() {
+    bzero(this, sizeof(TY));
+  };
+
+  void Verify(UINT level) const {};
+
+  void Print(FILE *f) const;
 
 }; // TY
+
+struct MTYPE_TAB {
+  MTYPE_ID mtype;
+  TY_KIND  kind;
+  TY_FLAG  flag;
+  UINT64   size;
+  const char *name;
+  TY_IDX   ty_idx;
+};
+
+extern MTYPE_TAB MTYPE_to_TY_table[]; // Mtype to TY_IDX mapping
 
 enum PU_FLAG {
   PU_PURE = 0x1,
@@ -163,47 +216,48 @@ enum PU_FLAG {
   PU_INLINE = 0x4,
 };
 
-struct PU
-{
-    TY_IDX prototype;			// function prototype
-    TY_IDX base_class;    // the class type which this PU belongs to if this PU is a member function
-    UINT32 flags;			    // misc. attributes about this func.
-    // operations
-    PU ();
-    // void Verify() const;
-    // void Print (FILE *f) const;
+struct PU {
+  TY_IDX prototype;      // function prototype
+  TY_IDX base_class;    // the class type which this PU belongs to if this PU is a member function
+  UINT32 flags;          // misc. attributes about this func.
+  PU_INFO_IDX pu_info_idx; // pu info idx
+  // operations
+  PU() {
+    bzero(this, sizeof(PU));
+  } ;
+  // void Verify() const;
+  // void Print (FILE *f) const;
 }; // PU
 
 
 // symbol table element
-class ST
-{
+class ST {
 public:
-    // after add new member, Make sure to update function eq_const_st::operator()
-    // in file ipc_symtab_merge.cxx
-    STR_IDX name_idx; // index to the name string
-    SYM_ATTR attr : 4;
-    SYM_CLASS sym_class : 4;
-    SYM_SCLASS storage_class : 4; // storage info
-    SYM_ECLASS export_class : 4;  
-    ST_TLS_MODEL tls_model : 4; // Thread-Local-Storage(TLS) model
-    union {
-        TY_IDX type;   // idx to high-level type
-        PU_IDX pu;   // idx to program unit
-    } u2;
-    UINT32 pad; // 4 pad bytes (initialize to zero)
-    UINT32 offset; // offset from base
-    ST_IDX base_idx; // base of the allocated block
-    ST_IDX st_idx; // my own st_idx
-    // operations
+  // after add new member, Make sure to update function eq_const_st::operator()
+  // in file ipc_symtab_merge.cxx
+  STR_IDX name_idx; // index to the name string
+  SYM_ATTR attr: 4;
+  SYM_CLASS sym_class: 4;
+  SYM_SCLASS storage_class: 4; // storage info
+  SYM_ECLASS export_class: 4;
+  ST_TLS_MODEL tls_model: 4; // Thread-Local-Storage(TLS) model
+  union {
+    TY_IDX type;   // idx to high-level type
+    PU_IDX pu;   // idx to program unit
+  } u2;
+  UINT32 pad; // 4 pad bytes (initialize to zero)
+  UINT32 offset; // offset from base
+  ST_IDX base_idx; // base of the allocated block
+  ST_IDX st_idx; // my own st_idx
+  // operations
 
-    ST() { 
-      // AssertThat(FALSE, ("ST default constructor must not be called.")); 
-    }
-    // void Verify(UINT level) const;
-    // void Print(FILE *f, BOOL verbose = TRUE) const;
-    // BOOL operator==(ST &st) const;
-    // friend std::ostream &operator<<(std::ostream &os, const ST &st);
+  ST() {
+    bzero(this, sizeof(ST));
+  }
+  // void Verify(UINT level) const;
+  // void Print(FILE *f, BOOL verbose = TRUE) const;
+  // BOOL operator==(ST &st) const;
+  // friend std::ostream &operator<<(std::ostream &os, const ST &st);
 
 }; // ST
 
@@ -211,132 +265,130 @@ public:
 // points to the ARB entry for the first dimension.  The remaining dimensions
 // follow in consecutive ARB entries until a flag indicates it is the last
 // dimension.
-enum ARB_FLAGS
-{
-    ARB_CONST_LBND = 0x0001,   // constant lower bound
-    ARB_CONST_UBND = 0x0002,   // constant upper bound
-    ARB_CONST_STRIDE = 0x0004, // constant stride
-    ARB_FIRST_DIMEN = 0x0008,  // first dimension
-    ARB_LAST_DIMEN = 0x0010    // last dimension
+enum ARB_FLAGS {
+  ARB_CONST_LBND = 0x0001,   // constant lower bound
+  ARB_CONST_UBND = 0x0002,   // constant upper bound
+  ARB_CONST_STRIDE = 0x0004, // constant stride
+  ARB_FIRST_DIMEN = 0x0008,  // first dimension
+  ARB_LAST_DIMEN = 0x0010    // last dimension
 };
 
-struct ARB
-{
-    UINT16 flags;     // misc. attributes
-    UINT16 dimension; // number of dimensions
-    UINT32 dummy_padding = 0;
-    union {
-        INT32 lbnd_val; // constant lower bound value
-        struct
-        {
-            ST_IDX lbnd_var; // variable that stores the
-                // non-constant lower bound
-            INT32 unused; // filler, must be zero'ed
-        } var;
-    } u1;
+struct ARB {
+  ARB_FLAGS flags : 16;     // misc. attributes
+  UINT16 dimension; // number of dimensions
+  UINT32 dummy_padding = 0;
+  union {
+    INT32 lbnd_val; // constant lower bound value
+    struct {
+      ST_IDX lbnd_var; // variable that stores the
+      // non-constant lower bound
+      INT32 unused; // filler, must be zero'ed
+    } var;
+  } u1;
 
-    union {
-        INT32 ubnd_val; // constant upper bound value
-        struct
-        {
-            ST_IDX ubnd_var; // variable that stores the
-                // non-constant upper bound
-            INT32 unused; // filler, must be zero'ed
-        } var;
-    } u2;
+  union {
+    INT32 ubnd_val; // constant upper bound value
+    struct {
+      ST_IDX ubnd_var; // variable that stores the
+      // non-constant upper bound
+      INT32 unused; // filler, must be zero'ed
+    } var;
+  } u2;
 
-    union {
-        INT32 stride_val; // constant stride
-        struct
-        {
-            ST_IDX stride_var; // variable that stores the
-                // non-constant stride
-            INT32 unused; // filler, must be zero'ed
-        } var;
-    } u3;
+  union {
+    INT32 stride_val; // constant stride
+    struct {
+      ST_IDX stride_var; // variable that stores the
+      // non-constant stride
+      INT32 unused; // filler, must be zero'ed
+    } var;
+  } u3;
 
-    // access functions
-    INT64 Lbnd_val() const { return u1.lbnd_val; }
-    void Set_lbnd_val(INT64 val) { u1.lbnd_val = val; }
+  // access functions
+  INT64 Lbnd_val() const { return u1.lbnd_val; }
 
-    ST_IDX Lbnd_var() const { return u1.var.lbnd_var; }
-    void Set_lbnd_var(ST_IDX st)
-    {
-        u1.var.lbnd_var = st;
-        u1.var.unused = 0;
-    }
+  void Set_lbnd_val(INT64 val) { u1.lbnd_val = val; }
 
-    INT64 Ubnd_val() const { return u2.ubnd_val; }
-    void Set_ubnd_val(INT64 val) { u2.ubnd_val = val; }
+  ST_IDX Lbnd_var() const { return u1.var.lbnd_var; }
 
-    ST_IDX Ubnd_var() const { return u2.var.ubnd_var; }
-    void Set_ubnd_var(ST_IDX st)
-    {
-        u2.var.ubnd_var = st;
-        u2.var.unused = 0;
-    }
+  void Set_lbnd_var(ST_IDX st) {
+    u1.var.lbnd_var = st;
+    u1.var.unused = 0;
+  }
 
-    INT64 Stride_val() const { return u3.stride_val; }
-    void Set_stride_val(INT64 val) { u3.stride_val = val; }
+  INT64 Ubnd_val() const { return u2.ubnd_val; }
 
-    ST_IDX Stride_var() const { return u3.var.stride_var; }
-    void Set_stride_var(ST_IDX st)
-    {
-        u3.var.stride_var = st;
-        u3.var.unused = 0;
-    }
+  void Set_ubnd_val(INT64 val) { u2.ubnd_val = val; }
 
-    // operations
-    ARB()
-    {
-        bzero(this, sizeof(ARB));
-    }
-    // void Verify(UINT16 dim) const;
-    // void Print(FILE *f) const;
+  ST_IDX Ubnd_var() const { return u2.var.ubnd_var; }
+
+  void Set_ubnd_var(ST_IDX st) {
+    u2.var.ubnd_var = st;
+    u2.var.unused = 0;
+  }
+
+  INT64 Stride_val() const { return u3.stride_val; }
+
+  void Set_stride_val(INT64 val) { u3.stride_val = val; }
+
+  ST_IDX Stride_var() const { return u3.var.stride_var; }
+
+  void Set_stride_var(ST_IDX st) {
+    u3.var.stride_var = st;
+    u3.var.unused = 0;
+  }
+
+  // operations
+  ARB() {
+    bzero(this, sizeof(ARB));
+  }
+  // void Verify(UINT16 dim) const;
+   void Print(FILE *f) const {};
 
 }; // ARB
 
-enum LABEL_KIND
-{
-    LKIND_DEFAULT = 0,
-    LKIND_ASSIGNED = 1, // in ASSIGNED statement
-    LKIND_BEGIN_EH_RANGE = 2,
-    LKIND_END_EH_RANGE = 3,
-    LKIND_BEGIN_HANDLER = 4,
-    LKIND_END_HANDLER = 5,
-    LKIND_TAG = 6 // symbolic address, never branched to
+enum LABEL_KIND {
+  LKIND_DEFAULT = 0,
+  LKIND_ASSIGNED = 1, // in ASSIGNED statement
+  LKIND_BEGIN_EH_RANGE = 2,
+  LKIND_END_EH_RANGE = 3,
+  LKIND_BEGIN_HANDLER = 4,
+  LKIND_END_HANDLER = 5,
+  LKIND_TAG = 6 // symbolic address, never branched to
 };
 
-enum LABEL_FLAGS
-{
-    LABEL_TARGET_OF_GOTO_OUTER_BLOCK = 1,
-    LABEL_ADDR_SAVED = 2,
-    LABEL_ADDR_PASSED = 4
+enum LABEL_FLAGS {
+  LABEL_TARGET_OF_GOTO_OUTER_BLOCK = 1,
+  LABEL_ADDR_SAVED = 2,
+  LABEL_ADDR_PASSED = 4
 };
 
-struct LABEL
-{
-    STR_IDX name_idx;
-    UINT32 flags : 24;
-    LABEL_KIND kind : 8;
+struct LABEL {
+  STR_IDX name_idx;
+  UINT32 flags: 24;
+  LABEL_KIND kind: 8;
 
-    // operations
-    LABEL() { AssertThat(FALSE, ("LABEL default constructor must not be called.")); }
-    LABEL(STR_IDX idx, LABEL_KIND k) : name_idx(idx), kind(k) {}
-    void Verify(UINT level) const;
-    void Print(FILE *f) const;
+  // operations
+  LABEL() {
+      AssertThat(FALSE, ("LABEL default constructor must not be called."));
+  }
+
+  LABEL(STR_IDX idx, LABEL_KIND k) : name_idx(idx), kind(k) {}
+
+  void Verify(UINT level) const {};
+
+  void Print(FILE *f) const {};
 }; // LABEL
 
-struct PREG
-{
-    STR_IDX name_idx;
-
-    // operations
-    PREG(void)
-    {
-        AssertThat(FALSE, ("PREG default is invoked."));
-    }
-    PREG(STR_IDX idx) : name_idx(idx) {}
+struct PREG {
+  STR_IDX name_idx;
+  // operations
+  PREG(void) {
+    bzero(this, sizeof(PREG));
+  }
+  void Print(FILE *file) {
+    fprintf(file, "[PREG] [name_idx: %d]\n", name_idx);
+  }
 
 }; // PREG
 
@@ -345,125 +397,395 @@ struct TCON {
   UINT32 kind;
 };
 
-template <class T>
+template<typename U, typename T>
 class GROWING_TABLE {
-  std::map<UINT32, T*> single_level_tab;
-  public:
-  T* operator[] (UINT32 idx) {
-      return single_level_tab[idx];
+  UINT32 count = 0; // Count of items in the table
+  std::vector<T*> table;
+public:
+  T *operator[](U idx) {
+    return Get(idx);
   }
-};
-
-template <class T>
-class SECOND_LEVEL_GROWING_TABLE {
-  GROWING_TABLE<T> global_tab;
-  std::map<PU_IDX, std::map<UINT32, T*> > two_level_tab;
-  public:
-  T* operator[] (UINT32 idx);
-  void add (UINT8 scope_level, T *obj);
+  U Add() {
+    T *empty_obj = new T();
+    U current_idx = count;
+    table.push_back(empty_obj);
+    count++;
+    return current_idx;
+  }
+  void Set(U idx, T *obj) {
+    table[idx] = obj;
+  }
+  T *Get(U idx) {
+    AssertThat(idx < count,
+               ("Trying to locate a item by id larger than total count, total = %0#x, query = %0#x",
+                count, idx));
+    return table[idx];
+  }
 };
 
 // initialized objects
 struct INITO {
-    ST_IDX st_idx;			// item being initialized
-    INITV_IDX val;			// initial value
-
-    // void Verify (UINT level) const;
-    // void Print  (FILE* f)    const;
+  ST_IDX st_idx;      // item being initialized
+  INITV_IDX val;      // initial value
+  // void Verify (UINT level) const;
+  // void Print  (FILE* f)    const;
+  INITO() {
+    bzero(this, sizeof(INITO));
+  }
 };
 
 
 // initial value
 enum INITVKIND {
-    INITVKIND_UNK	= 0,
-    INITVKIND_SYMOFF	= 1,
-    INITVKIND_ZERO	= 2,
-    INITVKIND_ONE	= 3,
-    INITVKIND_VAL	= 4,
-    INITVKIND_BLOCK	= 5,
-    INITVKIND_PAD	= 6,
-    INITVKIND_LABEL     = 9
+  INITVKIND_UNK = 0,
+  INITVKIND_SYMOFF = 1,
+  INITVKIND_ZERO = 2,
+  INITVKIND_ONE = 3,
+  INITVKIND_VAL = 4,
+  INITVKIND_BLOCK = 5,
+  INITVKIND_PAD = 6,
+  INITVKIND_LABEL = 9
 };
 
-struct INITV
-{
-  INITV_IDX next;			// next value for non-scalar member
-  INITVKIND kind : 16;		// kind of value
-  UINT16 repeat1;			// repeat factor (repeat2 used for
-                      // INITVKIND_VAL
+struct INITV {
+  INITV_IDX next;      // next value for non-scalar member
+  INITVKIND kind: 16;    // kind of value
+  UINT16 repeat1;      // repeat factor (repeat2 used for
+  // INITVKIND_VAL
   union {
-    struct {			// this field for SYMOFF and SYMIPLT
-        ST_IDX st;			
-        INT32 ofst;
-    } sto;				// address + offset 
+    struct {      // this field for SYMOFF and SYMIPLT
+      ST_IDX st;
+      INT32 ofst;
+    } sto;        // address + offset
     struct {
-        LABEL_IDX lab;		// for INITVKIND_LABEL
-        INT16 flags;		// flags, see INITVLABELFLAGS
-        mTYPE_ID mtype;             // type for label values
+      LABEL_IDX lab;    // for INITVKIND_LABEL
+      INT16 flags;    // flags, see INITVLABELFLAGS
+      mTYPE_ID mtype;             // type for label values
     } lab;
     struct {
-        LABEL_IDX lab1;
-        ST_IDX st2;
-    } stdiff;			// lab1 - st2
-    
+      LABEL_IDX lab1;
+      ST_IDX st2;
+    } stdiff;      // lab1 - st2
+
     struct {
-        union {
-          TCON_IDX tc;		// value
-          mTYPE_ID mtype;		// machine type for INITVKIND_ZERO
-            // and INITVKIND_ONE
-        } u;
-        UINT32 repeat2;		// 32-bits for repeat factor 
+      union {
+        TCON_IDX tc;    // value
+        mTYPE_ID mtype;    // machine type for INITVKIND_ZERO
+        // and INITVKIND_ONE
+      } u;
+      UINT32 repeat2;    // 32-bits for repeat factor
     } tcval;
 
     struct {
-        INITV_IDX blk;		// useful for aggregate values
-        INT32 flags;		// flags
-        INT32 unused;		// filler, must be zero
+      INITV_IDX blk;    // useful for aggregate values
+      INT32 flags;    // flags
+      INT32 unused;    // filler, must be zero
     } blk;
-    
+
     struct {
-        INT32 pad;			// amount of padding in bytes
-        INT32 unused;		// filler, must be zero
+      INT32 pad;      // amount of padding in bytes
+      INT32 unused;    // filler, must be zero
     } pad;
   } u;
 
-    ST_IDX St () const			{ return u.sto.st; }
-    INT32 Ofst () const			{ return u.sto.ofst; }
+  ST_IDX St() const { return u.sto.st; }
 
-    LABEL_IDX Lab () const		{ return u.lab.lab; }
-    INT16 Lab_flags () const            { return u.lab.flags; }
-    mTYPE_ID Lab_mtype () const         { return u.lab.mtype; }
+  INT32 Ofst() const { return u.sto.ofst; }
 
-    LABEL_IDX Lab1 () const		{ return u.stdiff.lab1; }
-    ST_IDX St2 () const			{ return u.stdiff.st2; }
+  LABEL_IDX Lab() const { return u.lab.lab; }
 
-    TCON_IDX Tc () const		{ return u.tcval.u.tc; }
-    mTYPE_ID Mtype () const		{ return u.tcval.u.mtype; }
-    UINT32 Repeat2 () const		{ return u.tcval.repeat2; }
+  INT16 Lab_flags() const { return u.lab.flags; }
 
-    INITV_IDX Blk () const		{ return u.blk.blk; }
-    INT32 Pad () const			{ return u.pad.pad; }
+  mTYPE_ID Lab_mtype() const { return u.lab.mtype; }
 
-    void Verify (UINT level) const;
+  LABEL_IDX Lab1() const { return u.stdiff.lab1; }
+
+  ST_IDX St2() const { return u.stdiff.st2; }
+
+  TCON_IDX Tc() const { return u.tcval.u.tc; }
+
+  mTYPE_ID Mtype() const { return u.tcval.u.mtype; }
+
+  UINT32 Repeat2() const { return u.tcval.repeat2; }
+
+  INITV_IDX Blk() const { return u.blk.blk; }
+
+  INT32 Pad() const { return u.pad.pad; }
+
+  void Verify(UINT level) const { };
 }; // INITV
 
-
-/**
- * 
- *  Symbol Table Declarations
- * 
- * */
-class OIR {
+class SCOPE {
 public:
-  GROWING_TABLE<std::string> String_Tab;
-  SECOND_LEVEL_GROWING_TABLE<ST> Global_Sym_Tab;
-  GROWING_TABLE<TY> Global_Type_Tab;
-  GROWING_TABLE<TCON> Global_Const_Tab;
-  GROWING_TABLE<PU> Global_Pu_Tab;
-  GROWING_TABLE<INITO> Global_Inito_Tab;
-  GROWING_TABLE<INITV> Global_Initv_Tab;
-  ST *Get_symbol(ST_IDX st_idx);
-  TY *Get_type(TY_IDX ty_idx);
+  // MEM_POOL *pool;		// mem pool for local tables
+  ST *st;        // ST * for the current pu, in global sym table
+  GROWING_TABLE<ST_IDX, ST> *st_tab;
+  GROWING_TABLE<LABEL_IDX, LABEL> *label_tab;
+  GROWING_TABLE<PREG_IDX, PREG> *preg_tab;
+  GROWING_TABLE<INITO_IDX, INITO> *inito_tab;
+  /**
+   * Initialize the scope by using the current-existing tables
+   * @param sym
+   * @param st_tab
+   * @param label_tab
+   * @param preg_tab
+   * @param inito_tab
+   */
+  void Init(ST *sym, GROWING_TABLE<ST_IDX, ST> *st_tab,
+            GROWING_TABLE<LABEL_IDX, LABEL> *label_tab,
+            GROWING_TABLE<PREG_IDX, PREG> *preg_tab,
+            GROWING_TABLE<INITO_IDX, INITO> *inito_tab) {
+    this->st = sym;
+    this->st_tab = st_tab;
+    this->label_tab = label_tab;
+    this->preg_tab = preg_tab;
+    this->inito_tab = inito_tab;
+  }
+
+  /**
+   * Initialize the scope by creating the according tables
+   * Used for create_function, etc.
+   * @param sym
+   */
+  void Init(ST *sym) {
+    this->st = sym;
+    this->st_tab = new GROWING_TABLE<ST_IDX, ST>;
+    this->label_tab = new GROWING_TABLE<LABEL_IDX, LABEL>;
+    this->preg_tab = new GROWING_TABLE<PREG_IDX, PREG>;
+    this->inito_tab = new GROWING_TABLE<INITO_IDX, INITO>;
+  }
+
+  ST *getSt() const {
+    return st;
+  }
+  GROWING_TABLE<ST_IDX, ST> *getStTab() const {
+    return st_tab;
+  }
+  GROWING_TABLE<LABEL_IDX, LABEL> *getLabelTab() const {
+    return label_tab;
+  }
+  GROWING_TABLE<PREG_IDX, PREG> *getPregTab() const {
+    return preg_tab;
+  }
+  GROWING_TABLE<INITO_IDX, INITO> *getInitoTab() const {
+    return inito_tab;
+  }
+  SCOPE() {
+    bzero(this, sizeof(SCOPE));
+  }
+}; // SCOPE
+
+struct FILE_INFO {
+  STR_IDX file_name;
+  FILE_INFO();
 };
 
-PU_IDX Get_current_pu_idx();
+/**
+ * The data structure that describes a program unit
+ */
+struct PU_INFO {
+  PU_INFO_IDX pu_info_idx;
+  PU_IDX pu_idx;
+  ST_IDX proc_sym;
+  TREE *entry;
+  // SSA_TREE *ssa;
+  // ̄ALIAS_INFO_TREE *alias;
+  PU_INFO();
+};
+
+/**
+ * Global accessor for symtab table <T>
+ * @tparam IDX
+ * @tparam T
+ */
+template<typename IDX, typename T>
+class GLOBAL_SYMTAB_ACCESS {
+  GROWING_TABLE<IDX, T> tab;
+public:
+  IDX Add();
+  T *Get(IDX);
+  T *operator[](IDX idx) {
+    return Get(idx);
+  };
+  void Set(IDX idx, T *obj) { return tab.Set(idx, obj); } // overriding an old value
+};
+
+enum TABLE_KIND{
+  TABLE_KIND_ST = 1,
+  TABLE_KIND_PREG = 2,
+  TABLE_KIND_LABEL = 3,
+  TABLE_KIND_INITO = 4,
+};
+
+/**
+ * Two-level symtable structure
+ * When level <= 1, then use global table
+ * When level == 2, then use local table
+ * @tparam IDX
+ * @tparam T
+ */
+template<typename IDX, class T, TABLE_KIND KIND>
+class RELATED_SYMTAB_ACCESS {
+private:
+  FILE_SYMTAB *_symtab;
+  GROWING_TABLE<IDX, T> tab;
+public:
+  explicit RELATED_SYMTAB_ACCESS(FILE_SYMTAB *symtab) : _symtab(symtab) {
+    Is_Trace(Tracing(COMPONENT_FE, TRACE_INVOCATION),
+             (TFile, "Creating a table %s", typeid(this).name()));
+  };
+  T *operator[] (IDX idx) {
+    return Get(idx);
+  };
+  IDX Add(UINT8 level); // Adding an object to the table, returning an IDX
+  T *Get(IDX); // Retrieve an object by using the IDX
+  GROWING_TABLE<IDX, T> *Scoped_table();
+  void Set(IDX idx, T *obj) { return tab.Set(idx, obj); } // overriding an old value
+//  typename std::vector<T>::iterator &Iterate();
+};
+
+typedef GLOBAL_SYMTAB_ACCESS<TY_IDX, TY> TY_TABLE;
+typedef GLOBAL_SYMTAB_ACCESS<ARB_IDX, ARB> ARB_TABLE;
+typedef GLOBAL_SYMTAB_ACCESS<TYLIST_IDX, TYLIST> TYLIST_TABLE;
+typedef GLOBAL_SYMTAB_ACCESS<PU_IDX, PU> PU_TABLE;
+typedef RELATED_SYMTAB_ACCESS<ST_IDX, ST, TABLE_KIND_ST> ST_TABLE;
+typedef RELATED_SYMTAB_ACCESS<PREG_IDX, PREG, TABLE_KIND_PREG> PREG_TABLE;
+typedef GLOBAL_SYMTAB_ACCESS<PU_INFO_IDX , PU_INFO> PU_INFO_TABLE;
+typedef GLOBAL_SYMTAB_ACCESS<STR_IDX, const char> STR_TABLE;
+
+/**
+ * File-level symbol tables
+ */
+class FILE_SYMTAB {
+private:
+  SCOPE_MANAGER *_scope_manager;
+  TY_TABLE *_ty_tab;
+  ST_TABLE *_st_tab;
+  STR_TABLE * _str_tab;
+  PU_TABLE * _pu_tab;
+  PU_INFO_TABLE *_pu_info_tab;
+  TYLIST_TABLE  * _tylist_tab;
+  ARB_TABLE *_arb_tab;
+
+  // STRING TABLE SPECIFIC
+  char * internal_str_tab_buffer = NULL;
+  UINT64 allocated_size_of_buffer = 0;
+  UINT64 used_size_of_buffer = 0;
+public:
+  FILE_SYMTAB(SCOPE_MANAGER *scope) : _scope_manager(scope) {
+    _ty_tab = new TY_TABLE();
+    _pu_info_tab = new PU_INFO_TABLE();
+    _st_tab = new ST_TABLE(this);
+  };
+
+  // Tables
+  TY_TABLE *Ty() { return _ty_tab; };
+  ARB_TABLE *Arb() { return _arb_tab; };
+  ST_TABLE *Sym() { return _st_tab; };
+  STR_TABLE *Str() { return _str_tab; };
+  PU_TABLE *Pu() { return _pu_tab; };
+  TYLIST_TABLE *Tylist() { return _tylist_tab; };
+  PU_INFO_TABLE *Pu_info() { return _pu_info_tab; };
+
+  /**
+   * Utilities
+   */
+  SCOPE_MANAGER *Scope() { return _scope_manager; };
+  PU_INFO_IDX Get_pu_info_by_st_idx(ST_IDX func);
+  STR_IDX Save_string(const char *string);
+  void Print();
+
+  void Initialize();
+};
+
+/**
+ *  Managing the context changes between iterating over functions
+ * */
+class SCOPE_MANAGER {
+private:
+  FILE_MANAGER *_file_manager;
+  std::map<ST_IDX, SCOPE *> _in_memory_function_info; // used for storing scope for each function
+  SCOPE *_current_function;
+public:
+  SCOPE_MANAGER(FILE_MANAGER *file_man) {
+    this->_file_manager = file_man;
+  }
+  SCOPE *Current();
+  BOOL Goto_function(ST_IDX);
+  void Finish_function(ST_IDX func, PU_INFO_IDX func_info);
+};
+
+/**
+ * File manager representing an IR FILE
+ * You could open a file, close a file, and access the Tables(), or Scopes()
+ * Tables(), symbol table data...
+ * Scopes(), a traversal utility for storing scope related info
+ */
+class FILE_MANAGER {
+private:
+  FILE_SYMTAB *_file_symtab;
+  SCOPE_MANAGER *_scope_manager;
+public:
+  std::vector<FILE_INFO *> _file_info;
+
+  /**
+   * File open / read, dumping, TODO: Not implemented
+   * @param file_name
+   */
+  void Open_ir_file(const char *file_name);
+  void Create_ir_file(const char *file_name);
+  void Write_data_to_file(const char *file_name);
+
+  /**
+   * Accessing Data
+   */
+  FILE_SYMTAB *Tables() {
+    AssertThat(_file_symtab != NULL, ("incomplete data, _file_symtab is null"));
+    return _file_symtab;
+  }
+
+  SCOPE_MANAGER *Scopes() {
+    AssertThat(_scope_manager != NULL, ("incomplete data, _scope_manager is null"));
+    return _scope_manager;
+  };
+
+  /**
+   * Utilities
+   */
+  // Creating a function in the table
+  PU_INFO_IDX Create_function(ST_IDX func, TY_IDX prototype);
+  // Invoked after creating the function
+  void Finish_creating_function(ST_IDX func, PU_INFO_IDX pu_info);
+
+  FILE_MANAGER() {
+    _scope_manager = new SCOPE_MANAGER(this);
+    _file_symtab = new FILE_SYMTAB(_scope_manager);
+  };
+
+  void Initialize();
+  TY_IDX Create_array_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
+                         TY_FLAG ty_flag, TY_IDX element_type, ARB_IDX arb);
+  TY_IDX Create_func_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
+                        TY_FLAG ty_flag, TY_IDX ret_type, TYLIST_IDX params);
+  ST_IDX Create_var(STR_IDX string, TY_IDX idx, UINT8 level,
+                    SYM_SCLASS sclass, SYM_ECLASS eclass, SYM_CLASS symclass);
+
+  STR_IDX Save_string(const char *string); // Save a null-term-string to string tab
+};
+
+#define GLOBAL_SYMTAB 1
+#define LOCAL_SYMTAB 2
+
+#define STR_TABLE_BLOCK_SIZE (1024 * 4)
+
+// Returning the current pu idx
+extern FILE_MANAGER *File();
+extern const char * MTYPE_name(MTYPE_ID mtype);
+extern UINT64 MTYPE_size(MTYPE_ID mtype);
+extern TY_IDX MTYPE_to_ty(MTYPE_ID id);
+
+#define OCC_SYMTAB_ACCESS_DECL_MODE
+#include "symtab_access.h"
+#undef OCC_SYMTAB_ACCESS_DECL_MODE
+
+#endif

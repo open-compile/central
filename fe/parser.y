@@ -110,8 +110,9 @@ int femain(int argc, const char *args[])
 		fprintf(stderr, "can not open %s\n", args[1]);
 		exit(1);
 	}
+
 	if(yyparse()) {
-		exit(-1);
+		exit(2);
 	}
 	
     return 0;
