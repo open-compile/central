@@ -42,7 +42,7 @@ void Comp_Failure_Print ( const char *fmt, ... )
  *  Quit the processing with trace
  **/ 
 void Quit_with_tracing(const char * file, UINT32 line) {
-    fprintf(stderr, "### In file %s:%d\n", file, line);
+    fprintf(stderr, "\n\n\n### In file %s:%d\n", file, line);
 }
 
 /**

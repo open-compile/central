@@ -6,23 +6,7 @@
 
 #ifndef OCC_SYMTAB_H
 #define OCC_SYMTAB_H
-
-#define OCC_STRINGIFY( name ) # name
-
-typedef UINT32 STR_IDX; // string table index
-typedef UINT32 ST_IDX; // symbol info idx
-typedef UINT32 LABEL_IDX;
-typedef UINT32 PREG_IDX;
-typedef UINT32 TY_IDX; //type info idx
-typedef UINT32 TYLIST_IDX; //type info list idx
-typedef UINT32 PU_IDX; //program unit idx
-typedef UINT32 TCON_IDX;
-typedef UINT32 ARB_IDX;
-typedef UINT32 INITV_IDX;
-typedef UINT32 INITO_IDX;
-typedef UINT32 PU_INFO_IDX;
-typedef UINT8 SCOPE_IDX;
-typedef UINT16 mTYPE_ID;
+#include "consts.h"
 
 // Forward declare
 class SCOPE;
@@ -613,6 +597,7 @@ enum TABLE_KIND{
   TABLE_KIND_PREG = 2,
   TABLE_KIND_LABEL = 3,
   TABLE_KIND_INITO = 4,
+  TABLE_KIND_TY = 5,
 };
 
 /**
@@ -666,19 +651,30 @@ private:
   ARB_TABLE *_arb_tab;
 
   // STRING TABLE SPECIFIC
-  char * internal_str_tab_buffer = NULL;
-  UINT64 allocated_size_of_buffer = 0;
-  UINT64 used_size_of_buffer = 0;
+  char * internal_str_tab_buffer;
+  UINT64 allocated_size_of_buffer;
+  UINT64 used_size_of_buffer;
 public:
-  FILE_SYMTAB(SCOPE_MANAGER *scope) : _scope_manager(scope) {
-    _st_tab = new ST_TABLE(this);
-    _ty_tab = new TY_TABLE();
-    _pu_info_tab = new PU_INFO_TABLE();
-    _str_tab = new STR_TABLE();
-    _arb_tab = new ARB_TABLE();
-    _pu_info_tab = new PU_INFO_TABLE();
-    _pu_tab = new PU_TABLE();
-    _tylist_tab = new TYLIST_TABLE();
+  explicit FILE_SYMTAB(SCOPE_MANAGER *scope) : _scope_manager(scope) {
+    _st_tab          = new ST_TABLE(this);
+    _st_tab->Add(0);
+    _ty_tab          = new TY_TABLE();
+    _ty_tab->Add();
+    _pu_info_tab     = new PU_INFO_TABLE();
+    _pu_info_tab->Add();
+    _str_tab         = new STR_TABLE();
+    _str_tab->Add();
+    _arb_tab         = new ARB_TABLE();
+    _arb_tab->Add();
+    _pu_info_tab     = new PU_INFO_TABLE();
+    _pu_info_tab->Add();
+    _pu_tab          = new PU_TABLE();
+    _pu_tab->Add();
+    _tylist_tab      = new TYLIST_TABLE();
+    _tylist_tab->Add();
+    internal_str_tab_buffer = NULL;
+    allocated_size_of_buffer = 0;
+    used_size_of_buffer = 1;
   };
 
   // Tables
@@ -699,6 +695,30 @@ public:
   void Print();
 
   void Initialize();
+
+//  template <typename T, typename V>
+//  V *Get_table(T *);
+  ST_TABLE *Get_table(ST *base) {
+    return _st_tab;
+  }
+  TY_TABLE *Get_table(TY *base) {
+    return _ty_tab;
+  }
+  TYLIST_TABLE  *Get_table(TYLIST *base) {
+    return _tylist_tab;
+  }
+  PU_INFO_TABLE *Get_table(PU_INFO *base) {
+    return _pu_info_tab;
+  }
+  STR_TABLE *Get_table(const char *base) {
+    return _str_tab;
+  }
+  ARB_TABLE *Get_table(ARB *base) {
+    return _arb_tab;
+  }
+  PU_TABLE *Get_table(PU *base) {
+    return _pu_tab;
+  }
 };
 
 /**
@@ -712,6 +732,8 @@ private:
 public:
   SCOPE_MANAGER(FILE_MANAGER *file_man) {
     this->_file_manager = file_man;
+    this->_current_function = NULL;
+    _in_memory_function_info.clear();
   }
   SCOPE *Current();
   BOOL Goto_function(ST_IDX);
@@ -769,17 +791,12 @@ public:
   TY_IDX Create_array_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
                          TY_FLAG ty_flag, TY_IDX element_type, ARB_IDX arb);
   TY_IDX Create_func_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
-                        TY_FLAG ty_flag, TY_IDX ret_type, TYLIST_IDX params);
+                        TY_FLAG ty_flag, std::vector<TY_IDX> &ret_and_params);
   ST_IDX Create_var(STR_IDX string, TY_IDX idx, UINT8 level,
                     SYM_SCLASS sclass, SYM_ECLASS eclass, SYM_CLASS symclass);
 
   STR_IDX Save_string(const char *string); // Save a null-term-string to string tab
 };
-
-#define GLOBAL_SYMTAB 1
-#define LOCAL_SYMTAB 2
-
-#define STR_TABLE_BLOCK_SIZE (1024 * 4)
 
 // Returning the current pu idx
 extern FILE_MANAGER *File();

@@ -7,9 +7,9 @@
 #include "host.h"
 
 #define AssertDev(Condition, Params) \
-    ( Condition ? (void) 1 \
-      : ( Quit_with_tracing ( __FILE__, __LINE__ ),	\
-	       Assertion_Failure_Print Params) )
+(Condition ? (void) 1 \
+:(Quit_with_tracing ( __FILE__, __LINE__ ),	\
+Assertion_Failure_Print Params) );
 
 /* Only in non-release mode */
 #ifndef Release_Mode

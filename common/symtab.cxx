@@ -1,8 +1,5 @@
 #include "symtab.h"
 #include "basic.h"
-#define OCC_SYMTAB_ACCESS_DEF_MODE
-#include "symtab_access.h"
-#undef OCC_SYMTAB_ACCESS_DEF_MODE
 
 // External use
 static FILE_MANAGER *_current_file_manager = NULL;
@@ -53,73 +50,6 @@ TY_IDX MTYPE_to_ty(MTYPE_ID mtype) {
   return MTYPE_to_TY_table[mtype].ty_idx;
 };
 
-/******************************************************************************
- * SYMTAB_ACCESS
- ******************************************************************************/
-
-template<typename IDX, typename T>
-IDX GLOBAL_SYMTAB_ACCESS<IDX,T>::Add() {
-  return tab.Add();
-}
-
-template<typename IDX, typename T>
-T* GLOBAL_SYMTAB_ACCESS<IDX,T>::Get(IDX idx) {
-  return tab[idx];
-}
-
-/******************************************************************************
- * Related Tables (Two-level tables)
- ******************************************************************************/
-
-/**
- * Add an empty entry in the table
- * @param level GLOBAL_SYMTAB/LOCAL_SYMTAB
- * @return IDX, the result index in the table
- */
-template<typename IDX, class T, TABLE_KIND KIND>
-IDX RELATED_SYMTAB_ACCESS<IDX, T, KIND>::Add(UINT8 level) {
-  if (level <= GLOBAL_SYMTAB) {
-    return tab.Add() << 8;
-  } else {
-    AssertThat(level == LOCAL_SYMTAB,
-               ("Currently, we'd only support LOCAL_SYMTAB and GLOBAL_SYMTAB,"
-                " level given = %d", level));
-    IDX base = Scoped_table()->Add();
-    return level & (base << 8);
-  }
-}
-
-template<typename IDX, class T, TABLE_KIND KIND>
-T* RELATED_SYMTAB_ACCESS<IDX,T, KIND>::Get(IDX idx) {
-  UINT8 first_level = idx & 0xff;
-  UINT32 second = (idx >> 8) & 0xffffff;
-  if (first_level <= GLOBAL_SYMTAB) {
-   return tab[second];
-  } else {
-   return Scoped_table()->Get(second);
-  }
-}
-
-template<>
-GROWING_TABLE<ST_IDX, ST> *RELATED_SYMTAB_ACCESS<ST_IDX, ST, TABLE_KIND_ST>::Scoped_table() {
-  return File()->Tables()->Scope()->Current()->getStTab();
-}
-
-template<>
-GROWING_TABLE<PREG_IDX, PREG> *RELATED_SYMTAB_ACCESS<PREG_IDX, PREG, TABLE_KIND_PREG>::Scoped_table() {
-  return File()->Tables()->Scope()->Current()->getPregTab();
-};
-
-template<>
-GROWING_TABLE<LABEL_IDX, LABEL> *RELATED_SYMTAB_ACCESS<LABEL_IDX, LABEL, TABLE_KIND_LABEL>::Scoped_table() {
-  return File()->Tables()->Scope()->Current()->getLabelTab();
-};
-
-template<>
-GROWING_TABLE<INITO_IDX, INITO> *RELATED_SYMTAB_ACCESS<INITO_IDX, INITO, TABLE_KIND_INITO>::Scoped_table() {
-  return File()->Tables()->Scope()->Current()->getInitoTab();
-};
-
 
 /******************************************************************************
  * File Symtab
@@ -159,6 +89,7 @@ STR_IDX FILE_SYMTAB::Save_string(const char *string) {
     internal_str_tab_buffer = (char *) malloc(STR_TABLE_BLOCK_SIZE);
     AssertThat(internal_str_tab_buffer != NULL, ("Malloc failed"));
     allocated_size_of_buffer = STR_TABLE_BLOCK_SIZE;
+    used_size_of_buffer = 1; // SKIPPING FIRST BYTE
   }
   UINT64 needed = strlen(string) + 1;
   if (used_size_of_buffer + needed < allocated_size_of_buffer) {
@@ -175,6 +106,12 @@ STR_IDX FILE_SYMTAB::Save_string(const char *string) {
   used_size_of_buffer += needed;
   return str_idx;
 }
+
+template<typename IDX, typename T>
+GROWING_TABLE<IDX, T> *Get_by_idx(IDX idx) {
+
+}
+
 
 /******************************************************************************
  * PU Related Utility
@@ -237,6 +174,8 @@ void SCOPE_MANAGER::Finish_function(ST_IDX func, PU_INFO_IDX func_info) {
 static void
 Print_type_attributes (FILE *f, TY_IDX ty)
 {
+  if (ty <= 0)
+    return;
   if (TY_is_const (ty))
     fprintf(f, "const ");
 } // Print_type_attributes
@@ -245,7 +184,7 @@ static void
 Print_TY_IDX_verbose (FILE *f, TY_IDX idx)
 {
   Print_type_attributes (f, idx);
-  if (TY_ty (idx) == NULL) {
+  if (idx > 0 && TY_ty (idx) == NULL) {
     fputs ("<NULL>", f);
     return;
   }
@@ -293,17 +232,22 @@ void TY::Print(FILE *f) const {
       fprintf (f, "FUNCTION (f: 0x%04x)\n", Pu_flags());
       {
         TYLIST_IDX idx = Tylist();
+        AssertThat(idx > 0, ("Tylist-idx should not be zero"));
         fprintf (f, "\treturns ");
         TYLIST *tylist_start = TYLIST_tylist(idx);
-        Print_TY_IDX_verbose (f, tylist_start->ty_id);
-        if (TY_ty(tylist_start->ty_id) == NULL) {
+        if (tylist_start->ty_id != 0) {
+          Print_TY_IDX_verbose (f, tylist_start->ty_id);
+        }
+        if (tylist_start->ty_id <= 0 || TY_ty(tylist_start->ty_id) == NULL) {
           fputc ('\n', f);
           break;
         }
         ++idx;
-        while (TYLIST_tylist(idx) != NULL) {
+        while (TYLIST_tylist(idx) != NULL && TYLIST_tylist(idx)->ty_id != 0) {
           fputs ("\n\tparameter ", f);
-          Print_TY_IDX_verbose (f, TYLIST_tylist(idx)->ty_id);
+          if (TYLIST_tylist(idx)->ty_id > 0) {
+            Print_TY_IDX_verbose(f, TYLIST_tylist(idx)->ty_id);
+          }
           ++idx;
         }
         fputc ('\n', f);
@@ -313,6 +257,7 @@ void TY::Print(FILE *f) const {
       fprintf (f, "other");
       break;
   };
+  fputc ('\n', f);
 }
 
 
@@ -402,7 +347,22 @@ FILE_MANAGER::Create_array_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
 }
 
 TY_IDX FILE_MANAGER::Create_func_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
-                                    TY_FLAG ty_flag, TY_IDX ret_type, TYLIST_IDX params) {
+                                    TY_FLAG ty_flag, std::vector<TY_IDX> &ret_and_params) {
+  TYLIST_IDX tylist_idx, initial;
+  TYLIST *tylist;
+  initial = tylist_idx = File()->Tables()->Tylist()->Add();
+  AssertThat(initial > 0, ("Tylist id should be greater than zero"));
+  for (std::vector<TY_IDX>::iterator it = ret_and_params.begin();
+       it != ret_and_params.end();
+       it++) {
+    tylist = TYLIST_tylist(tylist_idx);
+    tylist->ty_id = *it;
+    tylist_idx = File()->Tables()->Tylist()->Add();
+  }
+  tylist_idx = File()->Tables()->Tylist()->Add();
+  tylist = TYLIST_tylist(tylist_idx);
+  tylist->ty_id = 0;
+
   TY_IDX tyidx = Tables()->Ty()->Add();
   TY *ty = TY_ty(tyidx);
   ty->kind = KIND_FUNCTION;
@@ -410,13 +370,6 @@ TY_IDX FILE_MANAGER::Create_func_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
   ty->size = size;
   ty->mtype = mtype;
   ty->flags = ty_flag;
+  ty->Set_tylist(initial);
   return tyidx;
 }
-
-void Dummy_func() {
-  File()->Tables()->Tylist()->Add();
-  File()->Tables()->Ty()->Add();
-  File()->Tables()->Pu_info()->Add();
-  File()->Tables()->Pu()->Add();
-}
-
