@@ -28,10 +28,11 @@ MTYPE_TAB MTYPE_to_TY_table[MTYPE_COUNT] = {
   {  MTYPE_U8,      KIND_SCALAR, TY_FLAG_INTERNAL, 8, "MTYPE_U8",      0 },
   {  MTYPE_F4,      KIND_SCALAR, TY_FLAG_INTERNAL, 4, "MTYPE_F4",      0 },
   {  MTYPE_F8,      KIND_SCALAR, TY_FLAG_INTERNAL, 8, "MTYPE_F8",      0 },
-  {  MTYPE_M,       KIND_SCALAR, TY_FLAG_INTERNAL, 8, "MTYPE_M",       0 },
-  {  MTYPE_V,       KIND_SCALAR, TY_FLAG_INTERNAL, 0, "MTYPE_V",       0 },
+  {  MTYPE_M,       KIND_STRUCT, TY_FLAG_INTERNAL, 0, "MTYPE_M",       0 },
+  {  MTYPE_V,       KIND_VOID,   TY_FLAG_INTERNAL, 0, "MTYPE_V",       0 },
   {  MTYPE_A4,      KIND_SCALAR, TY_FLAG_INTERNAL, 4, "MTYPE_A4",      0 },
   {  MTYPE_A8,      KIND_SCALAR, TY_FLAG_INTERNAL, 8, "MTYPE_A8",      0 },
+  {  MTYPE_BS,      KIND_SCALAR, TY_FLAG_INTERNAL, 0, "MTYPE_A8",      0 },
 };
 
 const char * MTYPE_name(MTYPE_ID mtype) {
@@ -139,6 +140,7 @@ void FILE_SYMTAB::Initialize() {
   UINT32 total_size = sizeof(MTYPE_to_TY_table);
   UINT32 single_size = sizeof(MTYPE_to_TY_table[0]);
   UINT32 count = total_size / single_size;
+  AssertThat(MTYPE_COUNT == count, ("MType table is incomplete or incorrect"));
   for (UINT16 cnt = 0; cnt < count; cnt ++) {
     STR_IDX str_idx = Save_string(MTYPE_to_TY_table[cnt].name);
     TY_IDX ty_idx = Ty()->Add();
@@ -152,9 +154,10 @@ void FILE_SYMTAB::Initialize() {
 }
 
 STR_IDX FILE_SYMTAB::Save_string(const char *string) {
+  AssertThat(string != NULL, ("String should not be null"));
   if (internal_str_tab_buffer == NULL) {
     internal_str_tab_buffer = (char *) malloc(STR_TABLE_BLOCK_SIZE);
-      AssertThat(internal_str_tab_buffer != NULL, ("Malloc failed"));
+    AssertThat(internal_str_tab_buffer != NULL, ("Malloc failed"));
     allocated_size_of_buffer = STR_TABLE_BLOCK_SIZE;
   }
   UINT64 needed = strlen(string) + 1;
@@ -162,11 +165,13 @@ STR_IDX FILE_SYMTAB::Save_string(const char *string) {
     allocated_size_of_buffer = used_size_of_buffer + needed + STR_TABLE_BLOCK_SIZE;
     internal_str_tab_buffer = (char *) realloc(internal_str_tab_buffer,
                                                allocated_size_of_buffer);
-      AssertThat(internal_str_tab_buffer != NULL, ("Realloc failed"));
+    AssertThat(internal_str_tab_buffer != NULL, ("Realloc failed"));
   }
-  memcpy((void *) used_size_of_buffer, string, needed);
+  AssertThat(internal_str_tab_buffer != NULL, ("buffer can't be null"));
+  AssertThat(used_size_of_buffer + needed < allocated_size_of_buffer, ("not enough space in the buffer"));
+  memcpy((void *) (internal_str_tab_buffer + used_size_of_buffer), string, needed);
   STR_IDX str_idx = File()->Tables()->Str()->Add();
-  File()->Tables()->Str()->Set(str_idx, (const char *) used_size_of_buffer);
+  File()->Tables()->Str()->Set(str_idx, (const char *) internal_str_tab_buffer + used_size_of_buffer);
   used_size_of_buffer += needed;
   return str_idx;
 }
@@ -406,5 +411,12 @@ TY_IDX FILE_MANAGER::Create_func_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
   ty->mtype = mtype;
   ty->flags = ty_flag;
   return tyidx;
+}
+
+void Dummy_func() {
+  File()->Tables()->Tylist()->Add();
+  File()->Tables()->Ty()->Add();
+  File()->Tables()->Pu_info()->Add();
+  File()->Tables()->Pu()->Add();
 }
 

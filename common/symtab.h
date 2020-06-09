@@ -92,7 +92,9 @@ typedef enum {
   TLS_NONE = 0
 } ST_TLS_MODEL;
 
-typedef struct { TY_IDX ty_id; } TYLIST;
+struct TYLIST {
+  TY_IDX ty_id;
+};
 
 /* Kinds of types: */
 enum TY_KIND {
@@ -233,8 +235,6 @@ struct PU {
 // symbol table element
 class ST {
 public:
-  // after add new member, Make sure to update function eq_const_st::operator()
-  // in file ipc_symtab_merge.cxx
   STR_IDX name_idx; // index to the name string
   SYM_ATTR attr: 4;
   SYM_CLASS sym_class: 4;
@@ -256,8 +256,6 @@ public:
   }
   // void Verify(UINT level) const;
   // void Print(FILE *f, BOOL verbose = TRUE) const;
-  // BOOL operator==(ST &st) const;
-  // friend std::ostream &operator<<(std::ostream &os, const ST &st);
 
 }; // ST
 
@@ -632,7 +630,7 @@ private:
 public:
   explicit RELATED_SYMTAB_ACCESS(FILE_SYMTAB *symtab) : _symtab(symtab) {
     Is_Trace(Tracing(COMPONENT_FE, TRACE_INVOCATION),
-             (TFile, "Creating a table %s", typeid(this).name()));
+             (TFile, "Creating a table %s\n", typeid(this).name()));
   };
   T *operator[] (IDX idx) {
     return Get(idx);
@@ -673,9 +671,14 @@ private:
   UINT64 used_size_of_buffer = 0;
 public:
   FILE_SYMTAB(SCOPE_MANAGER *scope) : _scope_manager(scope) {
+    _st_tab = new ST_TABLE(this);
     _ty_tab = new TY_TABLE();
     _pu_info_tab = new PU_INFO_TABLE();
-    _st_tab = new ST_TABLE(this);
+    _str_tab = new STR_TABLE();
+    _arb_tab = new ARB_TABLE();
+    _pu_info_tab = new PU_INFO_TABLE();
+    _pu_tab = new PU_TABLE();
+    _tylist_tab = new TYLIST_TABLE();
   };
 
   // Tables

@@ -9,16 +9,19 @@
 INT32 main() {
 
   const char *name = "abc";
-  File()->Create_ir_file("some.ir");
+  // File()->Create_ir_file("some.ir");
+
+  File();
 
   // ============================================================
   // Type testing
   // ============================================================
   TY_IDX ty_i4 = MTYPE_to_ty(MTYPE_I4);
-  Is_Trace(TRUE, (TFile, "[Type testing] ty_i4 = %0#x, (%d)", ty_i4, ty_i4 >> 8));
+  Is_Trace(TRUE, (TFile, "[Type testing] ty_i4 = %0#x, (%d)\n", ty_i4, ty_i4 >> 8));
   TY *ty_i4_obj = TY_ty(ty_i4);
   ty_i4_obj->Print(TFile);
 
+  TY_IDX random_ty = File()->Tables()->Ty()->Add();
   TYLIST_IDX tylist_idx = File()->Tables()->Tylist()->Add();
   TYLIST *tylist = TYLIST_tylist(tylist_idx);
   tylist->ty_id = ty_i4;
@@ -44,8 +47,6 @@ INT32 main() {
   // Function testing
   // ============================================================
   File()->Create_function(func_sym, basic_func_ty);
-}
 
-TY_IDX MTYPE_to_ty(MTYPE_ID id) {
-  return 0;
+  Is_Trace(TRUE, (TFile, "All Testing Passed\n"));
 }
