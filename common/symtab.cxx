@@ -40,7 +40,7 @@ const char * MTYPE_name(MTYPE_ID mtype) {
 
 UINT64 MTYPE_size(MTYPE_ID mtype) {
     AssertThat(mtype >= 0 && mtype < MTYPE_COUNT, ("MTYPE id not valid : %d", mtype));
-    AssertThat(MTYPE_to_TY_table[mtype].size < INT_MAX, ("size is corrupted"));
+    AssertThat(MTYPE_to_TY_table[mtype].size < 128, ("size is corrupted"));
   return MTYPE_to_TY_table[mtype].size;
 }
 

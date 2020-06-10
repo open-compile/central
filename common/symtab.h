@@ -3,6 +3,7 @@
 #include <string>
 #include <string.h>
 #include <vector>
+#include <typeinfo>
 
 #ifndef OCC_SYMTAB_H
 #define OCC_SYMTAB_H
