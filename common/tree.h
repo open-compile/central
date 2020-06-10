@@ -1,0 +1,290 @@
+/**
+ *  Copyright SZU Compiler Team 2020 
+ *  Author : @Guanting.Lu
+ * 
+ *  This is where most of the important definitions are presented
+ *  we define the tree for containing the semantic content of the program we are about to compile
+ *  
+ *  Data Stuctures
+ *  OIR
+ *   TREE
+ *   TY_TABLE
+ *   ST_TABLE
+ *   PREG_TABLE
+ *   LABEL_TABLE
+ *   ... 
+ *  
+ *  
+ * 
+ * */
+#include "symtab.h"
+typedef INT32  TREE_OFFSET;
+typedef INT64  TREE_ESIZE;
+
+enum OPERATOR {
+  OPERATOR_UNKNOTREE = 0,
+  OPERATOR_FIRST = 1,
+  OPR_ABS = 1,
+  OPR_ADD = 2,
+  OPR_AGOTO = 3,
+  OPR_ALTENTRY = 4,
+  OPR_ARRAY = 5,
+  OPR_ARRAYEXP = 6,
+  OPR_ARRSECTION = 7,
+  OPR_ASHR = 8,
+  OPR_ASSERT = 9,
+  OPR_BACKWARD_BARRIER = 10,
+  OPR_BAND = 11,
+  OPR_BIOR = 12,
+  OPR_BLOCK = 13,
+  OPR_BNOR = 14,
+  OPR_BNOT = 15,
+  OPR_BXOR = 16,
+  OPR_CALL = 17,
+  OPR_CAND = 18,
+  OPR_CASEGOTO = 19,
+  OPR_CEIL = 20,
+  OPR_CIOR = 21,
+  OPR_COMMA = 22,
+  OPR_COMMENT = 23,
+  OPR_COMPGOTO = 24,
+  OPR_PAIR = 25,
+  OPR_CONST = 26,
+  OPR_CSELECT = 27,
+  OPR_CVT = 28,
+  OPR_CVTL = 29,
+  OPR_DIV = 30,
+  OPR_DIVREM = 31,
+  OPR_DO_LOOP = 32,
+  OPR_DO_WHILE = 33,
+  OPR_EQ = 34,
+  OPR_EVAL = 35,
+  OPR_EXC_SCOPE_BEGIN = 36,
+  OPR_EXC_SCOPE_END = 37,
+  OPR_FALSEBR = 38,
+  OPR_FLOOR = 39,
+  OPR_FORWARD_BARRIER = 40,
+  OPR_FUNC_ENTRY = 41,
+  OPR_GE = 42,
+  OPR_GOTO = 43,
+  OPR_GT = 44,
+  OPR_HIGHMPY = 45,
+  OPR_HIGHPART = 46,
+  OPR_ICALL = 47,
+  OPR_IDNAME = 48,
+  OPR_IF = 49,
+  OPR_ILDA = 50,
+  OPR_ILDBITS = 51,
+  OPR_ILOAD = 52,
+  OPR_ILOADX = 53,
+  OPR_SECONDPART = 54,
+  OPR_INTCONST = 55,
+  OPR_INTRINSIC_CALL = 56,
+  OPR_INTRINSIC_OP = 57,
+  OPR_IO = 58,
+  OPR_IO_ITEM = 59,
+  OPR_ISTBITS = 60,
+  OPR_ISTORE = 61,
+  OPR_ISTOREX = 62,
+  OPR_LABEL = 63,
+  OPR_LAND = 64,
+  OPR_LDA = 65,
+  OPR_LDBITS = 66,
+  OPR_LDID = 67,
+  OPR_LE = 68,
+  OPR_LIOR = 69,
+  OPR_LNOT = 70,
+  OPR_LOOP_INFO = 71,
+  OPR_LOWPART = 72,
+  OPR_LSHR = 73,
+  OPR_LT = 74,
+  OPR_MADD = 75,
+  OPR_MAX = 76,
+  OPR_MAXPART = 77,
+  OPR_MIN = 78,
+  OPR_MINMAX = 79,
+  OPR_MINPART = 80,
+  OPR_MLOAD = 81,
+  OPR_MOD = 82,
+  OPR_MPY = 83,
+  OPR_MSTORE = 84,
+  OPR_MSUB = 85,
+  OPR_NE = 86,
+  OPR_NEG = 87,
+  OPR_NMADD = 88,
+  OPR_NMSUB = 89,
+  OPR_OPTPARM = 90,
+  OPR_OPT_CHI = 91,
+  OPR_OPT_RESERVE2 = 92,
+  OPR_PAREN = 93,
+  OPR_PARM = 94,
+  OPR_PICCALL = 95,
+  OPR_PRAGMA = 96,
+  OPR_PREFETCH = 97,
+  OPR_PREFETCHX = 98,
+  OPR_RCOMMA = 99,
+  OPR_FIRSTPART = 100,
+  OPR_RECIP = 101,
+  OPR_REGION = 102,
+  OPR_REGION_EXIT = 103,
+  OPR_REM = 104,
+  OPR_RETURN = 105,
+  OPR_RETURN_VAL = 106,
+  OPR_RND = 107,
+  OPR_RSQRT = 108,
+  OPR_SELECT = 109,
+  OPR_SHL = 110,
+  OPR_SQRT = 111,
+  OPR_STBITS = 112,
+  OPR_STID = 113,
+  OPR_SUB = 114,
+  OPR_SWITCH = 115,
+  OPR_TAS = 116,
+  OPR_TRAP = 117,
+  OPR_TRIPLET = 118,
+  OPR_TRUEBR = 119,
+  OPR_TRUNC = 120,
+  OPR_VFCALL = 121,
+  OPR_WHERE = 122,
+  OPR_WHILE_DO = 123,
+  OPR_XGOTO = 124,
+  OPR_XMPY = 125,
+  OPR_XPRAGMA = 126,
+  OPR_AFFIRM = 127,
+  OPR_ALLOCA = 128,
+  OPR_DEALLOCA = 129,
+  OPR_LDMA = 130,
+  OPR_ASM_STMT = 131,
+  OPR_ASM_EXPR = 132,
+  OPR_ASM_INPUT = 133,
+  OPR_RROTATE = 134,
+  OPR_LDA_LABEL = 135,
+  OPR_GOTO_OUTER_BLOCK = 136,
+  OPR_EXTRACT_BITS = 137,
+  OPR_COMPOSE_BITS = 138,
+  OPERATOR_LAST = 138
+};
+
+#define RTYPE(x) (x<<8)
+#define DESC(x)  (x<<14)
+
+enum OPCODE {
+  OPC_I4ADD = OPR_ADD + RTYPE(MTYPE_I4)
+};
+
+enum REGION_KIND{
+  REGION_KIND_1 = 1,
+};
+
+enum INTRINSIC {
+  INTRN_I4EXPEXPR = 1,
+};
+
+class TREE {
+  OPCODE opcode;
+public:
+  union {
+    struct {
+      union {
+        TREE_OFFSET	    load_offset;
+        TREE_OFFSET	    lda_offset;
+        TREE_OFFSET	    store_offset;
+        TREE_OFFSET	    idname_offset;
+        INT32   	    num_entries; /* used by computed goto statements; may be used by regions */
+        TY_IDX	    loadx_addr_ty; /* for OPR_ILOADX */
+        INT16	    cvtl_bits;
+        INT32	    label_number;
+        UINT32	    call_flag;
+        UINT32	    if_flag;
+        UINT32	    io_flag;
+        UINT32	    asm_flag;
+        UINT32          asm_operand_num;
+        struct {
+          UINT16	    trip_est;
+          UINT16	    loop_depth;
+        } li;
+        struct {
+          UINT16     pragma_flags;
+          UINT16     pragma_id;
+        } pragma;
+        TY_IDX	    io_item_ty;  /* for IO_ITEM */
+        struct {
+          REGION_KIND region_kind: 4;
+          UINT32     region_id  :28;
+        } region;
+      } ua;
+      union {
+        ST_IDX	    st_idx;	/* for ldid/stid/lda */
+        TY_IDX          ty;		/* for all types except lda,ldid,stid */
+        /*  and io_item */
+        INT32  	    id;
+        INTRINSIC	    intrinsic;
+//        IOSTATEMENT	    iostatement;
+//        IOITEM	    ioitem;
+        UINT32	    prefetch_flag;
+        UINT32	    loop_flag;
+        INT32	      last_label;	/* end of switch */
+        INITO_IDX	  ereg_supp;  // for region
+        UINT32      label_level; /* nest level for target of goto_outer_block */
+      } ub;
+    } uu;
+    TREE_ESIZE	    element_size;
+  } u1u2;
+
+  // the following layout was used to minimize aliasing as
+  // kid_count is not used in most of the WHIRL nodes.
+  // this permits loading of wn_operator, rtype and desc as bytes
+  struct {
+    OPERATOR          wn_operator : 8;  /* 8 bits of operator       */
+    MTYPE_ID          rtype       : 6;  /* result */
+    UINT32            kid_count   :14; /* gives kid_count for free */
+    INT64             map_id      :30;
+    MTYPE_ID          desc        : 6;  /* descriptor type */
+    UINT32            wn_id;            /* unique id for the whirl node */
+  } common;
+
+  union {
+    struct {
+      TREE          *dummy1;
+      TY_IDX       ty;		/* ty used for lda,ldid,stid,iload */
+    } ty_fields;
+    TREE	           *kids[2];
+    INT64	    const_val;
+    struct {
+      UINT32	    num_inputs;
+      UINT32       num_clobbers;
+    } asm_fields;
+    struct {
+      TREE          *dummy2;
+      UINT32       label_flag;
+    } label_flag_fields;
+    struct {
+      TREE          *first;
+      TREE          *last;
+    } block;
+
+    union {
+      INT64       pragma_arg64;
+      struct {
+        union{
+          TREE* dummy3;
+          INT32    pragma_arg1;
+        };
+        union {
+          INT32    pragma_arg2;
+          struct {
+            UINT32  pragma_asm_opnd_num : 8;
+//            PREG_NUM pragma_asm_copyout_preg : 24;
+          } asm_pragma;
+        };
+      } up1;
+      struct {
+        INT16   pragma_pad1;
+        INT8    pragma_distr_type;
+        INT8    pragma_index;
+        INT32    pragma_preg;
+      } up2;
+    } pragma;
+  } u3;
+  static TREE *Create();
+};

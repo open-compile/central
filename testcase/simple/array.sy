@@ -1,0 +1,33 @@
+void foo() {
+    int a[10][5][4][3];
+    int b[5][4][3] = a[1];
+    int c[4][3] = b[2];
+}
+
+// TY0 = array, elem=int, arb=arb0
+// ARB0 = 10, dimension=4;
+// ARB1 = 5, dimension=3;
+// ARB2 = 4, dimension=2;
+// ARB3 = 3, dimension=1;
+// TY1 = array, elem=int, arb=arb1
+// TY2 = array, elem=int, arb=ARB2
+// ST0 = a, ty = ty0;
+// ST1 = b, ty = ty1;
+// ST2 = c, ty = ty2;
+
+//OIR
+/*
+FUNCENTRY foo
+
+    LDID a
+    I4CONST 1
+    I4CONST 240 // stride
+  U4ARRAY 0
+STID b
+
+    LDID b
+    I4CONST 2
+    I4CONST 48 // stride
+  U4ARRAY
+STID c
+*/
