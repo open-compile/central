@@ -11,6 +11,7 @@ set(CMAKE_C_STANDARD 11)
 set(OCC_MAIN_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(GLOBAL_OCC_LIB
+  lib
   common
   fe
   opt

@@ -1,5 +1,5 @@
 #include "symtab.h"
-#include "basic.h"
+#include "tree.h"
 
 // External use
 static FILE_MANAGER *_current_file_manager = NULL;
@@ -54,9 +54,15 @@ TY_IDX MTYPE_to_ty(MTYPE_ID mtype) {
 /******************************************************************************
  * File Symtab
  ******************************************************************************/
-
-void FILE_SYMTAB::Print() {
-  this->Ty()->Get(0)->Print(stderr);
+void FILE_SYMTAB::Print(FILE *f) {
+  // Global Print
+  fprintf(f, "%sFile-level Symbol Table%s", DBAR, DBAR);
+  this->Sym()->Print(f);
+  this->Ty()->Print(f);
+  this->Tylist()->Print(f);
+  this->Arb()->Print(f);
+  this->Pu()->Print(f);
+  this->Pu_info()->Print(f);
   //  Is_Trace(Tracing(COMPONENT_BE, TRACE_INVOCATION),
   //           ("PU st_idx: %d\n", ));
 }
@@ -101,10 +107,15 @@ STR_IDX FILE_SYMTAB::Save_string(const char *string) {
   AssertThat(internal_str_tab_buffer != NULL, ("buffer can't be null"));
   AssertThat(used_size_of_buffer + needed < allocated_size_of_buffer, ("not enough space in the buffer"));
   memcpy((void *) (internal_str_tab_buffer + used_size_of_buffer), string, needed);
-  STR_IDX str_idx = File()->Tables()->Str()->Add();
-  File()->Tables()->Str()->Set(str_idx, (const char *) internal_str_tab_buffer + used_size_of_buffer);
+  STR_IDX str_idx = used_size_of_buffer;
   used_size_of_buffer += needed;
   return str_idx;
+}
+
+const char *FILE_SYMTAB::Get_string(STR_IDX idx) {
+  AssertThat(idx > 0 && idx < allocated_size_of_buffer,
+             ("Invalid string idx = %d, allocated = %d", idx, allocated_size_of_buffer));
+  return internal_str_tab_buffer + idx;
 }
 
 template<typename IDX, typename T>
@@ -124,8 +135,9 @@ PU *PU_INFO_Pu(PU_INFO_IDX pu_inf_idx) {
   return PU_pu(pu_idx);
 }
 
-PU_INFO::PU_INFO() {
-  bzero(this, sizeof(PU_INFO));
+void PU_INFO::Print_function_verbose(FILE *f) {
+  scope.Print(f);
+  this->entry->Print_recursive(f);
 }
 
 FILE_INFO::FILE_INFO() {
@@ -151,9 +163,11 @@ BOOL SCOPE_MANAGER::Goto_function(ST_IDX func) {
   FILE_SYMTAB *tables = _file_manager->Tables();
   PU_INFO_IDX pu_info_idx = tables->Get_pu_info_by_st_idx(func);
   PU_INFO *pu = tables->Pu_info()->Get(pu_info_idx);
-  SCOPE * scope = new SCOPE;
-  scope->Init(tables->Sym()->Get(pu->proc_sym));
-  _current_function = scope;
+  // Setting up SCOPE*
+  _current_function = &(pu->scope);
+  // Setting up TREE*
+  AssertThat(pu->entry != NULL, ("PU's entry is null, improper init"));
+  Set_current_tree(pu->entry);
   return TRUE;
 }
 
@@ -165,6 +179,10 @@ BOOL SCOPE_MANAGER::Goto_function(ST_IDX func) {
 void SCOPE_MANAGER::Finish_function(ST_IDX func, PU_INFO_IDX func_info) {
   Is_Trace(Tracing(COMPONENT_FE, TRACE_INVOCATION),
            (TFile, "Completing function = %s", ST_name(func)));
+}
+
+void SCOPE_MANAGER::Print(FILE *f) {
+  fprintf(f, "Printing scopes ... \n");
 }
 
 
@@ -273,6 +291,10 @@ FILE_MANAGER *File() {
   return _current_file_manager;
 }
 
+const char *STR_str(STR_IDX idx) {
+  return File()->Tables()->Get_string(idx);
+}
+
 void FILE_MANAGER::Initialize() {
   Tables()->Initialize();
 }
@@ -286,11 +308,15 @@ PU_INFO_IDX FILE_MANAGER::Create_function(ST_IDX func, TY_IDX prototype) {
   pu->pu_info_idx = pu_info_idx;
   // Init pu_info
   PU_INFO *pu_info = PU_INFO_pu_info(pu_info_idx);
-  pu_info->proc_sym = func;
+  pu_info->Set_proc_sym(func);
   pu_info->pu_idx = pu_idx;
   // Init st_pu
   ST *st = ST_st(func);
   st->u2.pu = pu_idx;
+  // Init tree
+  pu_info->entry = new TREE();
+  pu_info->entry->Initialize();
+  // Initialize the scope structure, and put related info into it.
   File()->Scopes()->Goto_function(func);
   return pu_info_idx;
 }
@@ -324,7 +350,6 @@ ST_IDX FILE_MANAGER::Create_var(STR_IDX str, TY_IDX idx, UINT8 level,
   st->export_class = eclass;
   st->sym_class = symclass;
   st->storage_class = sclass;
-  st->st_idx = sym;
   st->attr = (SYM_ATTR) 0;
   return sym;
 }
@@ -372,4 +397,20 @@ TY_IDX FILE_MANAGER::Create_func_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
   ty->flags = ty_flag;
   ty->Set_tylist(initial);
   return tyidx;
+}
+
+void FILE_MANAGER::Print(FILE *f) {
+  this->Scopes()->Print(f);
+  // All functions
+  for (GT_ITERATOR it  = Tables()->Pu_info()->Begin();
+                   it != Tables()->Pu_info()->End();
+                   it ++) {
+    PU_INFO *pu_info = static_cast<PU_INFO *>(*it);
+    pu_info->Print_function_verbose(f);
+  }
+  this->Tables()->Print(f);
+}
+
+void SCOPE::Print(FILE *f) {
+  fprintf(f, "[Scope] sym = %s\n", ST_name(st_idx));
 }

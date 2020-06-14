@@ -50,9 +50,6 @@ Symtab_get<PU_INFO_IDX, PU_INFO, PU_INFO_TABLE>(PU_INFO_IDX idx);
 
 template TYLIST *Symtab_get<TYLIST_IDX, TYLIST, TYLIST_TABLE>(TYLIST_IDX idx);
 
-template const char *Symtab_get<STR_IDX, const char, STR_TABLE>(STR_IDX idx);
-
-
 //================================================================================
 // Defining IDX -> const char * functions, using STR Table, and a STR_IDX
 //================================================================================
@@ -77,6 +74,14 @@ Symtab_is_flags_set<ARB_IDX, ARB, ARB_TABLE>(ARB_IDX idx, UINT64 flag_opt);
 template<typename IDX, typename T>
 IDX GLOBAL_SYMTAB_ACCESS<IDX, T>::Add() {
   return tab.Add();
+}
+
+template<typename IDX, typename T>
+void GLOBAL_SYMTAB_ACCESS<IDX, T>::Print(FILE *file) {
+  for (GT_ITERATOR it = tab.Begin(); it != tab.End(); it++) {
+    T *item = (T*) *it;
+    item->Print(file);
+  }
 }
 
 template<typename IDX, typename T>
@@ -165,6 +170,3 @@ class RELATED_SYMTAB_ACCESS<PREG_IDX, PREG, TABLE_KIND_PREG>;
 
 template
 class GLOBAL_SYMTAB_ACCESS<PU_INFO_IDX, PU_INFO>;
-
-template
-class GLOBAL_SYMTAB_ACCESS<STR_IDX, const char>;

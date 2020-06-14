@@ -26,5 +26,8 @@
  *  
  *  
  * */
+#ifndef OCC_COMMON_IR_H_
+#define OCC_COMMON_IR_H_
 #include "symtab.h"
 #include "tree.h"
+#endif

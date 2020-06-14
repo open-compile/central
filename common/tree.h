@@ -1,3 +1,7 @@
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "UnusedGlobalDeclarationInspection"
+#ifndef _OCC_COMMON_TREE_H_
+#define _OCC_COMMON_TREE_H_
 /**
  *  Copyright SZU Compiler Team 2020 
  *  Author : @Guanting.Lu
@@ -17,9 +21,9 @@
  *  
  * 
  * */
-#include "symtab.h"
-typedef INT32  TREE_OFFSET;
-typedef INT64  TREE_ESIZE;
+#include "basic.h"
+#include "consts.h"
+#include "tree_util.h"
 
 enum OPERATOR {
   OPERATOR_UNKNOTREE = 0,
@@ -169,7 +173,9 @@ enum OPERATOR {
 #define DESC(x)  (x<<14)
 
 enum OPCODE {
-  OPC_I4ADD = OPR_ADD + RTYPE(MTYPE_I4)
+  OPC_I4ADD = OPR_ADD + RTYPE(MTYPE_I4),
+  OPC_FUNC_ENTRY = OPR_FUNC_ENTRY + RTYPE(MTYPE_V),
+  OPC_BLOCK = OPR_BLOCK + RTYPE(MTYPE_V),
 };
 
 enum REGION_KIND{
@@ -180,9 +186,9 @@ enum INTRINSIC {
   INTRN_I4EXPEXPR = 1,
 };
 
-class TREE {
-  OPCODE opcode;
+class IRNODE {
 public:
+  OPCODE opcode;
   union {
     struct {
       union {
@@ -245,29 +251,29 @@ public:
 
   union {
     struct {
-      TREE          *dummy1;
+      IRNODE_IDX       dummy1;
       TY_IDX       ty;		/* ty used for lda,ldid,stid,iload */
     } ty_fields;
-    TREE	           *kids[2];
+    IRNODE_IDX	       kids[2];
     INT64	    const_val;
     struct {
       UINT32	    num_inputs;
       UINT32       num_clobbers;
     } asm_fields;
     struct {
-      TREE          *dummy2;
+      IRNODE_IDX       dummy2;
       UINT32       label_flag;
     } label_flag_fields;
     struct {
-      TREE          *first;
-      TREE          *last;
+      IRNODE_IDX       first;
+      IRNODE_IDX       last;
     } block;
 
     union {
       INT64       pragma_arg64;
       struct {
         union{
-          TREE* dummy3;
+          IRNODE_IDX  dummy3;
           INT32    pragma_arg1;
         };
         union {
@@ -286,5 +292,61 @@ public:
       } up2;
     } pragma;
   } u3;
-  static TREE *Create();
+  IRNODE() = default;
+  IRNODE(OPCODE op) {
+    opcode = op;
+    // nothing to do
+  }
+  IRNODE_IDX &Opnd(UINT32 pos);
+  void Print(FILE *f);
+  const char *OPCODE_name(OPCODE opcode);
+  OPCODE &Opcode() { return opcode; }
 };
+
+typedef IRNODE_IDX IR_TREE_ELEM;
+
+using IRTREE = tree<IR_TREE_ELEM>;
+using IR_ITER = tree<IR_TREE_ELEM>::iterator;
+using IR_PRE_ITER = tree<IR_TREE_ELEM>::pre_order_iterator;
+using IR_POST_ITER = tree<IR_TREE_ELEM>::post_order_iterator;
+using IR_LEAF_ITER = tree<IR_TREE_ELEM>::leaf_iterator;
+using IR_SIBLING_ITER = tree<IR_TREE_ELEM>::sibling_iterator;
+
+class TREE{
+  IRTREE irtree;
+  std::vector<IRNODE> _ir_elem_tab;
+public:
+  TREE() : irtree() {
+    Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
+             (TFile, "Creating TREE, size = %lu\n", irtree.size()));
+  }
+  void Print_recursive(FILE *f);
+  IRNODE *Get_node(IRNODE_IDX iridx);
+  IRNODE_IDX Create_node();
+  IRNODE_IDX Create_node(OPCODE opc);
+  // Kid access
+  IR_ITER Insert_stmt_to_block(IR_ITER block, IR_ITER child);
+  IR_ITER Insert_stmt_to_block(IR_ITER block, IR_TREE_ELEM child);
+  IR_ITER Add_child(IR_ITER parent, IR_TREE_ELEM child);
+  // Operand access
+  IR_ITER Set_operand(IR_ITER parent, IR_ITER operand);
+  IR_ITER Set_operand(IR_ITER parent, UINT32 pos, IR_TREE_ELEM opnd);
+  IR_ITER Get_operand(IR_ITER node_iter, UINT32 kid_pos);
+  // Root
+  IR_ITER Get_root();
+  IR_ITER Set_root(IR_TREE_ELEM root_pos);
+  // Global
+  void Initialize();
+};
+
+TREE *Tree();
+void Set_current_tree(TREE *current);
+
+/**
+ * Utility function to get a IRNODE&
+ * @return
+ */
+//IRNODE &TNode(IR_TREE_ELEM elem);
+
+#endif // _OCC_COMMON_TREE_H_
+#pragma clang diagnostic pop

@@ -4,10 +4,6 @@
 
 #ifndef OCC_FE_EXPORT_H
 #define OCC_FE_EXPORT_H
-
-extern "C" {
-    int femain(int argc, const char *args[]);
-    void yyerror(char *s, ...);
-}
-
+#include "ir.h"
+INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_name);
 #endif //OCC_FE_EXPORT_H

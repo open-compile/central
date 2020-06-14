@@ -25,4 +25,73 @@ typedef UINT32 PU_INFO_IDX;
 typedef UINT8 SCOPE_IDX;
 typedef UINT16 mTYPE_ID;
 
+// Tree
+typedef INT32  TREE_OFFSET;
+typedef INT64  TREE_ESIZE;
+typedef UINT64 IRNODE_IDX;
+
+
+// Symbol Table Frame Work
+enum SYM_ATTR {
+  ST_CONST = 0,
+};
+
+// Must be smaller than 64
+enum MTYPE_ID {
+  MTYPE_UNKNOWN = 0,
+  MTYPE_BEGIN = 1,
+  MTYPE_B = 1,
+  MTYPE_I1 = 2,
+  MTYPE_I2 = 3,
+  MTYPE_I4 = 4,
+  MTYPE_I8 = 5,
+  MTYPE_U1 = 6,
+  MTYPE_U2 = 7,
+  MTYPE_U4 = 8,
+  MTYPE_U8 = 9,
+  MTYPE_F4 = 10,
+  MTYPE_F8 = 11,
+  MTYPE_M = 12,
+  MTYPE_V = 13,
+  MTYPE_A4 = 14,
+  MTYPE_A8 = 15,
+  MTYPE_BS = 16,
+  MTYPE_COUNT = 17,
+};
+
+enum SYM_SCLASS {
+  SYMC_UNKNOWN      = 0,
+  SYMC_AUTO         = 1,
+  SYMC_FUNC_STATIC  = 2,
+  SYMC_FILE_STATIC  = 3,
+  SYMC_EXTERN       = 4,
+  SYMC_GLOBAL_UNDEF = 5,
+  SYMC_GLOBAL_DEF   = 6,
+  SYMC_TEXT         = 7,
+};
+
+typedef enum {
+  SYME_UNKNOWN     = 0,
+  SYME_INTERNAL    = 1,
+  SYME_EXTERNAL    = 2,
+  SYME_PREEMPTIBLE = 3,
+} SYM_ECLASS;
+
+enum SYM_CLASS {
+  SYM_CLASS_UNK    = 0,
+  SYM_CLASS_VAR    = 1,      // data variable
+  SYM_CLASS_FUNC   = 2,      // addrress of a function.
+  SYM_CLASS_CONST  = 3,      // constant value
+  SYM_CLASS_PREG   = 4,      // pseudo register
+  SYM_CLASS_BLOCK  = 5,      // base to a block of data
+  SYM_CLASS_NAME   = 6,      // just hold an ST name
+  SYM_CLASS_COUNT  = 7      // total number of classes
+}; // SYM_CLASS
+
+typedef enum {
+  TLS_NONE = 0
+} ST_TLS_MODEL;
+
+const char * const DBAR = "=======================================================\n";
+
 #endif //OCC_CONSTS_H

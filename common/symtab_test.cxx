@@ -7,6 +7,7 @@
 #include "file_util.h"
 
 void File_extension_test();
+void Tree_test();
 
 INT32 main() {
 
@@ -53,8 +54,13 @@ INT32 main() {
   // Function testing
   // ============================================================
   File()->Create_function(func_sym, basic_func_ty);
-
+  Tree_test();
   Is_Trace(TRUE, (TFile, "All Testing Passed\n"));
+}
+
+void Tree_test() {
+  IR_ITER iter = Tree()->Get_root();
+  Tree()->Print_recursive(stderr);
 }
 
 void File_extension_test() {

@@ -15,69 +15,9 @@ class FILE_SYMTAB;
 class FILE_MANAGER;
 class TREE;
 
-// Symbol Table Frame Work
-enum SYM_ATTR {
-  ST_CONST = 0,
-};
-
-// Must be smaller than 64
-enum MTYPE_ID {
-  MTYPE_UNKNOWN = 0,
-  MTYPE_BEGIN = 1,
-  MTYPE_B = 1,
-  MTYPE_I1 = 2,
-  MTYPE_I2 = 3,
-  MTYPE_I4 = 4,
-  MTYPE_I8 = 5,
-  MTYPE_U1 = 6,
-  MTYPE_U2 = 7,
-  MTYPE_U4 = 8,
-  MTYPE_U8 = 9,
-  MTYPE_F4 = 10,
-  MTYPE_F8 = 11,
-  MTYPE_M = 12,
-  MTYPE_V = 13,
-  MTYPE_A4 = 14,
-  MTYPE_A8 = 15,
-  MTYPE_BS = 16,
-  MTYPE_COUNT = 17,
-};
-
-enum SYM_SCLASS {
-  SYMC_UNKNOWN      = 0,
-  SYMC_AUTO         = 1,
-  SYMC_FUNC_STATIC  = 2,
-  SYMC_FILE_STATIC  = 3,
-  SYMC_EXTERN       = 4,
-  SYMC_GLOBAL_UNDEF = 5,
-  SYMC_GLOBAL_DEF   = 6,
-  SYMC_TEXT         = 7,
-};
-
-typedef enum {
-  SYME_UNKNOWN     = 0,
-  SYME_INTERNAL    = 1,
-  SYME_EXTERNAL    = 2,
-  SYME_PREEMPTIBLE = 3,
-} SYM_ECLASS;
-
-enum SYM_CLASS {
-  SYM_CLASS_UNK    = 0,
-  SYM_CLASS_VAR    = 1,      // data variable
-  SYM_CLASS_FUNC   = 2,      // addrress of a function.
-  SYM_CLASS_CONST  = 3,      // constant value
-  SYM_CLASS_PREG   = 4,      // pseudo register
-  SYM_CLASS_BLOCK  = 5,      // base to a block of data
-  SYM_CLASS_NAME   = 6,      // just hold an ST name
-  SYM_CLASS_COUNT  = 7      // total number of classes
-}; // SYM_CLASS
-
-typedef enum {
-  TLS_NONE = 0
-} ST_TLS_MODEL;
-
 struct TYLIST {
   TY_IDX ty_id;
+  void Print(FILE *f) const {}
 };
 
 /* Kinds of types: */
@@ -212,7 +152,7 @@ struct PU {
     bzero(this, sizeof(PU));
   } ;
   // void Verify() const;
-  // void Print (FILE *f) const;
+  void Print (FILE *f) const {};
 }; // PU
 
 
@@ -232,14 +172,15 @@ public:
   UINT32 pad; // 4 pad bytes (initialize to zero)
   UINT32 offset; // offset from base
   ST_IDX base_idx; // base of the allocated block
-  ST_IDX st_idx; // my own st_idx
+  // ST_IDX st_idx; // my own st_idx
   // operations
 
   ST() {
     bzero(this, sizeof(ST));
   }
   // void Verify(UINT level) const;
-  // void Print(FILE *f, BOOL verbose = TRUE) const;
+  void Print(FILE *f, BOOL verbose = TRUE) const {};
+  void Print(FILE *f) const { Print(f, TRUE); };
 
 }; // ST
 
@@ -382,7 +323,7 @@ struct TCON {
 template<typename U, typename T>
 class GROWING_TABLE {
   UINT32 count = 0; // Count of items in the table
-  std::vector<T*> table;
+  std::vector<void *> table;
 public:
   T *operator[](U idx) {
     return Get(idx);
@@ -390,18 +331,27 @@ public:
   U Add() {
     T *empty_obj = new T();
     U current_idx = count;
-    table.push_back(empty_obj);
+    table.push_back((void *) empty_obj);
     count++;
     return current_idx;
   }
   void Set(U idx, T *obj) {
-    table[idx] = obj;
+    table[idx] = (void *) obj;
   }
   T *Get(U idx) {
     AssertThat(idx < count,
                ("Trying to locate a item by id larger than total count, total = %0#x, query = %0#x",
                 count, idx));
-    return table[idx];
+    return (T*) table[idx];
+  }
+  UINT32 Length() {
+    return table.size();
+  }
+  std::vector<void *>::iterator Begin() {
+    return table.begin();
+  }
+  std::vector<void *>::iterator End() {
+    return table.end();
   }
 };
 
@@ -410,7 +360,7 @@ struct INITO {
   ST_IDX st_idx;      // item being initialized
   INITV_IDX val;      // initial value
   // void Verify (UINT level) const;
-  // void Print  (FILE* f)    const;
+  void Print  (FILE* f)    const {};
   INITO() {
     bzero(this, sizeof(INITO));
   }
@@ -499,8 +449,8 @@ struct INITV {
 
 class SCOPE {
 public:
-  // MEM_POOL *pool;		// mem pool for local tables
-  ST *st;        // ST * for the current pu, in global sym table
+  // MEM_POOL *pool;		  // mem pool for local tables
+  ST_IDX   st_idx;        // ST * for the current pu, in global sym table
   GROWING_TABLE<ST_IDX, ST> *st_tab;
   GROWING_TABLE<LABEL_IDX, LABEL> *label_tab;
   GROWING_TABLE<PREG_IDX, PREG> *preg_tab;
@@ -513,11 +463,11 @@ public:
    * @param preg_tab
    * @param inito_tab
    */
-  void Init(ST *sym, GROWING_TABLE<ST_IDX, ST> *st_tab,
+  void Init(ST_IDX sym, GROWING_TABLE<ST_IDX, ST> *st_tab,
             GROWING_TABLE<LABEL_IDX, LABEL> *label_tab,
             GROWING_TABLE<PREG_IDX, PREG> *preg_tab,
             GROWING_TABLE<INITO_IDX, INITO> *inito_tab) {
-    this->st = sym;
+    this->st_idx = sym;
     this->st_tab = st_tab;
     this->label_tab = label_tab;
     this->preg_tab = preg_tab;
@@ -529,16 +479,16 @@ public:
    * Used for create_function, etc.
    * @param sym
    */
-  void Init(ST *sym) {
-    this->st = sym;
+  void Init(ST_IDX sym) {
+    this->st_idx = sym;
     this->st_tab = new GROWING_TABLE<ST_IDX, ST>;
     this->label_tab = new GROWING_TABLE<LABEL_IDX, LABEL>;
     this->preg_tab = new GROWING_TABLE<PREG_IDX, PREG>;
     this->inito_tab = new GROWING_TABLE<INITO_IDX, INITO>;
   }
 
-  ST *getSt() const {
-    return st;
+  ST_IDX getSt() const {
+    return st_idx;
   }
   GROWING_TABLE<ST_IDX, ST> *getStTab() const {
     return st_tab;
@@ -552,9 +502,12 @@ public:
   GROWING_TABLE<INITO_IDX, INITO> *getInitoTab() const {
     return inito_tab;
   }
-  SCOPE() {
+  SCOPE(ST_IDX st_idx) {
     bzero(this, sizeof(SCOPE));
+    this->st_idx = st_idx;
+    this->Init(st_idx);
   }
+  void Print(FILE *f);
 }; // SCOPE
 
 struct FILE_INFO {
@@ -570,10 +523,23 @@ struct PU_INFO {
   PU_IDX pu_idx;
   ST_IDX proc_sym;
   TREE *entry;
+  SCOPE scope;
   // SSA_TREE *ssa;
   // ̄ALIAS_INFO_TREE *alias;
-  PU_INFO();
+  PU_INFO() : scope(0) {
+    bzero(this, sizeof(PU_INFO));
+  };
+  void Set_proc_sym(ST_IDX proc_sym) {
+    this->proc_sym = proc_sym;
+    this->scope.st_idx = proc_sym;
+  };
+  void Print(FILE *) const {};
+  void Verify(FILE *) const {};
+  void Print_function_verbose(FILE *f);
 };
+
+// Growing table iterator
+using GT_ITERATOR = std::vector<void *>::iterator;
 
 /**
  * Global accessor for symtab table <T>
@@ -590,6 +556,13 @@ public:
     return Get(idx);
   };
   void Set(IDX idx, T *obj) { return tab.Set(idx, obj); } // overriding an old value
+  void Print(FILE *pFile);
+  std::vector<void *>::iterator Begin() {
+    return tab.Begin();
+  }
+  std::vector<void *>::iterator End() {
+    return tab.End();
+  }
 };
 
 enum TABLE_KIND{
@@ -625,6 +598,12 @@ public:
   GROWING_TABLE<IDX, T> *Scoped_table();
   void Set(IDX idx, T *obj) { return tab.Set(idx, obj); } // overriding an old value
 //  typename std::vector<T>::iterator &Iterate();
+  void Print(FILE *f) const {
+    // Print global only here
+  };
+  void Print(FILE *f, SCOPE *scope) const {
+    // Print function-level table only here
+  };
 };
 
 typedef GLOBAL_SYMTAB_ACCESS<TY_IDX, TY> TY_TABLE;
@@ -634,7 +613,6 @@ typedef GLOBAL_SYMTAB_ACCESS<PU_IDX, PU> PU_TABLE;
 typedef RELATED_SYMTAB_ACCESS<ST_IDX, ST, TABLE_KIND_ST> ST_TABLE;
 typedef RELATED_SYMTAB_ACCESS<PREG_IDX, PREG, TABLE_KIND_PREG> PREG_TABLE;
 typedef GLOBAL_SYMTAB_ACCESS<PU_INFO_IDX , PU_INFO> PU_INFO_TABLE;
-typedef GLOBAL_SYMTAB_ACCESS<STR_IDX, const char> STR_TABLE;
 
 /**
  * File-level symbol tables
@@ -644,7 +622,6 @@ private:
   SCOPE_MANAGER *_scope_manager;
   TY_TABLE *_ty_tab;
   ST_TABLE *_st_tab;
-  STR_TABLE * _str_tab;
   PU_TABLE * _pu_tab;
   PU_INFO_TABLE *_pu_info_tab;
   TYLIST_TABLE  * _tylist_tab;
@@ -662,8 +639,6 @@ public:
     _ty_tab->Add();
     _pu_info_tab     = new PU_INFO_TABLE();
     _pu_info_tab->Add();
-    _str_tab         = new STR_TABLE();
-    _str_tab->Add();
     _arb_tab         = new ARB_TABLE();
     _arb_tab->Add();
     _pu_info_tab     = new PU_INFO_TABLE();
@@ -681,7 +656,6 @@ public:
   TY_TABLE *Ty() { return _ty_tab; };
   ARB_TABLE *Arb() { return _arb_tab; };
   ST_TABLE *Sym() { return _st_tab; };
-  STR_TABLE *Str() { return _str_tab; };
   PU_TABLE *Pu() { return _pu_tab; };
   TYLIST_TABLE *Tylist() { return _tylist_tab; };
   PU_INFO_TABLE *Pu_info() { return _pu_info_tab; };
@@ -692,7 +666,7 @@ public:
   SCOPE_MANAGER *Scope() { return _scope_manager; };
   PU_INFO_IDX Get_pu_info_by_st_idx(ST_IDX func);
   STR_IDX Save_string(const char *string);
-  void Print();
+  void Print(FILE *file);
 
   void Initialize();
 
@@ -710,15 +684,13 @@ public:
   PU_INFO_TABLE *Get_table(PU_INFO *base) {
     return _pu_info_tab;
   }
-  STR_TABLE *Get_table(const char *base) {
-    return _str_tab;
-  }
   ARB_TABLE *Get_table(ARB *base) {
     return _arb_tab;
   }
   PU_TABLE *Get_table(PU *base) {
     return _pu_tab;
   }
+  const char *Get_string(STR_IDX idx);
 };
 
 /**
@@ -738,6 +710,7 @@ public:
   SCOPE *Current();
   BOOL Goto_function(ST_IDX);
   void Finish_function(ST_IDX func, PU_INFO_IDX func_info);
+  void Print(FILE *file);
 };
 
 /**
@@ -796,7 +769,10 @@ public:
                     SYM_SCLASS sclass, SYM_ECLASS eclass, SYM_CLASS symclass);
 
   STR_IDX Save_string(const char *string); // Save a null-term-string to string tab
+  void Print(FILE *f);
 };
+
+const char *STR_str(STR_IDX idx);
 
 // Returning the current pu idx
 extern FILE_MANAGER *File();

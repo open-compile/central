@@ -222,7 +222,7 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
         operands[0] = "fe";
         operands[1] = config.files[file_id].c_str();
         Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking sub-process [%s %s]\n", operands[0], operands[1]));
-        femain(2, operands);
+        femain(config, *File(), config.files[file_id].c_str());
       }
       break;
     }
