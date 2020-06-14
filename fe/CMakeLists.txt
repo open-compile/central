@@ -18,3 +18,5 @@ foreach(ONE_TARG IN LISTS FE_OBJS)
             ${OCC_MAIN_DIR}/lib)
     target_link_libraries(${ONE_TARG} PRIVATE -L/usr/local/lib jsoncpp)
 endforeach()
+
+target_link_libraries(fe_test PUBLIC common)
