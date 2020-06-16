@@ -1,2 +1,2 @@
 # Used for include sub-modules
-add_subdirectory(jsoncpp)
+add_subdirectory(jsoncpp-amal)
