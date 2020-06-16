@@ -47,8 +47,8 @@ stmts : stmt { $$ = new NBlock(); $$->child->push_back(shared_ptr<NStatement>($1
 			| stmts stmt { $1->child->push_back(shared_ptr<NStatement>($2)); }
 			;
 stmt : var_decl TSEMICOLON | func_decl | struct_decl TSEMICOLON
-		 | expr { $$ = new NExpressionStatement(shared_ptr<NExpression>($1)); } TSEMICOLON
-		 | TRETURN expr { $$ = new NReturnStatement(shared_ptr<NExpression>($2)); } TSEMICOLON
+		 | expr TSEMICOLON { $$ = new NExpressionStatement(shared_ptr<NExpression>($1)); } 
+		 | TRETURN expr TSEMICOLON { $$ = new NReturnStatement(shared_ptr<NExpression>($2)); } 
 		 | if_stmt
 		 | for_stmt
 		 | while_stmt

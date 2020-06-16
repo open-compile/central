@@ -9,7 +9,7 @@
 #include "stdarg.h"
 #include "ir.h"
 
-extern shared_ptr<NBlock> programBlock;
+extern NBlock *programBlock;
 extern int yyparse();
 // extern void yyparse_init(const char* filename);
 // extern void yyparse_cleanup();
@@ -23,6 +23,10 @@ INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_nam
   }
   yyparse();
 
+  if (!programBlock) {
+    Comp_Failure("Syntax check failed for file : %s", file_name);
+  }
+  
   // std::cout << programBlock << std::endl;
   programBlock->print("--");
   auto root = programBlock->jsonGen();
