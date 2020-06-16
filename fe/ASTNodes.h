@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <json/json.h>
+#include "basic.h"
 
 #include <memory>
 #include <string>
@@ -167,10 +168,10 @@ public:
         string nextPrefix = prefix+this->m_PREFIX;
 		cout << prefix << getTypeName() << this->m_DELIM << name << (isArray ? "(Array)" : "") << endl;
         if( isArray && arraySize->size() > 0 ){
-//            assert(arraySize != nullptr);
-            for(auto it=arraySize->begin(); it!=arraySize->end(); it++){
-                (*it)->print(nextPrefix);
-            }
+          AssertThat(arraySize != nullptr, ("Array size should not be nullptr"));
+          for(auto it=arraySize->begin(); it!=arraySize->end(); it++){
+            (*it)->print(nextPrefix);
+          }
         }
 	}
 
@@ -363,8 +364,8 @@ public:
 	NVariableDeclaration(const shared_ptr<NIdentifier> type, shared_ptr<NIdentifier> id, shared_ptr<NExpression> assignmentExpr = NULL)
 		: type(type), id(id), assignmentExpr(assignmentExpr) {
             cout << "isArray = " << type->isArray << endl;
-            assert(type->isType);
-            assert(!type->isArray || (type->isArray && type->arraySize != nullptr));
+            AssertThat(type->isType, ("Type->isType should be true"));
+            AssertThat(!type->isArray || (type->isArray && type->arraySize != nullptr), ("Incorrect type for decl."));
 	}
 
 	string getTypeName() const override {
@@ -407,7 +408,7 @@ public:
 
 	NFunctionDeclaration(shared_ptr<NIdentifier> type, shared_ptr<NIdentifier> id, shared_ptr<VariableList> arguments, shared_ptr<NBlock> block, bool isExt = false)
 		: type(type), id(id), arguments(arguments), block(block), isExternal(isExt) {
-        assert(type->isType);
+      AssertThat(type->isType, ("Is not a type"));
 	}
 
 	string getTypeName() const override {
@@ -425,7 +426,7 @@ public:
 			(*it)->print(nextPrefix);
 		}
 
-        assert(isExternal || block != nullptr);
+        AssertThat(isExternal || block != nullptr, ("Not external nor valid block"));
         if( block )
 		    block->print(nextPrefix);
 	}
@@ -440,7 +441,7 @@ public:
             root["children"].append((*it)->jsonGen());
         }
 
-        assert(isExternal || block != nullptr);
+        AssertThat(isExternal || block != nullptr, ("Invalid type or status"));
         if( block ){
             root["children"].append(block->jsonGen());
         }

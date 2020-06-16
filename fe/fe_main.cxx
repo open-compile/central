@@ -6,6 +6,7 @@
 #include <fstream>
 #include "ASTNodes.h"
 #include "options.h"
+#include "stdarg.h"
 #include "ir.h"
 
 extern shared_ptr<NBlock> programBlock;
