@@ -16,11 +16,6 @@ class FILE_SYMTAB;
 class FILE_MANAGER;
 class TREE;
 
-struct TYLIST {
-  TY_IDX ty_id;
-  void Print(FILE *f) const {}
-};
-
 /* Kinds of types: */
 enum TY_KIND {
   KIND_INVALID  = 0,    // Invalid
@@ -126,6 +121,11 @@ public:
 
 }; // TY
 
+struct TYLIST {
+  TY_IDX ty_id;
+  void Print(FILE *f);
+};
+
 struct MTYPE_TAB {
   MTYPE_ID mtype;
   TY_KIND  kind;
@@ -180,9 +180,10 @@ public:
     bzero(this, sizeof(ST));
   }
   // void Verify(UINT level) const;
-  void Print(FILE *f, BOOL verbose = TRUE) const {};
-  void Print(FILE *f) const { Print(f, TRUE); };
-
+  void Print(FILE *f, BOOL verbose);
+  void Print(FILE *f) { Print(f, TRUE); };
+  void Print_details(FILE *f);
+  void Print_storage_class(FILE *f);
 }; // ST
 
 // Give information about a dimension of an array.  The TY of the array type
@@ -266,10 +267,26 @@ struct ARB {
   ARB() {
     bzero(this, sizeof(ARB));
   }
-  // void Verify(UINT16 dim) const;
+  void Init_const (UINT64 ubnd_val, UINT64 stride_val, UINT32 dimen, UINT32 flag) {
+    flags = (ARB_FLAGS) flag;
+    dimension = dimen;
+    u1.lbnd_val = 0;
+    u2.ubnd_val = ubnd_val;
+    u3.stride_val = stride_val;
+  }
+  void Init_var (ST_IDX ubnd_var, UINT64 stride_val, UINT32 dimen, UINT32 flag) {
+    flags = (ARB_FLAGS) flag;
+    dimension = dimen;
+    u1.lbnd_val = 0;
+    u2.var.ubnd_var = ubnd_var;
+    u3.stride_val = stride_val;
+  }
+    // void Verify(UINT16 dim) const;
    void Print(FILE *f) const {};
 
 }; // ARB
+
+using ARB_LIST = std::vector<ARB *>;
 
 enum LABEL_KIND {
   LKIND_DEFAULT = 0,
@@ -534,8 +551,8 @@ struct PU_INFO {
     this->proc_sym = proc_sym;
     this->scope.st_idx = proc_sym;
   };
-  void Print(FILE *) const {};
-  void Verify(FILE *) const {};
+  void Print(FILE *) {};
+  void Verify(FILE *) {};
   void Print_function_verbose(FILE *f);
 };
 
@@ -564,6 +581,8 @@ public:
   std::vector<void *>::iterator End() {
     return tab.End();
   }
+
+  UINT32 Length();
 };
 
 enum TABLE_KIND{
@@ -597,14 +616,11 @@ public:
   IDX Add(UINT8 level); // Adding an object to the table, returning an IDX
   T *Get(IDX); // Retrieve an object by using the IDX
   GROWING_TABLE<IDX, T> *Scoped_table();
+  GROWING_TABLE<IDX, T> *Scoped_table(SCOPE *scope);
   void Set(IDX idx, T *obj) { return tab.Set(idx, obj); } // overriding an old value
 //  typename std::vector<T>::iterator &Iterate();
-  void Print(FILE *f) const {
-    // Print global only here
-  };
-  void Print(FILE *f, SCOPE *scope) const {
-    // Print function-level table only here
-  };
+  void Print(FILE *f); // Print global only here
+  void Print(FILE *f, SCOPE *scope);  // Print function-level table only here
 };
 
 typedef GLOBAL_SYMTAB_ACCESS<TY_IDX, TY> TY_TABLE;
@@ -692,6 +708,8 @@ public:
     return _pu_tab;
   }
   const char *Get_string(STR_IDX idx);
+
+  void Print_functions(FILE *f);
 };
 
 /**
@@ -771,8 +789,11 @@ public:
 
   STR_IDX Save_string(const char *string); // Save a null-term-string to string tab
   void Print(FILE *f);
+  ARB_IDX Create_array_bound_const(UINT64 ubnd_val, UINT64 stride_val,
+                                   UINT32 dimen, UINT32 flag);
+  ARB_IDX Create_array_bound_var(ST_IDX ubnd_var, UINT64 stride_val,
+                                 UINT32 dimen, UINT32 flag);
 };
-
 const char *STR_str(STR_IDX idx);
 
 // Returning the current pu idx

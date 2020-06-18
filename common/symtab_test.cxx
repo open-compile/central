@@ -15,7 +15,8 @@ INT32 main() {
   // File()->Create_ir_file("some.ir");
 
   File();
-
+  Is_Trace(TRUE,
+           (TFile, "[Symtab] Print testing\n"));
   File_extension_test();
 
   // ============================================================
@@ -35,19 +36,27 @@ INT32 main() {
   TY_IDX basic_func_ty = File()->Create_func_ty(str_foo_idx, 0, MTYPE_V,
                                                 (TY_FLAG) 0, *param_ret_vec);
   TY_ty(basic_func_ty)->Print(TFile);
+  STR_IDX anon_array = File()->Save_string("(anon-array)");
+
+  std::vector<ARB *> bound_vec;
+  ARB_IDX arb_idx =
+    File()->Create_array_bound_const(10, 1, 1,
+                                     ARB_FIRST_DIMEN | ARB_LAST_DIMEN);
+  TY_IDX basic_array_ty = File()->Create_array_ty(anon_array,
+    ty_i4_obj->size * 10, MTYPE_I4, TY_FLAG_INTERNAL, ty_i4, arb_idx);
 
   // ============================================================
   // Symbol testing
   // ============================================================
-  STR_IDX str_idx = File()->Save_string(name);
+  STR_IDX str_idx = File()->Save_string("some_basic_var");
   ST_IDX basic_sym = File()->Create_var(str_idx, ty_i4, GLOBAL_SYMTAB,
-                                        SYMC_EXTERN, SYME_EXTERNAL,
+                                        SYMC_FILE_STATIC, SYME_PREEMPTIBLE,
                                         SYM_CLASS_VAR);
 
 
   ST_IDX func_sym = File()->Create_var(str_foo_idx, basic_func_ty,
                                        GLOBAL_SYMTAB, SYMC_EXTERN,
-                                       SYME_EXTERNAL,
+                                       SYME_PREEMPTIBLE,
                                        SYM_CLASS_FUNC);
 
   // ============================================================
@@ -55,6 +64,7 @@ INT32 main() {
   // ============================================================
   File()->Create_function(func_sym, basic_func_ty);
   Tree_test();
+  File()->Print(TFile);
   Is_Trace(TRUE, (TFile, "All Testing Passed\n"));
 }
 

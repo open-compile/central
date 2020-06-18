@@ -29,7 +29,7 @@ MTYPE_TAB MTYPE_to_TY_table[MTYPE_COUNT] = {
   {  MTYPE_V,       KIND_VOID,   TY_FLAG_INTERNAL, 0, "MTYPE_V",       0 },
   {  MTYPE_A4,      KIND_SCALAR, TY_FLAG_INTERNAL, 4, "MTYPE_A4",      0 },
   {  MTYPE_A8,      KIND_SCALAR, TY_FLAG_INTERNAL, 8, "MTYPE_A8",      0 },
-  {  MTYPE_BS,      KIND_SCALAR, TY_FLAG_INTERNAL, 0, "MTYPE_A8",      0 },
+  {  MTYPE_BS,      KIND_SCALAR, TY_FLAG_INTERNAL, 0, "MTYPE_BS",      0 },
 };
 
 const char * MTYPE_name(MTYPE_ID mtype) {
@@ -50,19 +50,32 @@ TY_IDX MTYPE_to_ty(MTYPE_ID mtype) {
   return MTYPE_to_TY_table[mtype].ty_idx;
 };
 
+TY_IDX MTYPE_kind(MTYPE_ID mtype) {
+  AssertThat(mtype >= 0 && mtype < MTYPE_COUNT, ("MTYPE id not valid : %d", mtype));
+  AssertThat(MTYPE_to_TY_table[mtype].kind != KIND_INVALID, ("mtype kind is corrupted"));
+  return MTYPE_to_TY_table[mtype].kind;
+};
 
 /******************************************************************************
  * File Symtab
  ******************************************************************************/
 void FILE_SYMTAB::Print(FILE *f) {
+  fprintf(f, "\n%s+ Program Units\n%s", DBAR, DBAR);
+  this->Print_functions(f);
   // Global Print
-  fprintf(f, "%sFile-level Symbol Table%s", DBAR, DBAR);
+  fprintf(f, "\n%s+ File-level Symbol Table\n%s", DBAR, DBAR);
   this->Sym()->Print(f);
+  fprintf(f, "\n%s+ File-level Type Table\n%s", DBAR, DBAR);
   this->Ty()->Print(f);
+  fprintf(f, "\n%s+ File-level Tylist Table\n%s", DBAR, DBAR);
   this->Tylist()->Print(f);
+  fprintf(f, "\n%s+ File-level Array Bound Table\n%s", DBAR, DBAR);
   this->Arb()->Print(f);
+  fprintf(f, "\n%s+ File-level Program Unit Table\n%s", DBAR, DBAR);
   this->Pu()->Print(f);
+  fprintf(f, "\n%s+ File-level Program Unit Info Table\n%s", DBAR, DBAR);
   this->Pu_info()->Print(f);
+  fprintf(f, "\n%s+ End of file level symtabs\n%s", DBAR, DBAR);
   //  Is_Trace(Tracing(COMPONENT_BE, TRACE_INVOCATION),
   //           ("PU st_idx: %d\n", ));
 }
@@ -75,7 +88,7 @@ void FILE_SYMTAB::Initialize() {
   // Add internal types from MTYPE_to_TY_table
   UINT32 total_size = sizeof(MTYPE_to_TY_table);
   UINT32 single_size = sizeof(MTYPE_to_TY_table[0]);
-  UINT32 count = total_size / single_size;
+  UINT16 count = total_size / single_size;
   AssertThat(MTYPE_COUNT == count, ("MType table is incomplete or incorrect"));
   for (UINT16 cnt = 0; cnt < count; cnt ++) {
     STR_IDX str_idx = Save_string(MTYPE_to_TY_table[cnt].name);
@@ -85,6 +98,7 @@ void FILE_SYMTAB::Initialize() {
     ty->mtype = (MTYPE_ID) MTYPE_to_TY_table[cnt].mtype;
     ty->flags = MTYPE_to_TY_table[cnt].flag;
     ty->size = MTYPE_to_TY_table[cnt].size;
+    ty->kind = MTYPE_to_TY_table[cnt].kind;
     MTYPE_to_TY_table[cnt].ty_idx = ty_idx;
   }
 }
@@ -118,9 +132,24 @@ const char *FILE_SYMTAB::Get_string(STR_IDX idx) {
   return internal_str_tab_buffer + idx;
 }
 
-template<typename IDX, typename T>
-GROWING_TABLE<IDX, T> *Get_by_idx(IDX idx) {
-
+void FILE_SYMTAB::Print_functions(FILE *f) {
+  UINT32 cursor = 0;
+  UINT32 total = Pu_info()->Length();
+  for (cursor = 0; cursor < total; cursor++) {
+    PU_INFO *pu_info = Pu_info()->Get(cursor);
+    const char *func_name = pu_info->proc_sym > 0 ? ST_name(pu_info->proc_sym) : "(incomplete function)";
+    fprintf(f, "%s+ [%-4d] Begin function %s, Tree: \n%s", DBAR, cursor, func_name, DBAR);
+    if (pu_info->entry == NULL) {
+      fprintf(f, " (NULL) \n");
+    } else {
+      pu_info->entry->Print_recursive(f);
+    }
+    fprintf(f, "%s+ [%-4d] Symtab for function %s \n%s", DBAR, cursor, func_name, DBAR);
+    if (pu_info->scope.st_tab != NULL) {
+      Sym()->Print(f, &(pu_info->scope));
+    }
+    fprintf(f, "%s+ [%-4d] End of function %s \n%s", DBAR, cursor, func_name, DBAR);
+  }
 }
 
 
@@ -136,6 +165,11 @@ PU *PU_INFO_Pu(PU_INFO_IDX pu_inf_idx) {
 }
 
 void PU_INFO::Print_function_verbose(FILE *f) {
+  if (pu_idx == 0 || pu_info_idx == 0 || proc_sym == 0) {
+    fprintf(f, "Incomplete function\n");
+    return;
+  }
+  AssertThat(pu_idx > 0 && pu_info_idx > 0 && proc_sym > 0, ("Incomplete function"));
   scope.Print(f);
   this->entry->Print_recursive(f);
 }
@@ -182,7 +216,7 @@ void SCOPE_MANAGER::Finish_function(ST_IDX func, PU_INFO_IDX func_info) {
 }
 
 void SCOPE_MANAGER::Print(FILE *f) {
-  fprintf(f, "Printing scopes ... \n");
+  fprintf(f, "\n%s+ Dumping scope manager\n%s", DBAR, DBAR);
 }
 
 
@@ -366,7 +400,9 @@ FILE_MANAGER::Create_array_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
   ty->name_idx = string;
   ty->kind = KIND_ARRAY;
   ty->Set_etype(element_type);
-  AssertThat(ARB_arb(arb)->dimension == 1, ("Multi dimension array not supported"));
+  AssertThat(ARB_arb(arb)->dimension == 1,
+             ("Multi dimension array not supported, = %d",
+               ARB_arb(arb)->dimension));
   ty->size = ARB_arb(arb)->Ubnd_val() * TY_size(element_type);
   return tyidx;
 }
@@ -411,6 +447,96 @@ void FILE_MANAGER::Print(FILE *f) {
   this->Tables()->Print(f);
 }
 
+ARB_IDX FILE_MANAGER::Create_array_bound_const(UINT64 ubnd_val, UINT64 stride_val, UINT32 dimen, UINT32 flag) {
+  ARB_IDX arbnd = Tables()->Arb()->Add();
+  ARB_arb(arbnd)->Init_const(ubnd_val, stride_val, dimen, flag);
+  return arbnd;
+}
+
+ARB_IDX FILE_MANAGER::Create_array_bound_var(ST_IDX ubnd_var, UINT64 stride_val, UINT32 dimen, UINT32 flag) {
+  ARB_IDX arbnd = Tables()->Arb()->Add();
+  ARB_arb(arbnd)->Init_var(ubnd_var, stride_val, dimen, flag);
+  return arbnd;
+}
+
 void SCOPE::Print(FILE *f) {
+  if (st_idx <= 0) {
+    fprintf(f, "[Scope] sym = %d, (dummy function)", st_idx);
+    return;
+  }
   fprintf(f, "[Scope] sym = %s\n", ST_name(st_idx));
+}
+
+void ST::Print(FILE *f, BOOL verbose) {
+  fprintf(f, "%-10s    ", (name_idx > 0) ? STR_str(name_idx) : "(anon)");
+  Print_storage_class(f);
+  Print_details(f);
+}
+
+void ST::Print_storage_class(FILE *f) {
+  switch (storage_class) {
+    case SYMC_AUTO:
+      fprintf(f, "%s", "local");
+      Print_details(f);
+      break;
+    case SYMC_FILE_STATIC:
+      fprintf(f, "%s", "file-static");
+      break;
+    case SYMC_EXTERN:
+      fprintf(f, "%s", "extern (possibly syscall)");
+      break;
+    case SYMC_TEXT:
+      fprintf(f, "%s", "text (program)");
+      break;
+    case SYMC_FUNC_STATIC:
+      fprintf(f, "%s", "function static");
+      break;
+    case SYMC_GLOBAL_DEF:
+      fprintf(f, "%s", "global, defined");
+      break;
+    case SYMC_GLOBAL_UNDEF:
+      fprintf(f, "%s", "global, undefined");
+      break;
+    case SYMC_UNKNOWN:
+      fprintf(f, "%s", "unknown");
+      break;
+    default:
+      fprintf(f, "%s", "invalid storage class");
+  }
+}
+
+void ST::Print_details(FILE *f) {
+  switch (sym_class) {
+    case SYM_CLASS_FUNC:
+      fprintf(f, "  --> function = pu_id = [%d], prototype = [%d] \n", u2.pu, PU_pu(u2.pu)->prototype);
+      break;
+    case SYM_CLASS_BLOCK:
+      fprintf(f, "  --> block \n");
+      break;
+    case SYM_CLASS_CONST:
+      fprintf(f, "  --> const \n");
+      break;
+    case SYM_CLASS_NAME:
+      fprintf(f, "  --> name \n");
+      break;
+    case SYM_CLASS_PREG:
+      fprintf(f, "  --> preg, preg_idx = %d \n", this->offset);
+      break;
+    case SYM_CLASS_VAR:
+      fprintf(f, "  --> var, of type [%d] \n", this->u2.type);
+      break;
+    case SYM_CLASS_COUNT:
+      fprintf(f, "  --> count \n");
+      break;
+    case SYM_CLASS_UNK:
+      fprintf(f, "  -> unknown\n");
+      break;
+    default:
+      fprintf(f, "  -> invalid sym_class\n");
+      break;
+  }
+}
+
+void TYLIST::Print(FILE *f) {
+  fprintf(f, "(type = %d)\n", this->ty_id);
 }

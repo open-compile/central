@@ -78,10 +78,18 @@ IDX GLOBAL_SYMTAB_ACCESS<IDX, T>::Add() {
 
 template<typename IDX, typename T>
 void GLOBAL_SYMTAB_ACCESS<IDX, T>::Print(FILE *file) {
-  for (GT_ITERATOR it = tab.Begin(); it != tab.End(); it++) {
-    T *item = (T*) *it;
+  UINT32 cursor = 0;
+  UINT32 total = tab.Length();
+  for (cursor = 0; cursor < total; cursor++) {
+    T *item = (T*) tab[cursor];
+    fprintf(file, "[%5d][%0#x] ", cursor, cursor);
     item->Print(file);
   }
+}
+
+template<typename IDX, typename T>
+UINT32 GLOBAL_SYMTAB_ACCESS<IDX, T>::Length() {
+  return tab.Length();
 }
 
 template<typename IDX, typename T>
@@ -122,29 +130,63 @@ T *RELATED_SYMTAB_ACCESS<IDX, T, KIND>::Get(IDX idx) {
   }
 }
 
+template<typename IDX, class T, TABLE_KIND KIND>
+void RELATED_SYMTAB_ACCESS<IDX, T, KIND>::Print(FILE *file) {
+  // Printing the global part only
+  UINT32 cursor = 0;
+  UINT32 total = tab.Length();
+  for (cursor = 0; cursor < total; cursor++) {
+    T *item = (T*) tab[cursor];
+    fprintf(file, "[%5d][%0#x] ", cursor, cursor);
+    item->Print(file);
+  }
+}
+
+template<typename IDX, class T, TABLE_KIND KIND>
+void RELATED_SYMTAB_ACCESS<IDX, T, KIND>::Print(FILE *file, SCOPE *scope) {
+  // Printing the scope-related part
+  UINT32 cursor = 0;
+  UINT32 total = Scoped_table(scope)->Length();
+  for (cursor = 0; cursor < total; cursor++) {
+    T *item = (T*) tab[cursor];
+    fprintf(file, "[%5d][%0#x] ", cursor, cursor);
+    item->Print(file);
+  }
+}
+
 template<>
 GROWING_TABLE<ST_IDX, ST> *
-RELATED_SYMTAB_ACCESS<ST_IDX, ST, TABLE_KIND_ST>::Scoped_table() {
-  return File()->Tables()->Scope()->Current()->getStTab();
+RELATED_SYMTAB_ACCESS<ST_IDX, ST, TABLE_KIND_ST>::Scoped_table(SCOPE *scope) {
+  AssertThat(scope->getStTab() != NULL, ("Null symbol table in scope"));
+  return scope->getStTab();
 }
 
 template<>
 GROWING_TABLE<PREG_IDX, PREG> *
-RELATED_SYMTAB_ACCESS<PREG_IDX, PREG, TABLE_KIND_PREG>::Scoped_table() {
-  return File()->Tables()->Scope()->Current()->getPregTab();
+RELATED_SYMTAB_ACCESS<PREG_IDX, PREG, TABLE_KIND_PREG>::Scoped_table(SCOPE *scope) {
+  AssertThat(scope->getPregTab() != NULL, ("Null preg table in scope"));
+  return scope->getPregTab();
 };
 
 template<>
 GROWING_TABLE<LABEL_IDX, LABEL> *
-RELATED_SYMTAB_ACCESS<LABEL_IDX, LABEL, TABLE_KIND_LABEL>::Scoped_table() {
-  return File()->Tables()->Scope()->Current()->getLabelTab();
+RELATED_SYMTAB_ACCESS<LABEL_IDX, LABEL, TABLE_KIND_LABEL>::Scoped_table(SCOPE *scope) {
+  AssertThat(scope->getLabelTab() != NULL, ("Null label table in scope"));
+  return scope->getLabelTab();
 };
 
 template<>
 GROWING_TABLE<INITO_IDX, INITO> *
-RELATED_SYMTAB_ACCESS<INITO_IDX, INITO, TABLE_KIND_INITO>::Scoped_table() {
-  return File()->Tables()->Scope()->Current()->getInitoTab();
+RELATED_SYMTAB_ACCESS<INITO_IDX, INITO, TABLE_KIND_INITO>::Scoped_table(SCOPE *scope) {
+  AssertThat(scope->getInitoTab() != NULL, ("Null inito table in scope"));
+  return scope->getInitoTab();
 };
+
+template<typename IDX, class T, TABLE_KIND KIND>
+GROWING_TABLE<IDX, T> *
+RELATED_SYMTAB_ACCESS<IDX, T, KIND>::Scoped_table() {
+  return Scoped_table(File()->Tables()->Scope()->Current());
+}
 
 /**
  * These must be put after the definition of above functions
