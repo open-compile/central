@@ -184,6 +184,7 @@ public:
   void Print(FILE *f) { Print(f, TRUE); };
   void Print_details(FILE *f);
   void Print_storage_class(FILE *f);
+  PU_INFO_IDX Pu_info_idx();
 }; // ST
 
 // Give information about a dimension of an array.  The TY of the array type
@@ -621,6 +622,12 @@ public:
 //  typename std::vector<T>::iterator &Iterate();
   void Print(FILE *f); // Print global only here
   void Print(FILE *f, SCOPE *scope);  // Print function-level table only here
+  std::vector<void *>::iterator Begin() { return tab.Begin(); }
+  std::vector<void *>::iterator End() { return tab.End(); }
+  UINT32 Length() { return tab.Length(); };
+  std::vector<void *>::iterator Begin(SCOPE *scope) { return Scoped_table(scope)->Begin(); }
+  std::vector<void *>::iterator End(SCOPE *scope) { return Scoped_table(scope)->End(); }
+  UINT32 Length(SCOPE *scope) { return Scoped_table(scope)->Length(); };
 };
 
 typedef GLOBAL_SYMTAB_ACCESS<TY_IDX, TY> TY_TABLE;
@@ -772,7 +779,7 @@ public:
   // Creating a function in the table
   PU_INFO_IDX Create_function(ST_IDX func, TY_IDX prototype);
   // Invoked after creating the function
-  void Finish_creating_function(ST_IDX func, PU_INFO_IDX pu_info);
+  void Finish_creating_function(ST_IDX func);
 
   FILE_MANAGER() {
     _scope_manager = new SCOPE_MANAGER(this);

@@ -172,10 +172,20 @@ enum OPERATOR {
 #define RTYPE(x) (x<<8)
 #define DESC(x)  (x<<14)
 
+#define MTYPE_AA MTYPE_A4
+
 enum OPCODE {
-  OPC_I4ADD = OPR_ADD + RTYPE(MTYPE_I4),
-  OPC_FUNC_ENTRY = OPR_FUNC_ENTRY + RTYPE(MTYPE_V),
-  OPC_BLOCK = OPR_BLOCK + RTYPE(MTYPE_V),
+  OPC_I4I4ADD         = OPR_ADD             + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
+  OPC_I4I4SUB         = OPR_SUB             + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
+  OPC_I4I4MPY         = OPR_MPY             + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
+  OPC_I4I4MOD         = OPR_MOD             + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
+  OPC_FUNC_ENTRY      = OPR_FUNC_ENTRY      + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
+  OPC_BLOCK           = OPR_BLOCK           + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
+  OPC_I4STID          = OPR_STID            + RTYPE(MTYPE_V)     + DESC(MTYPE_I4),
+  OPC_I4LDID          = OPR_LDID            + RTYPE(MTYPE_I4)    + DESC(MTYPE_V),
+  OPC_I4I4ISTORE      = OPR_ISTORE          + RTYPE(MTYPE_AA)    + DESC(MTYPE_I4),
+  OPC_I4I4ILOAD       = OPR_ILOAD           + RTYPE(MTYPE_I4)    + DESC(MTYPE_AA),
+  OPC_IF              = OPR_IF              + RTYPE(MTYPE_V)     + DESC(MTYPE_B),
 };
 
 enum REGION_KIND{
@@ -301,6 +311,12 @@ public:
   void Print(FILE *f);
   const char *OPCODE_name(OPCODE opcode);
   OPCODE &Opcode() { return opcode; }
+
+  void Set_symbol_idx(ST_IDX sym) { u1u2.uu.ub.st_idx = sym; };
+  ST_IDX Get_symbol_idx() { return u1u2.uu.ub.st_idx; };
+
+  void Set_load_offset(TREE_OFFSET ofst) { u1u2.uu.ua.load_offset = ofst; };
+  ST_IDX Get_oad_offset() { return u1u2.uu.ua.load_offset; };
 };
 
 typedef IRNODE_IDX IR_TREE_ELEM;

@@ -30,7 +30,7 @@ void IRNODE::Print(FILE *f) {
 
 const char *IRNODE::OPCODE_name(OPCODE opcode) {
   switch (opcode) {
-    case OPC_I4ADD:
+    case OPC_I4I4ADD:
       return "I4ADD";
     case OPC_BLOCK:
       return "BLOCK";
@@ -86,7 +86,7 @@ IRNODE *TREE::Get_node(IRNODE_IDX iridx) {
 }
 
 IRNODE_IDX TREE::Create_node() {
-  IRNODE irnode(OPC_I4ADD);
+  IRNODE irnode(OPC_I4I4ADD);
   IRNODE_IDX ir_elem_idx = _ir_elem_tab.size();
   _ir_elem_tab.push_back(irnode);
   return ir_elem_idx;
@@ -124,8 +124,11 @@ void TREE::Initialize() {
   IRNODE_IDX pragmas = Create_node(OPC_BLOCK);
   IRNODE_IDX body = Create_node(OPC_BLOCK);
   IR_ITER r = Set_root(func_entry);
-  Set_operand(r, 0, body);
-  Set_operand(r, 1, pragmas);
+  Set_operand(r, TREE_SEQ_BODY, body);
+  Set_operand(r, TREE_SEQ_PRAGMA, pragmas);
+  AssertThat(*(Get_root()) == func_entry, ("Failed setting root to tree"));
+  AssertThat((* Get_operand(r, TREE_SEQ_BODY)) == body, ("Failed setting operand to parent"));
+  AssertThat((* Get_operand(r, TREE_SEQ_PRAGMA)) == pragmas, ("Failed setting operand to parent"));
 }
 
 IR_ITER TREE::Set_root(IR_TREE_ELEM root_node) {

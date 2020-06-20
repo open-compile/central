@@ -355,8 +355,8 @@ PU_INFO_IDX FILE_MANAGER::Create_function(ST_IDX func, TY_IDX prototype) {
   return pu_info_idx;
 }
 
-void FILE_MANAGER::Finish_creating_function(ST_IDX func, PU_INFO_IDX pu_info) {
-  AssertThat(FALSE, ("Not implemented"));
+void FILE_MANAGER::Finish_creating_function(ST_IDX func) {
+  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO), (TFile, "Finishing creating func = %s", ST_name(func)));
 }
 
 void FILE_MANAGER::Open_ir_file(const char *file_name) {
@@ -535,6 +535,13 @@ void ST::Print_details(FILE *f) {
       fprintf(f, "  -> invalid sym_class\n");
       break;
   }
+}
+
+PU_INFO_IDX ST::Pu_info_idx() {
+  AssertThat(this != NULL, ("Invalid this pointer"));
+  AssertThat(this->sym_class == SYM_CLASS_FUNC, ("Trying to get pu_info_idx from non-func symbol = %s", STR_str(this->name_idx)));
+  AssertThat(this->u2.pu > 0, ("Invalid pu_idx in symbol = %d", u2.pu));
+  return PU_pu(this->u2.pu)->pu_info_idx;
 }
 
 void TYLIST::Print(FILE *f) {

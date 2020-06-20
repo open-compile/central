@@ -92,6 +92,11 @@ typedef enum {
   TLS_NONE = 0
 } ST_TLS_MODEL;
 
+enum TREE_SEQ {
+  TREE_SEQ_BODY      = 0,
+  TREE_SEQ_PRAGMA    = 1,
+};
+
 const char * const DBAR = "=======================================================\n";
 
 #endif //OCC_CONSTS_H
