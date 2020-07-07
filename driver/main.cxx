@@ -261,5 +261,5 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
       break;
   }
   Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_INVOCATION), (TFile, "After running component [%d]\n", component));
-  return 0
+  return 0;
 }
