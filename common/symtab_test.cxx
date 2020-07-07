@@ -36,14 +36,17 @@ INT32 main() {
   TY_IDX basic_func_ty = File()->Create_func_ty(str_foo_idx, 0, MTYPE_V,
                                                 (TY_FLAG) 0, *param_ret_vec);
   TY_ty(basic_func_ty)->Print(TFile);
-  STR_IDX anon_array = File()->Save_string("(anon-array)");
+  STR_IDX anon_array = File()->Save_string("_my_int_array");
 
   std::vector<ARB *> bound_vec;
   ARB_IDX arb_idx =
-    File()->Create_array_bound_const(10, 1, 1,
+    File()->Create_array_bound_const(10, MTYPE_size(MTYPE_I4), 1,
                                      ARB_FIRST_DIMEN | ARB_LAST_DIMEN);
-  TY_IDX basic_array_ty = File()->Create_array_ty(anon_array,
-    ty_i4_obj->size * 10, MTYPE_I4, TY_FLAG_INTERNAL, ty_i4, arb_idx);
+  TY_IDX basic_array_ty = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
+                                                  ty_i4, arb_idx);
+
+  // Dummy access
+  TY_ty(basic_array_ty);
 
   // ============================================================
   // Symbol testing

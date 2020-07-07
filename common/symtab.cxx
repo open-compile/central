@@ -393,8 +393,8 @@ STR_IDX FILE_MANAGER::Save_string(const char *string) {
 }
 
 TY_IDX
-FILE_MANAGER::Create_array_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
-                              TY_FLAG ty_flag, TY_IDX element_type, ARB_IDX arb) {
+FILE_MANAGER::Create_array_ty(STR_IDX string, TY_FLAG ty_flag,
+                              TY_IDX element_type, ARB_IDX arb) {
   TY_IDX tyidx = Tables()->Ty()->Add();
   TY *ty = TY_ty(tyidx);
   ty->name_idx = string;
@@ -457,6 +457,17 @@ ARB_IDX FILE_MANAGER::Create_array_bound_var(ST_IDX ubnd_var, UINT64 stride_val,
   ARB_IDX arbnd = Tables()->Arb()->Add();
   ARB_arb(arbnd)->Init_var(ubnd_var, stride_val, dimen, flag);
   return arbnd;
+}
+
+ST_IDX FILE_MANAGER::Find_symbol_by_name(const char *name) {
+  // Find from global table
+  for (UINT32 sym_num = 0; sym_num < Tables()->Sym()->Length(); sym_num++) {
+    ST_IDX sym_idx = (sym_num << 8) + 0;
+    if(strcmp(STR_str(ST_st(sym_idx)->name_idx), name) == 0) {
+      return sym_idx;
+    }
+  }
+  return 0;
 }
 
 void SCOPE::Print(FILE *f) {

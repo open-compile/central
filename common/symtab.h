@@ -787,8 +787,9 @@ public:
   };
 
   void Initialize();
-  TY_IDX Create_array_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
-                         TY_FLAG ty_flag, TY_IDX element_type, ARB_IDX arb);
+
+  TY_IDX Create_array_ty(STR_IDX string, TY_FLAG ty_flag,
+                         TY_IDX element_type, ARB_IDX arb);
   TY_IDX Create_func_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
                         TY_FLAG ty_flag, std::vector<TY_IDX> &ret_and_params);
   ST_IDX Create_var(STR_IDX string, TY_IDX idx, UINT8 level,
@@ -800,6 +801,8 @@ public:
                                    UINT32 dimen, UINT32 flag);
   ARB_IDX Create_array_bound_var(ST_IDX ubnd_var, UINT64 stride_val,
                                  UINT32 dimen, UINT32 flag);
+
+  ST_IDX Find_symbol_by_name(const char *name);
 };
 const char *STR_str(STR_IDX idx);
 
