@@ -52,6 +52,7 @@ INT32 main() {
   // Symbol testing
   // ============================================================
   STR_IDX str_idx = File()->Save_string("some_basic_var");
+  STR_IDX str_foo2_idx = File()->Save_string("_fooo2");
   ST_IDX basic_sym = File()->Create_var(str_idx, ty_i4, GLOBAL_SYMTAB,
                                         SYMC_FILE_STATIC, SYME_PREEMPTIBLE,
                                         SYM_CLASS_VAR);
@@ -62,10 +63,16 @@ INT32 main() {
                                        SYME_PREEMPTIBLE,
                                        SYM_CLASS_FUNC);
 
+  ST_IDX func2_sym = File()->Create_var(str_foo2_idx, basic_func_ty,
+                                       GLOBAL_SYMTAB, SYMC_EXTERN,
+                                       SYME_PREEMPTIBLE,
+                                       SYM_CLASS_FUNC);
+
   // ============================================================
   // Function testing
   // ============================================================
   File()->Create_function(func_sym, basic_func_ty);
+  File()->Create_function(func2_sym, basic_func_ty);
   Tree_test();
   File()->Print(TFile);
   Is_Trace(TRUE, (TFile, "All Testing Passed\n"));

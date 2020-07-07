@@ -463,7 +463,8 @@ ST_IDX FILE_MANAGER::Find_symbol_by_name(const char *name) {
   // Find from global table
   for (UINT32 sym_num = 0; sym_num < Tables()->Sym()->Length(); sym_num++) {
     ST_IDX sym_idx = (sym_num << 8) + 0;
-    if(strcmp(STR_str(ST_st(sym_idx)->name_idx), name) == 0) {
+    if(ST_st(sym_idx)->name_idx > 0 &&
+       strcmp(STR_str(ST_st(sym_idx)->name_idx), name) == 0) {
       return sym_idx;
     }
   }

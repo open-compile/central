@@ -10,6 +10,12 @@
 #include "ir.h"
 #include "fe_main.h"
 
+IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
+                            const shared_ptr<NAssignment> &stmt);
+
+IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
+                        shared_ptr<NExpression> expr);
+
 INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_name) {
   extern FILE *yyin;
   if ((yyin = fopen(file_name, "r")) == NULL) {
@@ -92,7 +98,7 @@ void visitFunction(const shared_ptr<NFunctionDeclaration> &func) {
   IR_ITER root_entry = tree->Get_root();
   IR_ITER block_iter = tree->Get_operand(root_entry, TREE_SEQ_BODY);
   visitBlock(tree, block_iter, 1, func->block);
-  File()->Finish_creating_function(func_name);
+  File()->Finish_creating_function(func_sym);
 }
 
 IR_ITER visitBlock(TREE *tree, IR_ITER parent_block, int level,
@@ -108,10 +114,48 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
   Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
            (TFile, "Visit Stmt\n"));
   if (stmt->getTypeName() == "NVariableDeclaration") {
-    visitVarDecl(tree, parent, level, reinterpret_cast<const shared_ptr<NVariableDeclaration> &> (stmt));
+    visitVarDecl(tree, parent, level,
+                 reinterpret_cast<const shared_ptr<NVariableDeclaration> &> (stmt));
+  } else if (stmt->getTypeName() == "NAssignment") {
+    visitAssignmentStmt(tree, parent, level,
+                        reinterpret_cast<const shared_ptr<NAssignment> &> (stmt));
   } else {
     AssertThat(FALSE, ("not implemented kind of stmt = %s", stmt->getTypeName().c_str()));
   }
+  return parent;
+}
+
+IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
+                            const shared_ptr<NAssignment> &stmt) {
+  std::shared_ptr<NIdentifier> varname = stmt->lhs;
+  shared_ptr<NExpression> rhs = stmt->rhs;
+
+  ST_IDX sym_idx = File()->Find_symbol_by_name(varname->name.c_str());
+  TY_IDX var_type = ST_ty(sym_idx);
+  AssertThat(var_type == MTYPE_to_ty(MTYPE_I4), ("Unknown type for stid = %d", sym_idx));
+  IR_ITER stid_stmt;
+
+  // Determine whether LHS is a array ref or direct var
+  if (TY_kind(var_type) == KIND_ARRAY) {
+    // ...
+    IRNODE_IDX assignment_node = tree->Create_node(OPC_I4I4ISTORE);
+    tree->Get_node(assignment_node)->Set_load_offset(0);
+    stid_stmt = tree->Insert_stmt_to_block(parent, assignment_node);
+    AssertThat(FALSE, ("not implemented array assignment"));
+  } else {
+    // assignment is present
+    IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
+    tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
+    tree->Get_node(assignment_node)->Set_load_offset(0);
+    stid_stmt = tree->Insert_stmt_to_block(parent, assignment_node);
+  }
+  IR_ITER rhs_expr = visitExpression(tree, stid_stmt, level, rhs);
+  tree->Set_operand(stid_stmt, 0, rhs_expr);
+  return parent;
+}
+
+IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
+                        shared_ptr<NExpression> expr) {
   return parent;
 }
 
@@ -123,8 +167,15 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
   std::shared_ptr<NIdentifier> vartype = vardecl->type;
   std::shared_ptr<NExpression> assignment = vardecl->assignmentExpr;
   TY_IDX i4_idx = MTYPE_to_ty(MTYPE_I4);
+  ST_IDX sym_idx = File()->Find_symbol_by_name(varname->name.c_str());
+  // Check if symbol exists, if so, use the previous one.
+  if (sym_idx != 0) {
+    // Variable redeclare
+    Is_Trace(Tracing(COMPONENT_FE, TRACE_WARN),
+             (TFile, "Variable redeclare: %s", varname->name.c_str()));
+    return block_iter;
+  }
   STR_IDX var_name_saved = File()->Save_string(varname->name.c_str());
-  ST_IDX sym_idx = 0;
   if (level == 0) {
     sym_idx = File()->Create_var(var_name_saved, i4_idx, 1, SYMC_FILE_STATIC,
                                         SYME_INTERNAL, SYM_CLASS_VAR);
