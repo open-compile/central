@@ -316,7 +316,13 @@ public:
   ST_IDX Get_symbol_idx() { return u1u2.uu.ub.st_idx; };
 
   void Set_load_offset(TREE_OFFSET ofst) { u1u2.uu.ua.load_offset = ofst; };
-  ST_IDX Get_oad_offset() { return u1u2.uu.ua.load_offset; };
+  ST_IDX Get_load_offset() { return u1u2.uu.ua.load_offset; };
+
+  void Set_type_idx(TY_IDX sym) { u1u2.uu.ub.ty = sym; };
+  TY_IDX Get_type_idx() { return u1u2.uu.ub.ty; };
+
+  void Set_field_id(UINT16 field_id) { common.kid_count = field_id; };
+
 };
 
 typedef IRNODE_IDX IR_TREE_ELEM;
@@ -345,7 +351,7 @@ public:
   IR_ITER Insert_stmt_to_block(IR_ITER block, IR_TREE_ELEM child);
   IR_ITER Add_child(IR_ITER parent, IR_TREE_ELEM child);
   // Operand access
-  IR_ITER Set_operand(IR_ITER parent, IR_ITER operand);
+  IR_ITER Set_operand(IR_ITER parent, UINT32 pos, IR_ITER operand);
   IR_ITER Set_operand(IR_ITER parent, UINT32 pos, IR_TREE_ELEM opnd);
   IR_ITER Get_operand(IR_ITER node_iter, UINT32 kid_pos);
   // Root

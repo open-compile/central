@@ -100,8 +100,9 @@ IR_ITER TREE::Insert_stmt_to_block(IR_ITER block, IR_TREE_ELEM child) {
   return irtree.append_child(block, child);
 }
 
-IR_ITER TREE::Set_operand(IR_ITER parent, IR_ITER opnd) {
-  Get_node(*parent)->Opnd(0) = *opnd;
+IR_ITER TREE::Set_operand(IR_ITER parent, UINT32 pos, IR_ITER opnd) {
+  AssertThat(irtree.number_of_children(parent) >= pos, ("Not enough children in parent node"));
+  Get_node(*parent)->Opnd(pos) = *opnd;
   return irtree.append_child(parent, opnd);
 }
 
