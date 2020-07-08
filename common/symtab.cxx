@@ -175,7 +175,7 @@ void PU_INFO::Print_function_verbose(FILE *f) {
 }
 
 FILE_INFO::FILE_INFO() {
-  bzero(this, sizeof(FILE_INFO));
+  memset(this, 0,sizeof(FILE_INFO));
 }
 
 /******************************************************************************
