@@ -112,7 +112,7 @@ public:
 
   // operations
   TY() {
-    bzero(this, sizeof(TY));
+      memset(this, 0,sizeof(TY));
   };
 
   void Verify(UINT level) const {};
@@ -150,7 +150,7 @@ struct PU {
   PU_INFO_IDX pu_info_idx; // pu info idx
   // operations
   PU() {
-    bzero(this, sizeof(PU));
+      memset(this,0, sizeof(PU));
   } ;
   // void Verify() const;
   void Print (FILE *f) const {};
@@ -177,7 +177,7 @@ public:
   // operations
 
   ST() {
-    bzero(this, sizeof(ST));
+      memset(this, 0,sizeof(ST));
   }
   // void Verify(UINT level) const;
   void Print(FILE *f, BOOL verbose);
@@ -266,7 +266,7 @@ struct ARB {
 
   // operations
   ARB() {
-    bzero(this, sizeof(ARB));
+      memset(this, 0,sizeof(ARB));
   }
   void Init_const (UINT64 ubnd_val, UINT64 stride_val, UINT32 dimen, UINT32 flag) {
     flags = (ARB_FLAGS) flag;
@@ -326,7 +326,7 @@ struct PREG {
   STR_IDX name_idx;
   // operations
   PREG(void) {
-    bzero(this, sizeof(PREG));
+      memset(this, 0,sizeof(PREG));
   }
   void Print(FILE *file) {
     fprintf(file, "[PREG] [name_idx: %d]\n", name_idx);
@@ -381,7 +381,7 @@ struct INITO {
   // void Verify (UINT level) const;
   void Print  (FILE* f)    const {};
   INITO() {
-    bzero(this, sizeof(INITO));
+      memset(this, 0,sizeof(INITO));
   }
 };
 
@@ -522,7 +522,7 @@ public:
     return inito_tab;
   }
   SCOPE(ST_IDX st_idx) {
-    bzero(this, sizeof(SCOPE));
+      memset(this, 0,sizeof(SCOPE));
     this->st_idx = st_idx;
     this->Init(st_idx);
   }
@@ -546,7 +546,7 @@ struct PU_INFO {
   // SSA_TREE *ssa;
   // ̄ALIAS_INFO_TREE *alias;
   PU_INFO() : scope(0) {
-    bzero(this, sizeof(PU_INFO));
+      memset(this, 0, sizeof(PU_INFO));
   };
   void Set_proc_sym(ST_IDX proc_sym) {
     this->proc_sym = proc_sym;
