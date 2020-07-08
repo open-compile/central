@@ -26,16 +26,59 @@
  */
 void IRNODE::Print(FILE *f) {
   fprintf(f, "%s", OPCODE_name(opcode));
+  switch (opcode) {
+    case OPC_I4STID: {
+      if (this->Get_symbol_idx() != 0) {
+        fprintf(f, "  var<%s, idx = %0#x, level = %d, tabid = %d>",
+          ST_name(this->Get_symbol_idx()),
+          this->Get_symbol_idx(),
+          this->Get_symbol_idx() & 0xff,
+          this->Get_symbol_idx() >> 8);
+      } else {
+        fprintf(f, "  var<%u>", this->Get_symbol_idx());
+      }
+      break;
+    }
+    case OPC_I4CONST: {
+      fprintf(f, " const<hex = %0#x, int = %d>",
+              (INT32) this->Get_const_val(),
+              (INT32) this->Get_const_val());
+      break;
+    }
+    default: {
+      // ... nothing to do
+    }
+  }
 }
 
 const char *IRNODE::OPCODE_name(OPCODE opcode) {
   switch (opcode) {
     case OPC_I4I4ADD:
-      return "I4ADD";
-    case OPC_BLOCK:
-      return "BLOCK";
+      return "I4I4ADD";
+    case OPC_I4I4SUB:
+      return "I4I4SUB";
+    case OPC_I4I4MPY:
+      return "I4I4MPY";
+    case OPC_I4I4MOD:
+      return "I4I4MOD";
     case OPC_FUNC_ENTRY:
       return "FUNC_ENTRY";
+    case OPC_BLOCK:
+      return "BLOCK";
+    case OPC_I4STID:
+      return "I4STID";
+    case OPC_I4LDID:
+      return "I4LDID";
+    case OPC_I4I4ISTORE:
+      return "I4I4ISTORE";
+    case OPC_I4I4ILOAD:
+      return "I4I4ILOAD";
+    case OPC_IF:
+      return "IF";
+    case OPC_I4CONST:
+      return "I4CONST";
+    case OPC_I8CONST:
+      return "I8CONST";
     default: {
       return "UNKNOWN-OPCODE";
     }
@@ -102,15 +145,26 @@ IR_ITER TREE::Insert_stmt_to_block(IR_ITER block, IR_TREE_ELEM child) {
 
 IR_ITER TREE::Set_operand(IR_ITER parent, UINT32 pos, IR_ITER opnd) {
   AssertThat(irtree.number_of_children(parent) >= pos, ("Not enough children in parent node"));
+  AssertThat(parent != opnd, ("Cannot set the node to be the child of itself"));
   Get_node(*parent)->Opnd(pos) = *opnd;
-  return irtree.append_child(parent, opnd);
+  while (irtree.number_of_children(parent) < pos + 1) {
+    IR_ITER fake_addeed_opr = irtree.append_child(parent, 0);
+    Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
+      (TFile, "Adding dummy child to parent = %llu\n", *parent));
+  }
+  IR_ITER fake_child = irtree.child(parent, pos);
+  IR_ITER res = irtree.move_ontop(fake_child, opnd);
+  return res;
 }
 
 IR_ITER TREE::Set_operand(IR_ITER parent, UINT32 pos, IR_TREE_ELEM opnd) {
   Get_node(*parent)->Opnd(pos) = opnd;
-  IR_ITER child = irtree.append_child(parent, opnd);
-  irtree.replace(irtree.child(parent, pos), child);
-  return irtree.child(parent, pos);
+  while (irtree.number_of_children(parent) < pos + 1) {
+    IR_ITER fake_addeed_opr = irtree.append_child(parent, 0);
+  }
+  IR_ITER fake_child = irtree.child(parent, pos);
+  irtree.erase_children(fake_child); //remove original children
+  return irtree.replace(fake_child, opnd);
 }
 
 IR_ITER TREE::Get_operand(IR_ITER node_iter, UINT32 kid_pos) {
@@ -133,7 +187,7 @@ void TREE::Initialize() {
 }
 
 IR_ITER TREE::Set_root(IR_TREE_ELEM root_node) {
-  return irtree.insert(irtree.begin(), root_node);
+  return irtree.set_head(root_node);
 }
 
 IRNODE_IDX TREE::Create_node(OPCODE opc) {
@@ -144,6 +198,10 @@ IRNODE_IDX TREE::Create_node(OPCODE opc) {
 
 IR_ITER TREE::Add_child(IR_ITER parent, IR_TREE_ELEM child) {
   return irtree.append_child(parent, child);
+}
+
+IR_ITER TREE::Insert_temp_node(IRNODE_IDX idx) {
+  return irtree.insert(irtree.begin_breadth_first(), idx);
 };
 
 ///**

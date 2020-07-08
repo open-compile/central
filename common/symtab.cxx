@@ -135,7 +135,7 @@ const char *FILE_SYMTAB::Get_string(STR_IDX idx) {
 void FILE_SYMTAB::Print_functions(FILE *f) {
   UINT32 cursor = 0;
   UINT32 total = Pu_info()->Length();
-  for (cursor = 0; cursor < total; cursor++) {
+  for (cursor = 1; cursor < total; cursor++) {
     PU_INFO *pu_info = Pu_info()->Get(cursor);
     const char *func_name = pu_info->proc_sym > 0 ? ST_name(pu_info->proc_sym) : "(incomplete function)";
     fprintf(f, "%s+ [%-4d] Begin function %s, Tree: \n%s", DBAR, cursor, func_name, DBAR);
@@ -350,6 +350,7 @@ PU_INFO_IDX FILE_MANAGER::Create_function(ST_IDX func, TY_IDX prototype) {
   // Init tree
   pu_info->entry = new TREE();
   pu_info->entry->Initialize();
+  pu_info->scope.Init(func);
   // Initialize the scope structure, and put related info into it.
   File()->Scopes()->Goto_function(func);
   return pu_info_idx;
@@ -378,6 +379,7 @@ ST_IDX FILE_MANAGER::Create_var(STR_IDX str, TY_IDX idx, UINT8 level,
   AssertThat(level == GLOBAL_SYMTAB || level == LOCAL_SYMTAB, ("level not recognized"));
   AssertThat(level != LOCAL_SYMTAB || Scopes()->Current() != NULL, ("scope is not ready, please enter a function first"));
   ST_IDX sym = Tables()->Sym()->Add(level);
+  AssertThat(sym > 0 && (sym & 0xff) == level, ("Incorrect var symidx generated = %u", sym));
   ST *st = ST_st(sym);
   st->name_idx = str;
   st->u2.type = idx;
@@ -460,9 +462,20 @@ ARB_IDX FILE_MANAGER::Create_array_bound_var(ST_IDX ubnd_var, UINT64 stride_val,
 }
 
 ST_IDX FILE_MANAGER::Find_symbol_by_name(const char *name) {
+  // Find from locals table
+  SCOPE *current = File()->Scopes()->Current();
+  if (current != nullptr) {
+    for (UINT32 sym_num = 0; sym_num < Tables()->Sym()->Length(current); sym_num++) {
+      ST_IDX sym_idx = (sym_num << 8) | LOCAL_SYMTAB;
+      if(ST_st(sym_idx)->name_idx > 0 &&
+         strcmp(STR_str(ST_st(sym_idx)->name_idx), name) == 0) {
+        return sym_idx;
+      }
+    }
+  }
   // Find from global table
   for (UINT32 sym_num = 0; sym_num < Tables()->Sym()->Length(); sym_num++) {
-    ST_IDX sym_idx = (sym_num << 8) + 0;
+    ST_IDX sym_idx = (sym_num << 8) | GLOBAL_SYMTAB;
     if(ST_st(sym_idx)->name_idx > 0 &&
        strcmp(STR_str(ST_st(sym_idx)->name_idx), name) == 0) {
       return sym_idx;
@@ -489,7 +502,6 @@ void ST::Print_storage_class(FILE *f) {
   switch (storage_class) {
     case SYMC_AUTO:
       fprintf(f, "%s", "local");
-      Print_details(f);
       break;
     case SYMC_FILE_STATIC:
       fprintf(f, "%s", "file-static");

@@ -186,6 +186,8 @@ enum OPCODE {
   OPC_I4I4ISTORE      = OPR_ISTORE          + RTYPE(MTYPE_AA)    + DESC(MTYPE_I4),
   OPC_I4I4ILOAD       = OPR_ILOAD           + RTYPE(MTYPE_I4)    + DESC(MTYPE_AA),
   OPC_IF              = OPR_IF              + RTYPE(MTYPE_V)     + DESC(MTYPE_B),
+  OPC_I4CONST         = OPR_CONST           + RTYPE(MTYPE_I4)    + DESC(MTYPE_V),
+  OPC_I8CONST         = OPR_CONST           + RTYPE(MTYPE_I8)    + DESC(MTYPE_V),
 };
 
 enum REGION_KIND{
@@ -321,8 +323,11 @@ public:
   void Set_type_idx(TY_IDX sym) { u1u2.uu.ub.ty = sym; };
   TY_IDX Get_type_idx() { return u1u2.uu.ub.ty; };
 
+  UINT16 Get_field_id() { return common.kid_count; }
   void Set_field_id(UINT16 field_id) { common.kid_count = field_id; };
 
+  void Set_const_val(UINT64 i) { u3.const_val = i; }
+  UINT64 Get_const_val() { return u3.const_val; }
 };
 
 typedef IRNODE_IDX IR_TREE_ELEM;
@@ -359,6 +364,7 @@ public:
   IR_ITER Set_root(IR_TREE_ELEM root_pos);
   // Global
   void Initialize();
+  IR_ITER Insert_temp_node(IRNODE_IDX idx);
 };
 
 TREE *Tree();

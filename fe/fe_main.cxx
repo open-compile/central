@@ -48,7 +48,7 @@ INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_nam
     cout << "writing json to " << jsonFile << endl;
   }
 
-  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO), (TFile, "Front end finishing, dump file info\n", (File()->Print(TFile), 1)));
+  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO), (TFile, "Front end finishing, dump file info %d\n", (File()->Print(TFile), 1)));
   return 0;
 }
 
@@ -71,7 +71,7 @@ void Irgen_visit(NBlock *block) {
     } else if (name == "NVariableDeclaration") {
       // Add an assignment statement if rhs is not null
       shared_ptr<NVariableDeclaration> vardecl = reinterpret_cast<const shared_ptr<NVariableDeclaration> &>(*it);
-      IR_ITER var_decl_iter = visitVarDecl(NULL, NULL, 0, vardecl);
+      IR_ITER var_decl_iter = visitVarDecl(NULL, NULL, 1, vardecl);
     } else if (name == "NFunctionDeclaration") {
       visitFunction(reinterpret_cast<const shared_ptr<NFunctionDeclaration> &>(*it));
     } else {
@@ -97,7 +97,7 @@ void visitFunction(const shared_ptr<NFunctionDeclaration> &func) {
   TREE *tree = PU_INFO_pu_info(pu_info)->entry;
   IR_ITER root_entry = tree->Get_root();
   IR_ITER block_iter = tree->Get_operand(root_entry, TREE_SEQ_BODY);
-  visitBlock(tree, block_iter, 1, func->block);
+  visitBlock(tree, block_iter, 2, func->block);
   File()->Finish_creating_function(func_sym);
 }
 
@@ -116,6 +116,9 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
   if (stmt->getTypeName() == "NVariableDeclaration") {
     visitVarDecl(tree, parent, level,
                  reinterpret_cast<const shared_ptr<NVariableDeclaration> &> (stmt));
+  } else if (stmt->getTypeName() == "NExpressionStatement") {
+    shared_ptr<NExpressionStatement> expr = reinterpret_cast<const shared_ptr<NExpressionStatement> &> (stmt);
+    visitStatement(tree, parent, level, reinterpret_cast<shared_ptr<NStatement> &>(expr->expression));
   } else if (stmt->getTypeName() == "NAssignment") {
     visitAssignmentStmt(tree, parent, level,
                         reinterpret_cast<const shared_ptr<NAssignment> &> (stmt));
@@ -132,7 +135,9 @@ IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
 
   ST_IDX sym_idx = File()->Find_symbol_by_name(varname->name.c_str());
   TY_IDX var_type = ST_ty(sym_idx);
-  AssertThat(var_type == MTYPE_to_ty(MTYPE_I4), ("Unknown type for stid = %d", sym_idx));
+  AssertThat(var_type == MTYPE_to_ty(MTYPE_I4),
+             ("Previous defined symbol (%d) has a strange type = %d",
+               sym_idx, ST_ty(sym_idx)));
   IR_ITER stid_stmt;
 
   // Determine whether LHS is a array ref or direct var
@@ -150,12 +155,25 @@ IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
     stid_stmt = tree->Insert_stmt_to_block(parent, assignment_node);
   }
   IR_ITER rhs_expr = visitExpression(tree, stid_stmt, level, rhs);
+  AssertThat(rhs_expr != parent && rhs_expr != stid_stmt && rhs_expr != nullptr, ("Invalid expr conversion result"));
   tree->Set_operand(stid_stmt, 0, rhs_expr);
   return parent;
 }
 
 IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
                         shared_ptr<NExpression> expr) {
+  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
+           (TFile, "Visit Expression : %s \n", expr->getTypeName().c_str()));
+  if (expr->getTypeName() == "NBinaryOperator") {
+    AssertThat(false, ("binary operator not implemented."));
+  } else if (expr->getTypeName() == "NDouble") {
+    AssertThat(false, ("double not implemented."));
+  } else if (expr->getTypeName() == "NInteger") {
+    auto val = reinterpret_cast<shared_ptr<NInteger> &>(expr);
+    IRNODE_IDX int_const_node = tree->Create_node(OPC_I4CONST);
+    tree->Get_node(int_const_node)->Set_const_val(val->value);
+    return tree->Insert_temp_node(int_const_node);
+  }
   return parent;
 }
 
@@ -172,16 +190,16 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
   if (sym_idx != 0) {
     // Variable redeclare
     Is_Trace(Tracing(COMPONENT_FE, TRACE_WARN),
-             (TFile, "Variable redeclare: %s", varname->name.c_str()));
+             (TFile, "Variable redeclare: %s\n", varname->name.c_str()));
     return block_iter;
   }
   STR_IDX var_name_saved = File()->Save_string(varname->name.c_str());
-  if (level == 0) {
+  if (level <= 1) {
     sym_idx = File()->Create_var(var_name_saved, i4_idx, 1, SYMC_FILE_STATIC,
                                         SYME_INTERNAL, SYM_CLASS_VAR);
     // Do we need to store this some where?
   } else {
-    AssertThat(level == 1, ("Invalid level = %d", level));
+    AssertThat(level == 2, ("Invalid level = %d", level));
     AssertThat(tree != NULL && block_iter != NULL, ("Null visit context in visitVarDecl"));
     sym_idx = File()->Create_var(var_name_saved, i4_idx, level, SYMC_AUTO,
                                         SYME_INTERNAL, SYM_CLASS_VAR);

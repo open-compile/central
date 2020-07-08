@@ -282,8 +282,9 @@ struct ARB {
     u2.var.ubnd_var = ubnd_var;
     u3.stride_val = stride_val;
   }
-    // void Verify(UINT16 dim) const;
-   void Print(FILE *f) const {};
+
+  // void Verify(UINT16 dim) const;
+  void Print(FILE *f) const {};
 
 }; // ARB
 
@@ -312,7 +313,9 @@ struct LABEL {
 
   // operations
   LABEL() {
-      AssertThat(FALSE, ("LABEL default constructor must not be called."));
+    // AssertThat(FALSE, ("LABEL default constructor must not be called."));
+    name_idx = 0;
+    kind = LKIND_DEFAULT;
   }
 
   LABEL(STR_IDX idx, LABEL_KIND k) : name_idx(idx), kind(k) {}
@@ -326,7 +329,7 @@ struct PREG {
   STR_IDX name_idx;
   // operations
   PREG(void) {
-      memset(this, 0,sizeof(PREG));
+    memset(this, 0,sizeof(PREG));
   }
   void Print(FILE *file) {
     fprintf(file, "[PREG] [name_idx: %d]\n", name_idx);
@@ -501,9 +504,13 @@ public:
   void Init(ST_IDX sym) {
     this->st_idx = sym;
     this->st_tab = new GROWING_TABLE<ST_IDX, ST>;
+    this->st_tab->Add();
     this->label_tab = new GROWING_TABLE<LABEL_IDX, LABEL>;
+    this->label_tab->Add();
     this->preg_tab = new GROWING_TABLE<PREG_IDX, PREG>;
+    this->preg_tab->Add();
     this->inito_tab = new GROWING_TABLE<INITO_IDX, INITO>;
+    this->inito_tab->Add();
   }
 
   ST_IDX getSt() const {

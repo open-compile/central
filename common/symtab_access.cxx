@@ -109,13 +109,13 @@ T *GLOBAL_SYMTAB_ACCESS<IDX, T>::Get(IDX idx) {
 template<typename IDX, class T, TABLE_KIND KIND>
 IDX RELATED_SYMTAB_ACCESS<IDX, T, KIND>::Add(UINT8 level) {
   if (level <= GLOBAL_SYMTAB) {
-    return tab.Add() << 8;
+    return ((tab.Add() << 8) | GLOBAL_SYMTAB);
   } else {
     AssertThat(level == LOCAL_SYMTAB,
                ("Currently, we'd only support LOCAL_SYMTAB and GLOBAL_SYMTAB,"
                 " level given = %d", level));
     IDX base = Scoped_table()->Add();
-    return level & (base << 8);
+    return level | (base << 8);
   }
 }
 
@@ -146,9 +146,9 @@ template<typename IDX, class T, TABLE_KIND KIND>
 void RELATED_SYMTAB_ACCESS<IDX, T, KIND>::Print(FILE *file, SCOPE *scope) {
   // Printing the scope-related part
   UINT32 cursor = 0;
-  UINT32 total = Scoped_table(scope)->Length();
+  UINT32 total = Length(scope);
   for (cursor = 0; cursor < total; cursor++) {
-    T *item = (T*) tab[cursor];
+    T *item = (T*) Scoped_table(scope)->Get(cursor);
     fprintf(file, "[%5d][%0#x] ", cursor, cursor);
     item->Print(file);
   }
