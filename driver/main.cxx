@@ -11,7 +11,10 @@
 #include <string>
 #include <string.h>
 #include <ir.h>
+
+#ifdef SUBPROCESS_ENABLED
 #include "subprocess.h" // Unlicense
+#endif
 
 /**
  * Parsing the user input command line options
@@ -233,6 +236,7 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
     }
     case COMPONENT_ASM: {
       // "[A.s] -o [A.o]"
+#ifdef SUBPROCESS_ENABLED
       for (INT32 file_id = 0; file_id < config.files.size(); file_id++) {
         operands[0] = "arm-linux-gnueabihf-as";
         operands[1] = (config.files[file_id] + ASSEMBLY_EXT_SUFFIX).c_str();
@@ -255,7 +259,9 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
           Comp_Failure("Error occured in running assembler, ret = %d\n", result);
         }
       }
+#else
       std::cout << "Skipped" << std::endl;
+#endif
     }
     default:
       break;
