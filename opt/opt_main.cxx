@@ -193,7 +193,7 @@ void Emit_tree(PU_INFO *func, TREE *tree, FILE *out, FILE_MANAGER *file) {
   IR_ITER body = tree->Get_operand(it, TREE_SEQ_BODY);
   IRTREE &irtree = tree->Internal_tree();
   UINT32 stmt_count = tree->Number_of_children(body);
-  map<UINT32, ST_IDX> temp_labels;
+  map<ST_IDX, UINT32> temp_labels;
   // Generate all statements in the function-level body block
   for (UINT32 i = 0; i < stmt_count; i++) {
     IR_ITER one_stmt = tree->Get_operand(body, i);
@@ -203,9 +203,20 @@ void Emit_tree(PU_INFO *func, TREE *tree, FILE *out, FILE_MANAGER *file) {
       case OPC_I4STID: {
         // generate memory access
         IR_ITER expr = tree->Get_operand(one_stmt, 0);
-        AssertThat(tree->Get_node(*expr)->Opcode() == OPC_I4CONST, ("Not implemented expr to generate assembly for"));
-        fprintf(out, "# [IRNODE:%llu] I4STID \n", one_stmt_id);
-        fprintf(out, "\tldr %s, %s\n", "r2", ST_name(node->Get_symbol_idx()));
+        AssertThat(tree->Get_node(*expr)->Opcode() == OPC_I4CONST,
+                   ("Not implemented expr to generate assembly for"));
+        if (temp_labels.find(node->Get_symbol_idx()) == temp_labels.end()) {
+          temp_labels.insert(
+            std::make_pair(node->Get_symbol_idx(), temp_labels.size()));
+        }
+        AssertThat(temp_labels.find(node->Get_symbol_idx()) !=
+                   temp_labels.end(), ("Cannot locate correct entry in map"));
+        UINT32 temp_label_id = temp_labels.find(node->Get_symbol_idx())->second;
+        fprintf(out, "# [IRNODE:%llu] I4STID, sym = %s, stidx = %0#x, "
+                     "temp_label_id = %u  \n",
+                     one_stmt_id, ST_name(node->Get_symbol_idx()),
+                     node->Get_symbol_idx(), temp_label_id);
+        fprintf(out, "\tldr %s, .TL%s_%u\n", "r2", ST_name(func->proc_sym), temp_label_id);
         fprintf(out, "\tmov %s, #%d\n", "r3", (INT32) tree->Get_node(*expr)->Get_const_val());
         fprintf(out, "\tstr %s, [%s]\n", "r3", "r2");
         break;
@@ -221,10 +232,17 @@ void Emit_tree(PU_INFO *func, TREE *tree, FILE *out, FILE_MANAGER *file) {
       }
     }
   }
+  fprintf(out, ".%s_end:\n", ST_name(func->proc_sym));
   // Finishing function
   fprintf(out, "\tadd\tsp, fp, #0\n");
   fprintf(out, "\tldr\tfp, [sp], #4\n");
   fprintf(out, "\tbx\tlr\n");
+
+  // Dumping temp labels
+  fprintf(out, "# Dumping temp labels : total = %lu \n", temp_labels.size());
+  for (auto local_temp_it : temp_labels) {
+    fprintf(out, ".TL%s_%u:\t.word %s\n", ST_name(func->proc_sym), local_temp_it.second, ST_name(local_temp_it.first));
+  }
 }
 
 INT32 Emit_section_data(FILE *out, FILE_MANAGER *manager) {
@@ -236,9 +254,7 @@ INT32 Emit_section_data(FILE *out, FILE_MANAGER *manager) {
     if (ST_st(new_idx) != NULL && ST_st(new_idx)->sym_class == SYM_CLASS_VAR) {
       Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# # Variable ST_IDX = %d, name = %s \n",  new_idx, ST_name(new_idx)));
       fprintf(out, "%s: \n", ST_name(new_idx));
-      for (INT32 curs = 0; curs < TY_size(ST_ty(new_idx)); curs ++) {
-        fprintf(out, ".byte 0x0\n");
-      }
+      fprintf(out, ".word 0\n");
     }
   }
   return 0;
