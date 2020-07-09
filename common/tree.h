@@ -188,6 +188,7 @@ enum OPCODE {
   OPC_IF              = OPR_IF              + RTYPE(MTYPE_V)     + DESC(MTYPE_B),
   OPC_I4CONST         = OPR_CONST           + RTYPE(MTYPE_I4)    + DESC(MTYPE_V),
   OPC_I8CONST         = OPR_CONST           + RTYPE(MTYPE_I8)    + DESC(MTYPE_V),
+  OPC_LABEL           = OPR_LABEL           + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
 };
 
 enum REGION_KIND{
@@ -365,6 +366,11 @@ public:
   // Global
   void Initialize();
   IR_ITER Insert_temp_node(IRNODE_IDX idx);
+  IR_ITER End();
+  IRTREE &Internal_tree();
+  UINT32 Number_of_children(IR_ITER node);
+  UINT32 Number_of_siblings(IR_ITER node);
+  UINT32 Index(IR_ITER node);
 };
 
 TREE *Tree();

@@ -183,7 +183,7 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
            (TFile, "Visit Var Decl\n"));
   std::shared_ptr<NIdentifier> varname = vardecl->id;
   std::shared_ptr<NIdentifier> vartype = vardecl->type;
-  std::shared_ptr<NExpression> assignment = vardecl->assignmentExpr;
+  std::shared_ptr<NExpression> rhs = vardecl->assignmentExpr;
   TY_IDX i4_idx = MTYPE_to_ty(MTYPE_I4);
   ST_IDX sym_idx = File()->Find_symbol_by_name(varname->name.c_str());
   // Check if symbol exists, if so, use the previous one.
@@ -204,12 +204,15 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
     sym_idx = File()->Create_var(var_name_saved, i4_idx, level, SYMC_AUTO,
                                         SYME_INTERNAL, SYM_CLASS_VAR);
     // Parsing the vartype and save to ST table
-    if (assignment != nullptr) {
+    if (rhs != nullptr) {
       // assignment is present
       IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
       tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
       tree->Get_node(assignment_node)->Set_load_offset(0);
-      return tree->Insert_stmt_to_block(block_iter, assignment_node);
+      IR_ITER stid_stmt = tree->Insert_stmt_to_block(block_iter, assignment_node);
+      IR_ITER rhs_expr = visitExpression(tree, stid_stmt, level, rhs);
+      AssertThat(rhs_expr != block_iter && rhs_expr != stid_stmt && rhs_expr != nullptr, ("Invalid expr conversion result"));
+      tree->Set_operand(stid_stmt, 0, rhs_expr);
     }
   }
   return block_iter;

@@ -168,13 +168,22 @@ IR_ITER TREE::Set_operand(IR_ITER parent, UINT32 pos, IR_TREE_ELEM opnd) {
 }
 
 IR_ITER TREE::Get_operand(IR_ITER node_iter, UINT32 kid_pos) {
-  AssertThat(node_iter.number_of_children() > kid_pos, ("Insufficient number of kid for node = %d", *node_iter))
+  if (node_iter.number_of_children() <= kid_pos) {
+    fprintf(stderr, "Problematic node: ");
+    Get_node(*node_iter)->Print(stderr);
+    fprintf(stderr, "\n");
+    this->Print_recursive(stderr);
+  }
+  AssertThat(node_iter.number_of_children() > kid_pos,
+             ("Insufficient number of kid for node = %d, kid_count = %d, desired pos = %u",
+               *node_iter, node_iter.number_of_children(), kid_pos))
   return irtree.child(node_iter, kid_pos);
 }
 
 // Do nothing
 void TREE::Initialize() {
-  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO), (TFile, "Creating a TREE.Initialize() ... \n"));
+  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
+           (TFile, "Creating a TREE.Initialize() ... \n"));
   IRNODE_IDX func_entry = Create_node(OPC_FUNC_ENTRY);
   IRNODE_IDX pragmas = Create_node(OPC_BLOCK);
   IRNODE_IDX body = Create_node(OPC_BLOCK);
@@ -202,6 +211,26 @@ IR_ITER TREE::Add_child(IR_ITER parent, IR_TREE_ELEM child) {
 
 IR_ITER TREE::Insert_temp_node(IRNODE_IDX idx) {
   return irtree.insert(irtree.begin_breadth_first(), idx);
+}
+
+IR_ITER TREE::End() {
+  return irtree.end();
+}
+
+IRTREE &TREE::Internal_tree() {
+  return irtree;
+}
+
+UINT32 TREE::Number_of_children(IR_ITER node) {
+  return irtree.number_of_children(node);
+};
+
+UINT32 TREE::Index(IR_ITER node) {
+  return irtree.index(node);
+};
+
+UINT32 TREE::Number_of_siblings(IR_ITER node) {
+  return irtree.number_of_siblings(node);
 };
 
 ///**

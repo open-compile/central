@@ -4,8 +4,14 @@
 #include "be_export.h"
 #include "file_util.h"
 #include <fstream>
+#include <ir.h>
 #include "symtab.h"
 #include "opt_main.h"
+#include <vector>
+#include <map>
+
+using std::vector;
+using std::map;
 
 INT32 BE_MAIN_NAME(INT32 argc, char **argv) {
   AssertThat(argc > 1, ("not enough arguments"));
@@ -14,6 +20,32 @@ INT32 BE_MAIN_NAME(INT32 argc, char **argv) {
 
 INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
   AssertThat(conf.opt_level >= 0, ("not enough compile level"));
+  // Verifying the results from front end.
+
+  Opt_verify(File(), LEVEL_VHIGH, conf);
+  // Lowering functions in side the current file
+
+  Opt_lower(File(), LEVEL_HIGH, conf);
+  Opt_verify(File(), LEVEL_HIGH, conf);
+  // Optimizations on High IR
+
+  Opt_lower(File(), LEVEL_MID, conf);
+  Opt_verify(File(), LEVEL_HIGH, conf);
+  // Optimizations on Mid IR, SSA, DCE, CSE ...
+
+  Opt_lower(File(), LEVEL_LOW, conf);
+  Opt_verify(File(), LEVEL_LOW, conf);
+  // Optimizations done in low IR, not much though
+
+  Opt_lower(File(), LEVEL_VLOW, conf);
+  Opt_verify(File(), LEVEL_VLOW, conf);
+
+  // To CGIR
+  Opt_lower(File(), LEVEL_CGIR, conf);
+  Opt_verify(File(), LEVEL_CGIR, conf);
+
+  // Local and Global register allocation
+  // Instruction scheduling etc.,
   Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
            (TFile, "Writing assembly to %s\n", conf.output_file.c_str()));
   AssertThat(conf.output_file.size() > 0, ("Incorrect output file name"));
@@ -32,11 +64,167 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
                  conf.output_file.c_str());
   }
   Emit_section_data(output_assembly_file, File());
+  Emit_section_code(output_assembly_file, File());
   if (fclose(output_assembly_file) != 0) {
     Comp_Failure("Cannot close output file to write = %s",
                  conf.output_file.c_str());
   }
   return 0;
+}
+
+void Opt_verify(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &conf) {
+  // Check over all IR constructs
+  // TODO: Check Symtab
+  // Check over all pu_info functions
+  for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
+    // Iterate over each pu_info (functions), dump each of the function
+    PU_INFO *pu_info = file->Tables()->Pu_info()->Get(it);
+    if (pu_info->proc_sym != 0) {
+      // Valid pu_info.
+      Opt_verify_function(pu_info, file, level, conf);
+    } else {
+      AssertThat(false, ("Incomoplete pu_infoo for PU_INFO_IDX = %u, or %0#x", it, it));
+    }
+  }
+}
+
+void Opt_verify_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
+                         COMPILER_CONFIG &conf) {
+  TREE *tree = func->entry;
+  AssertThat(tree != nullptr, ("Tree should not be empty"));
+  IR_ITER root = tree->Get_root();
+  AssertThat(root != nullptr, ("root should not be empty"));
+  AssertThat(tree->Number_of_children(root) == 2, ("there should be exactly 2 nodes in the func_entry"));
+  IR_ITER body = tree->Get_operand(root, TREE_SEQ_BODY);
+  if (tree->Number_of_children(body) <= 0) {
+    Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
+             (TFile, "There is no statement in the body, skip verification\n"));
+    return;
+  }
+  // Verifying each statement
+  for (UINT32 stmt_idx = 0; stmt_idx < tree->Number_of_children(body); stmt_idx++) {
+    IR_ITER stmt = tree->Get_operand(body, stmt_idx);
+    AssertThat(*stmt != 0, ("Incorrect child, node 0 should not be a statement, 0 is only allowed in root position"));
+    switch (tree->Get_node(*stmt)->Opcode()) {
+      // What kind of opcode is allowed here.
+      case OPC_I4STID: {
+        AssertThat(level <= LEVEL_CGIR, ("STID should not be present in level %d", level));
+        AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in STID, 1 expected, got %d", tree->Number_of_children(stmt)));
+        IR_ITER expr_val = tree->Get_operand(stmt, 0);
+        AssertThat(tree->Get_node(*expr_val)->Opcode() == OPC_I4CONST, ("Only i4-const allowed as STID operand"));
+        break;
+      }
+      default: {
+        AssertThat(false, ("Opcode: %s should not be in the body", tree->Get_node(*stmt)->OPCODE_name(tree->Get_node(*stmt)->Opcode())));
+      }
+    }
+  }
+}
+
+void Opt_lower(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &config) {
+  // Lower IR constructs
+  for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
+    // Iterate over each pu_info (functions), dump each of the function
+    PU_INFO *pu_info = file->Tables()->Pu_info()->Get(it);
+    if (pu_info->proc_sym != 0) {
+      Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
+               (TFile, "Lowering function for pu_info_id = %u\n", it));
+      Opr_lower_function(pu_info, file, level, config);
+    } else {
+      AssertThat(false, ("Incomoplete pu_infoo for PU_INFO_IDX = %u, or %0#x", it, it));
+    }
+  }
+}
+
+void Opr_lower_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
+                        COMPILER_CONFIG &conf) {
+  // Lower each node in the tree
+  TREE *tree = func->entry;
+  IR_ITER body = tree->Get_operand(tree->Get_root(), TREE_SEQ_BODY);
+  if (tree->Number_of_children(body) <= 0) {
+    Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
+             (TFile, "There is no statement in the body, skip lowering\n"));
+    return;
+  }
+  // Lowering nodes in the ir tree
+  for (UINT32 stmt_idx = 0; stmt_idx < tree->Number_of_children(body); stmt_idx++) {
+    IR_ITER stmt = tree->Get_operand(body, stmt_idx);
+  }
+}
+
+void Emit_section_code(FILE *out, FILE_MANAGER *file) {
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (TFile, "%sEmitting section: code\n%s", DBAR, DBAR));
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Debugging info enabled, writing file-level code section\n"));
+  fprintf(out, ".text\n\n");
+  for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
+    // Iterate over each pu_info (functions), dump each of the function
+    PU_INFO *pu_info = file->Tables()->Pu_info()->Get(it);
+    if (pu_info->proc_sym != 0) {
+      // Valid pu_info.
+      Emit_function(pu_info, out, file);
+    } else {
+      Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Skip PU_INFO for id = %d, due to unknown proc_symid = %d \n", it, pu_info->proc_sym));
+    }
+  }
+}
+
+void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Emitting function ST_IDX = %d, name = %s \n",  func->proc_sym, ST_name(func->proc_sym)));
+  file->Scopes()->Goto_function(func->proc_sym);
+  // Inside the function now, emitting all symtab info
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Function has %d non-trivial symbols\n", file->Tables()->Sym()->Length(&(func->scope)) - 1));
+  for (UINT32 i = 1; i < file->Tables()->Sym()->Length(&(func->scope)); i++) {
+    ST_IDX one = (i << 8) | LOCAL_SYMTAB;
+    fprintf(out, "# Id: %0#x, Symbol : %s, Type: %d \n", one, ST_name(one), ST_ty(one));
+  }
+  // Dump the instructions
+  const char *func_name = ST_name(func->proc_sym);
+  fprintf(out, ".global %s\n", func_name);
+  fprintf(out, "%s: \n", func_name);
+  Emit_tree(func, func->entry, out, file);
+}
+
+void Emit_tree(PU_INFO *func, TREE *tree, FILE *out, FILE_MANAGER *file) {
+  IR_ITER it = tree->Get_root();
+  fprintf(out, "\tstr\tfp, [sp, #-4]!\n");
+  fprintf(out, "\tadd\tfp, sp, #0\n");
+  AssertThat(tree->Get_node(*it)->Opcode() == OPC_FUNC_ENTRY, ("Incorrect root opcode"));
+  // Get the function body.
+  IR_ITER body = tree->Get_operand(it, TREE_SEQ_BODY);
+  IRTREE &irtree = tree->Internal_tree();
+  UINT32 stmt_count = tree->Number_of_children(body);
+  map<UINT32, ST_IDX> temp_labels;
+  // Generate all statements in the function-level body block
+  for (UINT32 i = 0; i < stmt_count; i++) {
+    IR_ITER one_stmt = tree->Get_operand(body, i);
+    IRNODE_IDX one_stmt_id = *one_stmt;
+    IRNODE *node = tree->Get_node(one_stmt_id);
+    switch (node->Opcode()) {
+      case OPC_I4STID: {
+        // generate memory access
+        IR_ITER expr = tree->Get_operand(one_stmt, 0);
+        AssertThat(tree->Get_node(*expr)->Opcode() == OPC_I4CONST, ("Not implemented expr to generate assembly for"));
+        fprintf(out, "# [IRNODE:%llu] I4STID \n", one_stmt_id);
+        fprintf(out, "\tldr %s, %s\n", "r2", ST_name(node->Get_symbol_idx()));
+        fprintf(out, "\tmov %s, #%d\n", "r3", (INT32) tree->Get_node(*expr)->Get_const_val());
+        fprintf(out, "\tstr %s, [%s]\n", "r3", "r2");
+        break;
+      }
+      case OPC_LABEL: {
+        // generate memory access
+        fprintf(out, "# [IRNODE:%llu] LABEL\n", one_stmt_id);
+        fprintf(out, "%s%llu:\n", "label_", one_stmt_id);
+        break;
+      }
+      default: {
+        fprintf(out, "# [IRNODE:%llu] Skip stmt with opcode = %s\n", one_stmt_id, node->OPCODE_name(node->Opcode()));
+      }
+    }
+  }
+  // Finishing function
+  fprintf(out, "\tadd\tsp, fp, #0\n");
+  fprintf(out, "\tldr\tfp, [sp], #4\n");
+  fprintf(out, "\tbx\tlr\n");
 }
 
 INT32 Emit_section_data(FILE *out, FILE_MANAGER *manager) {
@@ -53,9 +241,5 @@ INT32 Emit_section_data(FILE *out, FILE_MANAGER *manager) {
       }
     }
   }
-  return 0;
-}
-
-INT32 Emit_function() {
   return 0;
 }
