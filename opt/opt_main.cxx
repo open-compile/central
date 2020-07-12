@@ -105,13 +105,14 @@ void Opt_verify_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
   for (UINT32 stmt_idx = 0; stmt_idx < tree->Number_of_children(body); stmt_idx++) {
     IR_ITER stmt = tree->Get_operand(body, stmt_idx);
     AssertThat(*stmt != 0, ("Incorrect child, node 0 should not be a statement, 0 is only allowed in root position"));
-    switch (tree->Get_node(*stmt)->Opcode()) {
+    switch (OPCODE_operator(tree->Get_node(*stmt)->Opcode())) {
       // What kind of opcode is allowed here.
-      case OPC_I4STID: {
+      case OPR_STID: {
         AssertThat(level <= LEVEL_CGIR, ("STID should not be present in level %d", level));
         AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in STID, 1 expected, got %d", tree->Number_of_children(stmt)));
         IR_ITER expr_val = tree->Get_operand(stmt, 0);
-        AssertThat(tree->Get_node(*expr_val)->Opcode() == OPC_I4CONST, ("Only i4-const allowed as STID operand"));
+        MTYPE_ID stid_type = OPCODE_desc(tree->Get_node(*stmt)->Opcode());
+        AssertThat(OPCODE_rtype(tree->Get_node(*expr_val)->Opcode()) == stid_type, ("The stid's operand should have same type"));
         break;
       }
       default: {

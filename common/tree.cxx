@@ -26,8 +26,9 @@
  */
 void IRNODE::Print(FILE *f) {
   fprintf(f, "%s", OPCODE_name(opcode));
-  switch (opcode) {
-    case OPC_I4STID: {
+  switch (OPCODE_operator(opcode)) {
+    case OPR_STID:
+    case OPR_LDID: {
       if (this->Get_symbol_idx() != 0) {
         fprintf(f, "  var<%s, idx = %0#x, level = %d, tabid = %d>",
           ST_name(this->Get_symbol_idx()),
@@ -39,7 +40,7 @@ void IRNODE::Print(FILE *f) {
       }
       break;
     }
-    case OPC_I4CONST: {
+    case OPR_CONST: {
       fprintf(f, " const<hex = %0#x, int = %d>",
               (INT32) this->Get_const_val(),
               (INT32) this->Get_const_val());
@@ -241,3 +242,25 @@ UINT32 TREE::Number_of_siblings(IR_ITER node) {
 //IRNODE &TNode(IR_TREE_ELEM elem) {
 //  return *(Tree()->Get_node(elem));
 //}
+
+// get the return type part from the opcode.
+MTYPE_ID OPCODE_rtype(OPCODE opc) {
+  UINT8 type = ((UINT32) opc >> 8) & 0x3f;
+  AssertThat(type != MTYPE_UNKNOWN, ("cannot get mtype from opcode = 0x%0x", opc));
+  return (MTYPE_ID) type;
+}
+
+// get the descriptor type part from the opcode.
+MTYPE_ID OPCODE_desc(OPCODE opc) {
+  UINT8 type = ((UINT32) opc >> 14) & 0x3f;
+  AssertThat(type != MTYPE_UNKNOWN, ("cannot get mtype from opcode = 0x%0x", opc));
+  return (MTYPE_ID) type;
+}
+
+
+// get the descriptor type part from the opcode.
+OPERATOR OPCODE_operator(OPCODE opc) {
+  UINT8 opr = (UINT32) opc & 0xff;
+  AssertThat(opr != OPERATOR_UNKNOTREE, ("cannot get opr from opcode = 0x%0x", opc));
+  return (OPERATOR) opr;
+}

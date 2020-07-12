@@ -375,6 +375,9 @@ public:
 
 TREE *Tree();
 void Set_current_tree(TREE *current);
+MTYPE_ID OPCODE_rtype(OPCODE opc); // get the return type part from the opcode.
+MTYPE_ID OPCODE_desc(OPCODE opc); // get the descriptor type part from the opcode.
+OPERATOR OPCODE_operator(OPCODE opc); // get operator(non-typed) from opcode(typed)
 
 /**
  * Utility function to get a IRNODE&

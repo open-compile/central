@@ -10,11 +10,10 @@
 #include "ir.h"
 #include "fe_main.h"
 
-IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
-                            const shared_ptr<NAssignment> &stmt);
-
-IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
-                        shared_ptr<NExpression> expr);
+BIN_OP_TO_OPR FEOPCODE_INFO[2] = {
+  { "+", TPLUS, OPR_ADD },
+  { "*", TMUL,  OPR_MPY },
+};
 
 INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_name) {
   extern FILE *yyin;
@@ -165,7 +164,18 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
   Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
            (TFile, "Visit Expression : %s \n", expr->getTypeName().c_str()));
   if (expr->getTypeName() == "NBinaryOperator") {
-    AssertThat(false, ("binary operator not implemented."));
+    shared_ptr<NBinaryOperator> bin_op = reinterpret_cast<const shared_ptr<NBinaryOperator> &>(expr);
+    OPERATOR opr = Get_op_by_token((FEOPCODE) bin_op->op);
+    AssertThat(opr != OPERATOR_UNKNOTREE && opr >= OPERATOR_FIRST, ("Operator not implementeed"));
+    OPCODE opc = (OPCODE) (opr + RTYPE(MTYPE_I4) + DESC(MTYPE_I4));
+    IRNODE_IDX opr_node = tree->Create_node(opc);
+    IR_ITER cur_node = tree->Insert_temp_node(opr_node);
+    tree->Print_recursive(stdout);
+    IR_ITER lhs = visitExpression(tree, cur_node, level, bin_op->lhs);
+    IR_ITER rhs = visitExpression(tree, cur_node, level, bin_op->rhs);
+    tree->Set_operand(cur_node, 0, lhs); // lhs should be on the 0 operand.
+    tree->Set_operand(cur_node, 1, rhs); // rhs should be on the 1 operand.
+    return cur_node;
   } else if (expr->getTypeName() == "NDouble") {
     AssertThat(false, ("double not implemented."));
   } else if (expr->getTypeName() == "NInteger") {
@@ -173,8 +183,36 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     IRNODE_IDX int_const_node = tree->Create_node(OPC_I4CONST);
     tree->Get_node(int_const_node)->Set_const_val(val->value);
     return tree->Insert_temp_node(int_const_node);
+  } else if (expr->getTypeName() == "NIdentifier") {
+    // use of variable.
+    auto val = reinterpret_cast<shared_ptr<NIdentifier> &>(expr);
+    AssertThat(!val->isArray, ("Array access not implemented."));
+    IRNODE_IDX ldid_node = tree->Create_node(OPC_I4LDID);
+    // Find symbol idx.
+    ST_IDX sym = File()->Find_symbol_by_name(val->name.c_str());
+    if (sym == 0) {
+      Comp_Failure("Use of undeclared symbol : %s ", val->name.c_str());
+    }
+    tree->Get_node(ldid_node)->Set_symbol_idx(sym);
+    IR_ITER cur_node = tree->Insert_temp_node(ldid_node);
+    return cur_node;
+  } else {
+    AssertThat(false,
+               ("Expression type not implemented : %s",
+                expr->getTypeName().c_str()));
   }
   return parent;
+}
+
+OPERATOR Get_op_by_token(FEOPCODE op) {
+  UINT32 total = sizeof(FEOPCODE_INFO) / sizeof(BIN_OP_TO_OPR);
+  for (UINT32 i = 0; i < total; i++) {
+    if (op == FEOPCODE_INFO[i]._fe_opcode) {
+      return FEOPCODE_INFO[i]._irnode_opcode;
+    }
+  }
+  AssertThat(false, ("Operator not implemented."));
+  return OPERATOR_UNKNOTREE;
 }
 
 IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
