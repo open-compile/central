@@ -10,9 +10,11 @@
 #include "ir.h"
 #include "fe_main.h"
 
-BIN_OP_TO_OPR FEOPCODE_INFO[2] = {
-  { "+", TPLUS, OPR_ADD },
-  { "*", TMUL,  OPR_MPY },
+BIN_OP_TO_OPR FEOPCODE_INFO[4] = {
+  { "+", TPLUS,  OPR_ADD },
+  { "*", TMUL,   OPR_MPY },
+  { "-", TMINUS, OPR_SUB },
+  { "/", TDIV,   OPR_DIV },
 };
 
 INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_name) {
@@ -213,7 +215,7 @@ OPERATOR Get_op_by_token(FEOPCODE op) {
       return FEOPCODE_INFO[i]._irnode_opcode;
     }
   }
-  AssertThat(false, ("Operator not implemented."));
+  AssertThat(false, ("Operator %d not implemented.", op));
   return OPERATOR_UNKNOTREE;
 }
 
