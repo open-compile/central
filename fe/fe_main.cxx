@@ -173,7 +173,6 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     OPCODE opc = (OPCODE) (opr + RTYPE(MTYPE_I4) + DESC(MTYPE_I4));
     IRNODE_IDX opr_node = tree->Create_node(opc);
     IR_ITER cur_node = tree->Insert_temp_node(opr_node);
-    tree->Print_recursive(stdout);
     IR_ITER lhs = visitExpression(tree, cur_node, level, bin_op->lhs);
     IR_ITER rhs = visitExpression(tree, cur_node, level, bin_op->rhs);
     tree->Set_operand(cur_node, 0, lhs); // lhs should be on the 0 operand.
