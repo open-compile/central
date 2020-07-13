@@ -132,6 +132,9 @@ IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
   std::shared_ptr<NIdentifier> varname = stmt->lhs;
   shared_ptr<NExpression> rhs = stmt->rhs;
 
+  AssertThat(varname != nullptr, ("Var name should not be null"));
+  AssertThat(rhs != nullptr, ("Rhs should not be null"));
+
   ST_IDX sym_idx = File()->Find_symbol_by_name(varname->name.c_str());
   TY_IDX var_type = ST_ty(sym_idx);
   AssertThat(var_type == MTYPE_to_ty(MTYPE_I4),
