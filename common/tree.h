@@ -189,6 +189,7 @@ enum OPCODE {
   OPC_I4CONST         = OPR_CONST           + RTYPE(MTYPE_I4)    + DESC(MTYPE_V),
   OPC_I8CONST         = OPR_CONST           + RTYPE(MTYPE_I8)    + DESC(MTYPE_V),
   OPC_LABEL           = OPR_LABEL           + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
+  OPC_WHILE_DO        = OPR_WHILE_DO        + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
 };
 
 enum REGION_KIND{
