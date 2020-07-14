@@ -81,10 +81,6 @@ void Irgen_visit(NBlock *block) {
   }
 }
 
-/**
- * 测试
- * @param func
- */
 void visitFunction(const shared_ptr<NFunctionDeclaration> &func) {
   STR_IDX func_name = File()->Save_string(func->id->name.c_str());
   TY_IDX ty_i4 = MTYPE_to_ty(MTYPE_I4);
@@ -127,7 +123,10 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
   } else if (stmt->getTypeName() == "NAssignment") {
     visitAssignmentStmt(tree, parent, level,
                         reinterpret_cast<const shared_ptr<NAssignment> &> (stmt));
-  } else {
+  } else if (stmt->getTypeName() == "NForStatement") {
+
+  }
+  else {
     AssertThat(FALSE, ("not implemented kind of stmt = %s", stmt->getTypeName().c_str()));
   }
   return parent;
