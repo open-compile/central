@@ -167,8 +167,7 @@ enum OPERATOR {
   OPR_EXTRACT_BITS = 137,
   OPR_COMPOSE_BITS = 138,
   OPERATOR_LAST = 138,
-  OPR_THEN = 139,
-  OPR_ELSE = 140
+  // Don't add operators here, if you need extra operators, discuss it with @Jason
 };
 
 #define RTYPE(x) (x<<8)
