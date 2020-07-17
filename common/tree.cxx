@@ -80,6 +80,10 @@ const char *IRNODE::OPCODE_name(OPCODE opcode) {
       return "I4CONST";
     case OPC_I8CONST:
       return "I8CONST";
+    case OPC_I4I4LT:
+      return "I4I4LT";
+    case OPC_I4I4GT:
+      return "I4I4GT";
     default: {
       return "UNKNOWN-OPCODE";
     }
@@ -147,7 +151,8 @@ IR_ITER TREE::Insert_stmt_to_block(IR_ITER block, IR_TREE_ELEM child) {
 IR_ITER TREE::Set_operand(IR_ITER parent, UINT32 pos, IR_ITER opnd) {
   AssertThat(irtree.number_of_children(parent) >= pos, ("Not enough children in parent node"));
   AssertThat(parent != opnd, ("Cannot set the node to be the child of itself"));
-  Get_node(*parent)->Opnd(pos) = *opnd;
+  if (pos == 0 || pos == 1)
+    Get_node(*parent)->Opnd(pos) = *opnd;
   while (irtree.number_of_children(parent) < pos + 1) {
     IR_ITER fake_addeed_opr = irtree.append_child(parent, 0);
     Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
@@ -159,7 +164,8 @@ IR_ITER TREE::Set_operand(IR_ITER parent, UINT32 pos, IR_ITER opnd) {
 }
 
 IR_ITER TREE::Set_operand(IR_ITER parent, UINT32 pos, IR_TREE_ELEM opnd) {
-  Get_node(*parent)->Opnd(pos) = opnd;
+  if (pos == 0 || pos == 1)
+    Get_node(*parent)->Opnd(pos) = opnd;
   while (irtree.number_of_children(parent) < pos + 1) {
     IR_ITER fake_addeed_opr = irtree.append_child(parent, 0);
   }
