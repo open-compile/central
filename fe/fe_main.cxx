@@ -10,11 +10,13 @@
 #include "ir.h"
 #include "fe_main.h"
 
-BIN_OP_TO_OPR FEOPCODE_INFO[4] = {
+BIN_OP_TO_OPR FEOPCODE_INFO[6] = {
   { "+", TPLUS,  OPR_ADD },
   { "*", TMUL,   OPR_MPY },
   { "-", TMINUS, OPR_SUB },
   { "/", TDIV,   OPR_DIV },
+  { "<", TCLT,   OPR_LT  },
+  { ">", TCGT,   OPR_GT  },
 };
 
 INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_name) {
@@ -123,6 +125,9 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
   } else if (stmt->getTypeName() == "NAssignment") {
     visitAssignmentStmt(tree, parent, level,
                         reinterpret_cast<const shared_ptr<NAssignment> &> (stmt));
+  } else if (stmt->getTypeName() == "NIfStatement") {
+      visitIfStmt(tree, parent, level,
+                          reinterpret_cast<const shared_ptr<NIfStatement> &> (stmt));
   } else if (stmt->getTypeName() == "NForStatement") {
 
   }
@@ -130,6 +135,39 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
     AssertThat(FALSE, ("not implemented kind of stmt = %s", stmt->getTypeName().c_str()));
   }
   return parent;
+}
+
+IR_ITER visitIfStmt(TREE *tree, IR_ITER parent, int level,
+                    const shared_ptr<NIfStatement> &stmt) {
+    shared_ptr<NExpression> condition = stmt->condition;
+    shared_ptr<NBlock> true_block = stmt->trueBlock;
+    shared_ptr<NBlock> false_block = stmt->falseBlock;
+    AssertThat(condition != nullptr, ("condition should not be null"));
+    AssertThat(true_block != nullptr, ("trueBlock should not be null"));
+
+    IR_ITER if_stmt;
+    IRNODE_IDX if_node = tree->Create_node(OPC_IF);
+    if_stmt = tree->Insert_stmt_to_block(parent, if_node);
+
+    // 处理条件
+    IR_ITER condition_expr = visitExpression(tree, if_stmt, level, condition);
+    AssertThat(condition_expr != parent && condition_expr != if_stmt && condition_expr != nullptr, ("Invalid expr conversion result"));
+    tree->Set_operand(if_stmt, 0, condition_expr);
+
+    // 处理then块
+    IR_ITER then_stmt;
+    IRNODE_IDX then_node = tree->Create_node(OPC_BLOCK);
+    then_stmt = tree->Set_operand(if_stmt, 1, then_node);
+    visitBlock(tree, then_stmt, level, true_block);
+
+    // 处理else块，有可能不存在
+    if(false_block != nullptr) {
+        IR_ITER else_stmt;
+        IRNODE_IDX else_node = tree->Create_node(OPC_BLOCK);
+        else_stmt = tree->Set_operand(if_stmt, 2, else_node);
+        visitBlock(tree, else_stmt, level, false_block);
+    }
+    return parent;
 }
 
 IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
