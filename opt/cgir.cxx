@@ -5,6 +5,7 @@
 #include "cgir.h"
 
 void CGIR::CG_Init(SCOPE *scope) {
+  // Initiliaze register
 }
 
 void CGIR::Data_layout(SCOPE *scope) {

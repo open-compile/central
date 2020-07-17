@@ -238,6 +238,18 @@ UINT32 TREE::Index(IR_ITER node) {
 
 UINT32 TREE::Number_of_siblings(IR_ITER node) {
   return irtree.number_of_siblings(node);
+}
+
+IR_ITER TREE::Replace_recursive(IR_ITER targ, IR_ITER source) {
+  return irtree.move_ontop(targ, source);
+}
+
+// Return incremented iterator.
+IR_ITER TREE::Remove_node_recursive(IR_ITER pos) {
+  if (irtree.number_of_children(pos) > 0) {
+    irtree.erase_children(pos);
+  }
+  return irtree.erase(pos);
 };
 
 ///**
@@ -269,4 +281,29 @@ OPERATOR OPCODE_operator(OPCODE opc) {
   UINT8 opr = (UINT32) opc & 0xff;
   AssertThat(opr != OPERATOR_UNKNOTREE, ("cannot get opr from opcode = 0x%0x", opc));
   return (OPERATOR) opr;
+}
+
+BOOL OPCODE_is_bin_arith(OPCODE opc) {
+  OPERATOR opr = OPCODE_operator(opc);
+  switch (opr) {
+    case OPR_LT:
+    case OPR_GT:
+    case OPR_ADD:
+    case OPR_MPY:
+    case OPR_SUB:
+    case OPR_DIV:
+      return true;
+    default:
+      return false;
+  }
+}
+
+BOOL OPCODE_is_const(OPCODE opc) {
+  OPERATOR opr = OPCODE_operator(opc);
+  switch (opr) {
+    case OPR_CONST:
+      return true;
+    default:
+      return false;
+  }
 }

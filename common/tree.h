@@ -378,6 +378,8 @@ public:
   UINT32 Number_of_children(IR_ITER node);
   UINT32 Number_of_siblings(IR_ITER node);
   UINT32 Index(IR_ITER node);
+  IR_ITER Replace_recursive(IR_ITER pos, IR_ITER from);
+  IR_ITER Remove_node_recursive(IR_ITER pos); // return incremented iter
 };
 
 TREE *Tree();
@@ -385,6 +387,8 @@ void Set_current_tree(TREE *current);
 MTYPE_ID OPCODE_rtype(OPCODE opc); // get the return type part from the opcode.
 MTYPE_ID OPCODE_desc(OPCODE opc); // get the descriptor type part from the opcode.
 OPERATOR OPCODE_operator(OPCODE opc); // get operator(non-typed) from opcode(typed)
+BOOL OPCODE_is_const(OPCODE opc);
+BOOL OPCODE_is_bin_arith(OPCODE opc);
 
 /**
  * Utility function to get a IRNODE&

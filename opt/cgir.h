@@ -69,6 +69,7 @@ private:
   CGBB_IDX     unroll_bb;
   UINT32       orig_id;
   UINT8        which_unroll;
+  UINT16       res_opnd[10];
 };
 
 class CGBB {
