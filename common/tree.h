@@ -351,6 +351,9 @@ public:
   }
   void Print_recursive(FILE *f);
   IRNODE *Get_node(IRNODE_IDX iridx);
+  IRNODE *Get_node(IR_ITER ir_it) { return Get_node(*ir_it); } //alias
+  IRNODE *Node(IR_ITER ir_it)     { return Get_node(ir_it);  } //alias
+  IRNODE *Node(IRNODE_IDX ir_idx) { return Get_node(ir_idx); } //alias
   IRNODE_IDX Create_node();
   IRNODE_IDX Create_node(OPCODE opc);
   // Kid access

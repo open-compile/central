@@ -91,6 +91,7 @@ extern template BOOL Symtab_is_flags_set<ARB_IDX, ARB, ARB_TABLE> (ARB_IDX idx, 
 #define ARB_last_dimen(idx) Symtab_is_flags_set<ARB_IDX, ARB, ARB_TABLE> (idx, ARB_LAST_DIMEN)
 
 DEF_MEMBER_ACCESS_FUNC(SYM_ECLASS, ST_eclass, ST, ST_IDX, export_class, ST_st);
+DEF_MEMBER_ACCESS_FUNC(SYM_SCLASS, ST_sclass, ST, ST_IDX, storage_class, ST_st);
 DEF_MEMBER_ACCESS_FUNC(TY_IDX, ST_ty, ST, ST_IDX, u2.type, ST_st);
 DEF_MEMBER_ACCESS_FUNC(PU_IDX, ST_pu, ST, ST_IDX, u2.type, ST_st);
 

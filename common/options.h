@@ -4,15 +4,19 @@
 #include <vector>
 #include "args.h" // MIT License
 
+using STRVEC = std::vector<std::string>;
+using std::string;
+
 class COMPILER_CONFIG {
 public:
-  INT32 opt_level = 2;
-  BOOL  assembly = FALSE;
-  BOOL object_gen = FALSE;
-  std::vector<std::string> files;
-  std::vector<std::string> assemble_files;
-  std::vector<std::string> object_files;
-  std::string output_file;
+  INT32  opt_level   = 2;
+  BOOL   assembly    = FALSE;
+  BOOL   object_gen  = FALSE;
+  BOOL   fe_only     = FALSE;
+  STRVEC files;
+  STRVEC assemble_files;
+  STRVEC object_files;
+  string output_file;
 };
 
 // Parsing arguments

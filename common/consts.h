@@ -68,6 +68,7 @@ enum SYM_SCLASS {
   SYMC_GLOBAL_UNDEF = 5,
   SYMC_GLOBAL_DEF   = 6,
   SYMC_TEXT         = 7,
+  SYMC_FORMAL       = 8,
 };
 
 typedef enum {

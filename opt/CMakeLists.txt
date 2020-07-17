@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.10)
 project(fronend)
 
-add_library(opt opt_main.cxx)
+add_library(opt opt_main.cxx cgir.cxx data_layout.cxx register.cxx)
 target_compile_options(opt PRIVATE -g)
 target_include_directories(opt PRIVATE ${OCC_MAIN_DIR}/common ${OCC_MAIN_DIR}/lib)

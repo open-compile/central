@@ -105,18 +105,18 @@ void Opt_verify_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
   for (UINT32 stmt_idx = 0; stmt_idx < tree->Number_of_children(body); stmt_idx++) {
     IR_ITER stmt = tree->Get_operand(body, stmt_idx);
     AssertThat(*stmt != 0, ("Incorrect child, node 0 should not be a statement, 0 is only allowed in root position"));
-    switch (OPCODE_operator(tree->Get_node(*stmt)->Opcode())) {
+    switch (OPCODE_operator(tree->Get_node(stmt)->Opcode())) {
       // What kind of opcode is allowed here.
       case OPR_STID: {
         AssertThat(level <= LEVEL_CGIR, ("STID should not be present in level %d", level));
         AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in STID, 1 expected, got %d", tree->Number_of_children(stmt)));
         IR_ITER expr_val = tree->Get_operand(stmt, 0);
-        MTYPE_ID stid_type = OPCODE_desc(tree->Get_node(*stmt)->Opcode());
-        AssertThat(OPCODE_rtype(tree->Get_node(*expr_val)->Opcode()) == stid_type, ("The stid's operand should have same type"));
+        MTYPE_ID stid_type = OPCODE_desc(tree->Get_node(stmt)->Opcode());
+        AssertThat(OPCODE_rtype(tree->Get_node(expr_val)->Opcode()) == stid_type, ("The stid's operand should have same type"));
         break;
       }
       default: {
-        AssertThat(false, ("Opcode: %s should not be in the body", tree->Get_node(*stmt)->OPCODE_name(tree->Get_node(*stmt)->Opcode())));
+        AssertThat(false, ("Opcode: %s should not be in the body", tree->Get_node(stmt)->OPCODE_name(tree->Get_node(stmt)->Opcode())));
       }
     }
   }
@@ -189,7 +189,7 @@ void Emit_tree(PU_INFO *func, TREE *tree, FILE *out, FILE_MANAGER *file) {
   IR_ITER it = tree->Get_root();
   fprintf(out, "\tstr\tfp, [sp, #-4]!\n");
   fprintf(out, "\tadd\tfp, sp, #0\n");
-  AssertThat(tree->Get_node(*it)->Opcode() == OPC_FUNC_ENTRY, ("Incorrect root opcode"));
+  AssertThat(tree->Get_node(it)->Opcode() == OPC_FUNC_ENTRY, ("Incorrect root opcode"));
   // Get the function body.
   IR_ITER body = tree->Get_operand(it, TREE_SEQ_BODY);
   IRTREE &irtree = tree->Internal_tree();
@@ -200,11 +200,11 @@ void Emit_tree(PU_INFO *func, TREE *tree, FILE *out, FILE_MANAGER *file) {
     IR_ITER one_stmt = tree->Get_operand(body, i);
     IRNODE_IDX one_stmt_id = *one_stmt;
     IRNODE *node = tree->Get_node(one_stmt_id);
-    switch (node->Opcode()) {
-      case OPC_I4STID: {
+    switch (OPCODE_operator(node->Opcode())) {
+      case OPR_STID: {
         // generate memory access
         IR_ITER expr = tree->Get_operand(one_stmt, 0);
-        AssertThat(tree->Get_node(*expr)->Opcode() == OPC_I4CONST,
+        AssertThat(tree->Get_node(expr)->Opcode() == OPC_I4CONST,
                    ("Not implemented expr to generate assembly for"));
         if (temp_labels.find(node->Get_symbol_idx()) == temp_labels.end()) {
           temp_labels.insert(
@@ -218,11 +218,11 @@ void Emit_tree(PU_INFO *func, TREE *tree, FILE *out, FILE_MANAGER *file) {
                      one_stmt_id, ST_name(node->Get_symbol_idx()),
                      node->Get_symbol_idx(), temp_label_id);
         fprintf(out, "\tldr %s, .TL%s_%u\n", "r2", ST_name(func->proc_sym), temp_label_id);
-        fprintf(out, "\tmov %s, #%d\n", "r3", (INT32) tree->Get_node(*expr)->Get_const_val());
+        fprintf(out, "\tmov %s, #%d\n", "r3", (INT32) tree->Get_node(expr)->Get_const_val());
         fprintf(out, "\tstr %s, [%s]\n", "r3", "r2");
         break;
       }
-      case OPC_LABEL: {
+      case OPR_LABEL: {
         // generate memory access
         fprintf(out, "# [IRNODE:%llu] LABEL\n", one_stmt_id);
         fprintf(out, "%s%llu:\n", "label_", one_stmt_id);

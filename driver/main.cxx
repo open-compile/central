@@ -45,6 +45,9 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   args::Flag preprocess(action_group, "preprocess",
                         "Run preprocessor before parsing",
                         {'E', "preprocessor"});
+  args::Flag front_end_only(action_group, "feonly",
+                        "Run up to front-end, skip opt and further stages",
+                        {"feonly"});
   args::Flag linked(action_group, "linked", "To generate the executable file",
                     {"link"});                        
   args::Flag verbose(debug_group, "verbose", "With more verbosity",
@@ -122,6 +125,11 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     conf.assembly = TRUE; // by
   }
 
+  if (front_end_only) {
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Run only up to front-end, skip opt and cg \n"));
+    conf.fe_only = TRUE;
+  }
+
   /***
    *  Add intermediate result file names to the list
    **/
@@ -197,7 +205,9 @@ INT32 Execute(COMPILER_CONFIG &config) {
   if (config.assembly) {
     // Run FE
     Run_component(COMPONENT_FE, config);
-    // Run OPT + CG
+  }
+  if (config.assembly && !config.fe_only) {
+    // Run OPT + CG = BE
     Run_component(COMPONENT_BE, config);
   }
   if (config.object_gen) {
