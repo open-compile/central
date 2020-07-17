@@ -53,6 +53,9 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
                   {"keep"});
   args::Flag show(debug_group, "show",
                   "Displaying the current step the compiler is in", {"show"});
+  args::Flag real_preprocess(debug_group, "real_preprocess",
+                            "Run the preprocessor",
+                            {"realprep"});
   args::Flag front_end_only(debug_group, "feonly",
                             "Run up to front-end, skip opt and further stages",
                             {"feonly"});
@@ -130,6 +133,11 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     conf.fe_only = TRUE;
   }
 
+  if (real_preprocess) {
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Run real preprocessing \n"));
+    conf.run_prep = TRUE;
+  }
+
   /***
    *  Add intermediate result file names to the list
    **/
@@ -202,6 +210,10 @@ int main(int argc, char **argv, char **envp) {
  * @param config
  */
 INT32 Execute(COMPILER_CONFIG &config) {
+  if (config.run_prep) {
+    Run_preprocess(config);
+    // Run_component(COMPONENT_PREP, config);
+  }
   if (config.assembly) {
     // Run FE
     Run_component(COMPONENT_FE, config);
@@ -215,6 +227,10 @@ INT32 Execute(COMPILER_CONFIG &config) {
     Run_component(COMPONENT_ASM, config);
   }
   return 0;
+}
+
+void Run_preprocess(COMPILER_CONFIG &config) {
+
 }
 
 /**
