@@ -129,7 +129,8 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
       visitIfStmt(tree, parent, level,
                           reinterpret_cast<const shared_ptr<NIfStatement> &> (stmt));
   } else if (stmt->getTypeName() == "NForStatement") {
-
+      visitForStmt(tree, parent, level,
+                          reinterpret_cast<const shared_ptr<NForStatement> &> (stmt));
   }
   else {
     AssertThat(FALSE, ("not implemented kind of stmt = %s", stmt->getTypeName().c_str()));
@@ -167,6 +168,30 @@ IR_ITER visitIfStmt(TREE *tree, IR_ITER parent, int level,
         else_stmt = tree->Set_operand(if_stmt, 2, else_node);
         visitBlock(tree, else_stmt, level, false_block);
     }
+    return parent;
+}
+
+IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
+                    const shared_ptr<NIfStatement> &stmt) { //处理while循环
+    shared_ptr<NExpression> condition = stmt->condition;
+    shared_ptr<NBlock> true_block = stmt->trueBlock;
+    AssertThat(condition != nullptr, ("condition should not be null"));
+
+    IR_ITER while_stmt;
+    IRNODE_IDX while_node = tree->Create_node(OPC_WHILE_DO  );
+    while_stmt = tree->Insert_stmt_to_block(parent, while_node);
+
+    //处理循环判断条件
+    IR_ITER condition_expr = visitExpression(tree, while_stmt, level, condition);
+    AssertThat(condition_expr != parent && condition_expr != while_stmt && condition_expr != nullptr, ("Invalid expr conversion result"));
+    tree->Set_operand(while_stmt, 0, condition_expr);
+
+    //处理循环体
+    IR_ITER do_stmt;
+    IRNODE_IDX then_node = tree->Create_node(OPC_BLOCK);
+    do_stmt = tree->Set_operand(while_stmt, 1, then_node);
+    visitBlock(tree, do_stmt, level, true_block);
+
     return parent;
 }
 
