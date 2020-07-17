@@ -166,7 +166,8 @@ enum OPERATOR {
   OPR_GOTO_OUTER_BLOCK = 136,
   OPR_EXTRACT_BITS = 137,
   OPR_COMPOSE_BITS = 138,
-  OPERATOR_LAST = 138
+  OPERATOR_LAST = 138,
+  // Don't add operators here, if you need extra operators, discuss it with @Jason
 };
 
 #define RTYPE(x) (x<<8)
@@ -190,6 +191,8 @@ enum OPCODE {
   OPC_I8CONST         = OPR_CONST           + RTYPE(MTYPE_I8)    + DESC(MTYPE_V),
   OPC_LABEL           = OPR_LABEL           + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
   OPC_WHILE_DO        = OPR_WHILE_DO        + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
+  OPC_I4I4LT          = OPR_LT              + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
+  OPC_I4I4GT          = OPR_GT              + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
 };
 
 enum REGION_KIND{
