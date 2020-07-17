@@ -45,9 +45,6 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   args::Flag preprocess(action_group, "preprocess",
                         "Run preprocessor before parsing",
                         {'E', "preprocessor"});
-  args::Flag front_end_only(action_group, "feonly",
-                        "Run up to front-end, skip opt and further stages",
-                        {"feonly"});
   args::Flag linked(action_group, "linked", "To generate the executable file",
                     {"link"});                        
   args::Flag verbose(debug_group, "verbose", "With more verbosity",
@@ -56,6 +53,9 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
                   {"keep"});
   args::Flag show(debug_group, "show",
                   "Displaying the current step the compiler is in", {"show"});
+  args::Flag front_end_only(debug_group, "feonly",
+                            "Run up to front-end, skip opt and further stages",
+                            {"feonly"});
   args::ValueFlag<std::string> output_file(file_group, "output",
                                           "Output file location",
                                           {'o', "output"});
