@@ -173,9 +173,9 @@ IR_ITER visitIfStmt(TREE *tree, IR_ITER parent, int level,
 
 IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
                     const shared_ptr<NForStatement> &stmt) {
-#if 0
+
     shared_ptr<NExpression> condition = stmt->condition;
-    shared_ptr<NBlock> true_block = stmt->trueBlock;
+    shared_ptr<NBlock> true_block = stmt->block;
     AssertThat(condition != nullptr, ("condition should not be null"));
 
     IR_ITER while_stmt;
@@ -193,7 +193,7 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
     do_stmt = tree->Set_operand(while_stmt, 1, then_node);
     visitBlock(tree, do_stmt, level, true_block);
 
-#endif
+
     return parent;
 }
 
