@@ -84,8 +84,12 @@ const char *IRNODE::OPCODE_name(OPCODE opcode) {
       return "I4I4LT";
     case OPC_I4I4GT:
       return "I4I4GT";
-      case OPC_WHILE_DO:
+    case OPC_WHILE_DO:
       return "WHILE_DO";
+    case OPC_RETURN:
+      return "RETURN";
+    case OPC_RETURN_VAL:
+      return "I4RETURN_VAL";
     default: {
       return "UNKNOWN-OPCODE";
     }

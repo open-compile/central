@@ -132,9 +132,37 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
       visitForStmt(tree, parent, level,
                           reinterpret_cast<const shared_ptr<NForStatement> &> (stmt));
   }
+  else if (stmt->getTypeName() == "NReturnStatement") {
+    visitReturnStmt(tree, parent, level,
+                 reinterpret_cast<const shared_ptr<NReturnStatement> &> (stmt));
+  }
   else {
     AssertThat(FALSE, ("not implemented kind of stmt = %s", stmt->getTypeName().c_str()));
   }
+  return parent;
+}
+
+IR_ITER visitReturnStmt(TREE *tree, IR_ITER parent, int level,
+                        const shared_ptr<NReturnStatement> &stmt) {
+  shared_ptr<NExpression> return_val = stmt->expression;
+
+  // 无返回值
+  if (return_val == nullptr) {
+    IR_ITER return_stmt;
+    IRNODE_IDX return_node = tree->Create_node(OPC_RETURN);
+    return_stmt = tree->Insert_stmt_to_block(parent, return_node);
+    return parent;
+  }
+
+  IR_ITER return_stmt;
+  IRNODE_IDX return_node = tree->Create_node(OPC_RETURN_VAL);
+  return_stmt = tree->Insert_stmt_to_block(parent, return_node);
+
+  // 处理返回值
+  IR_ITER return_val_expr = visitExpression(tree, return_stmt, level, return_val);
+  AssertThat(return_val_expr != parent && return_val_expr != return_stmt && return_val_expr != nullptr, ("Invalid expr conversion result"));
+  tree->Set_operand(return_stmt, 0, return_val_expr);
+
   return parent;
 }
 

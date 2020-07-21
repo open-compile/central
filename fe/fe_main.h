@@ -90,6 +90,9 @@ IR_ITER visitIfStmt(TREE *tree, IR_ITER parent, int level,
 IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
                     const shared_ptr<NForStatement> &stmt);
 
+IR_ITER visitReturnStmt(TREE *tree, IR_ITER parent, int level,
+                        const shared_ptr<NReturnStatement> &stmt);
+
 IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
                         shared_ptr<NExpression> expr);
 
