@@ -193,6 +193,8 @@ enum OPCODE {
   OPC_WHILE_DO        = OPR_WHILE_DO        + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
   OPC_I4I4LT          = OPR_LT              + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
   OPC_I4I4GT          = OPR_GT              + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
+  OPC_RETURN          = OPR_RETURN          + RTYPE(MTYPE_V)     + DESC(MTYPE_B),
+  OPC_RETURN_VAL      = OPR_RETURN_VAL      + RTYPE(MTYPE_V)     + DESC(MTYPE_B),
 };
 
 enum REGION_KIND{
