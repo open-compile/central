@@ -34,9 +34,12 @@ void CG_process_func(FILE_MANAGER *file, COMPILER_CONFIG &config) {
     // Iterate over each pu_info (functions), dump each of the function
     PU_INFO *pu_info = file->Tables()->Pu_info()->Get(it);
     if (pu_info->proc_sym != 0) {
-      Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
+      Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_OPTIONS),
                (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
       Cgir()->CG_Init(&pu_info->scope);
+      if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
+        Cgir()->Print(pu_info->proc_sym, TFile);
+      }
     } else {
       AssertThat(false, ("Incomoplete pu_infoo for PU_INFO_IDX = %u, or %0#x", it, it));
     }

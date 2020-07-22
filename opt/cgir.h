@@ -65,37 +65,17 @@ enum BB_FLAG{
 };
 
 struct CGOPC_INFO {
+  const char *name;
   CGOPC opcode;
   UINT8 n_res;  // num of results
   UINT8 n_oprs; // num of operands
 };
 
-static CGOPC_INFO CGOPC_INFO_LIST[] = {
-  // Opcode     n_res,   n_operands
-  // Memory,
-  { CGOPC_MOV   , 1,     1 },
-  { CGOPC_STR   , 1,     2 },
-  { CGOPC_LDR   , 1,     2 },
-  // Control
-  { CGOPC_LEAVE , 1,     0 },
-  { CGOPC_CALL  , 1,     1 },
-  { CGOPC_BR    , 1,     1 },
-  { CGOPC_B     , 1,     1 }, // branch as well
-  { CGOPC_BEQ   , 1,     1 },
-  { CGOPC_BNE   , 1,     1 },
-  { CGOPC_BGE   , 1,     1 },
-  { CGOPC_BLT   , 1,     1 },
-  { CGOPC_BGT   , 1,     1 },
-  { CGOPC_BLE   , 1,     1 },
-  // Arithmetic ... TODO: to be addeed
-  { CGOPC_ADD   , 1,     2 },
-  { CGOPC_MUL   , 1,     2 },
-  { CGOPC_SUBS  , 1,     2 },
-};
-
 UINT8 ISA_OPCODE_results(CGOPC cgopc);
 
 UINT8 ISA_OPCODE_operands(CGOPC cgopc);
+
+const char *ISA_OPCODE_name(CGOPC cgopc);
 
 class CG_FRAME_SECT {
 public:
@@ -140,16 +120,73 @@ private:
   UINT8        which_unroll;
   CG_OPRAND    res_opnd[5];
 
+public:
   CGOP (CGOPC opc, CFG_BB_IDX bb_idx,
         CG_OPRAND op1, CG_OPRAND op2,
         CG_OPRAND op3, CG_OPRAND op4) {
+    opcode = opc;
     results = ISA_OPCODE_results(opc);
     operands = ISA_OPCODE_operands(opc);
+    bb = bb_idx;
+    index_in_bb = 0;
     res_opnd[0] = op1;
-    res_opnd[1] = op1;
-    res_opnd[2] = op1;
-    res_opnd[3] = op1;
+    res_opnd[1] = op2;
+    res_opnd[2] = op3;
+    res_opnd[3] = op4;
   }
+
+  CGOPC getOpcode() const {
+    return opcode;
+  }
+
+  UINT8 getResults() const {
+    return results;
+  }
+
+  UINT8 getOperands() const {
+    return operands;
+  }
+
+  CFG_BB_IDX getBb() const {
+    return bb;
+  }
+
+  UINT32 getIndexInBb() const {
+    return index_in_bb;
+  }
+
+  const CG_OPRAND *getResOpnd() const {
+    return res_opnd;
+  }
+
+  void setResOps(TN_IDX resOps) {
+    res_ops = resOps;
+  }
+
+  void setFlags(UINT32 flags) {
+    CGOP::flags = flags;
+  }
+
+  void setIndexInBb(UINT32 indexInBb) {
+    index_in_bb = indexInBb;
+  }
+
+  void setVariant(UINT16 variant) {
+    CGOP::variant = variant;
+  }
+
+  void setUnrollBb(CFG_BB_IDX unrollBb) {
+    unroll_bb = unrollBb;
+  }
+
+  void setOrigId(UINT32 origId) {
+    orig_id = origId;
+  }
+
+  void setWhichUnroll(UINT8 whichUnroll) {
+    which_unroll = whichUnroll;
+  }
+  void Print(FILE * file = stderr);
 };
 
 enum CGBB_FLAGS {
@@ -202,6 +239,8 @@ public:
     // Building the CFG
     // Seperate the tree, into different cfg bbs.
   }
+
+  void  Print(FILE *file = stderr);
 };
 
 template<typename NODE_TYPE>
@@ -479,7 +518,7 @@ public:
   bb_iterator df_end(BOOL df)   { return (df) ? _df_list.end() : _cd_list.end();       }
   const_bb_iterator df_begin(BOOL df) const { return (df) ? _df_list.begin() : _cd_list.begin(); }
   const_bb_iterator df_end(BOOL df) const   { return (df) ? _df_list.end() : _cd_list.end();       }
-
+  void  Print(FILE *file = stderr);
 };
 
 typedef CFG_BB_BASE<CGOP>    CGBB;
@@ -493,6 +532,7 @@ private:
   // Memory Layout
   CG_FRAME_SECT                sections[8];
   CG_CFG                     *_current;
+  ST_IDX                      _current_sym;
 public:
   CG_CFG    *Get_function(ST_IDX func_sym) {
     if(trees.find(func_sym) == trees.end()) {
@@ -505,9 +545,16 @@ public:
   void          IR_to_CGIR(ST_IDX func_sym);
   void          Handle_STID(TREE *tree, IR_ITER stmt, CFG_BB_IDX cur_bb);
   void          Handle_Entry(TREE *tree, IR_ITER entry, CFG_BB_IDX cur_bb);
+  void          Handle_Expr(TREE *tree, IR_ITER entry, CFG_BB_IDX cur_bb);
   TN_IDX        PREG_To_TN (TY_IDX preg_ty, PREG_NUM preg_num);
-  void          Set_current_cgir(CG_CFG *cgir);
+  void          Set_current_cgir(CG_CFG *cgir, ST_IDX sym);
   CG_CFG       *Cfg() { return _current; }
+  TN_IDX        Gen_TN(MTYPE_ID preg_ty);
+  TN_IDX        Get_TN_from_symbol(ST_IDX sym);
+  TN_IDX        Get_TN_by_ir_node(TREE *tree, IR_ITER node, CFG_BB_IDX cur_bb);
+  void          Local_register_allocate(PU_INFO *info);
+  void          Print(FILE *file = stderr);
+  void          Print(ST_IDX sym, FILE *file = stderr);
 };
 
 #endif //OCC_CGIR_H
