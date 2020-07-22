@@ -24,6 +24,7 @@ typedef UINT32 INITO_IDX;
 typedef UINT32 PU_INFO_IDX;
 typedef UINT8 SCOPE_IDX;
 typedef UINT16 mTYPE_ID;
+typedef UINT16 PREG_NUM;
 
 // Tree
 typedef INT32  TREE_OFFSET;

@@ -14,40 +14,18 @@
 using std::vector;
 using std::map;
 
-map<ST_IDX, CGIR> FUNC_TO_CGIR_MAP; // function symbol idx to CGIR idx
+CGIR *_cgir_opt = nullptr;
 
 INT32 BE_MAIN_NAME(INT32 argc, char **argv) {
   AssertThat(argc > 1, ("not enough arguments"));
   return 0;
 }
 
-void Convert_instructions_to_CGIR(TREE *treee, IR_ITER body, PU_INFO *func,
-                                  FILE_MANAGER *file, COMPILER_CONFIG &conf) {
-  // ....
-}
-
-void Convert_data_layout(PU_INFO *func, FILE_MANAGER *file,
-                         COMPILER_CONFIG &config) {
-  // ....
-}
-
-void CG_conv_func(PU_INFO *func, FILE_MANAGER *file,
-                  COMPILER_CONFIG &conf) {
-  // Data layout
-  Convert_data_layout(func, file, conf);
-  //
-  TREE *tree = func->entry;
-  AssertThat(tree != nullptr, ("Tree should not be empty"));
-  IR_ITER root = tree->Get_root();
-  AssertThat(root != nullptr, ("root should not be empty"));
-  AssertThat(tree->Number_of_children(root) == 2, ("there should be exactly 2 nodes in the func_entry"));
-  IR_ITER body = tree->Get_operand(root, TREE_SEQ_BODY);
-  if (tree->Number_of_children(body) <= 0) {
-    Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
-             (TFile, "There is no statement in the body, skip verification\n"));
-    return;
+CGIR *Cgir() {
+  if (_cgir_opt == nullptr) {
+    _cgir_opt = new CGIR();
   }
-  Convert_instructions_to_CGIR(tree, body, func, file, conf);
+  return _cgir_opt;
 }
 
 void CG_process_func(FILE_MANAGER *file, COMPILER_CONFIG &config) {
@@ -58,7 +36,7 @@ void CG_process_func(FILE_MANAGER *file, COMPILER_CONFIG &config) {
     if (pu_info->proc_sym != 0) {
       Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
                (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
-      CG_conv_func(pu_info, file, config);
+      Cgir()->CG_Init(&pu_info->scope);
     } else {
       AssertThat(false, ("Incomoplete pu_infoo for PU_INFO_IDX = %u, or %0#x", it, it));
     }
@@ -295,7 +273,7 @@ void Opr_lower_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
     if (lower_result == nullptr) {
       // remove current node.
       Is_Trace(Tracing(COMPONENT_VHO, TRACE_OPTIONS),
-               (TFile, "Removing stmt during lowering : node-id = %d\n", *stmt));
+               (TFile, "Removing stmt during lowering : node-id = %llu \n", *stmt));
       tree->Remove_node_recursive(stmt);
       stmt_idx --;
       continue;
@@ -336,6 +314,7 @@ void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
   fprintf(out, ".global %s\n", func_name);
   fprintf(out, "%s: \n", func_name);
   Emit_tree(func, func->entry, out, file);
+  // TODO: Use CGIR's emission instead.
 }
 
 void Emit_tree(PU_INFO *func, TREE *tree, FILE *out, FILE_MANAGER *file) {
