@@ -83,6 +83,10 @@ void Irgen_visit(NBlock *block) {
   }
 }
 
+/**
+ * 处理某个function
+ * @param func
+ */
 void visitFunction(const shared_ptr<NFunctionDeclaration> &func) {
   STR_IDX func_name = File()->Save_string(func->id->name.c_str());
   TY_IDX ty_i4 = MTYPE_to_ty(MTYPE_I4);
