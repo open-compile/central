@@ -7,6 +7,7 @@
 
 #include "basic.h"
 #include "symtab.h"
+#include "consts.h"
 #include "tree.h"
 #include <vector>
 #include <unordered_map>
@@ -22,10 +23,6 @@
 using std::vector;
 using std::map;
 using std::set;
-typedef UINT32 CFG_BB_IDX;
-typedef UINT32 CGOP_IDX;
-typedef UINT32 TN_IDX;
-typedef UINT32 CFG_STMT_IDX;
 
 enum CGOPC {
   // Memory, data transfer

@@ -1,0 +1,287 @@
+//
+// Created by xc5 on 2020/7/24.
+//
+#include <vector>
+#include "tn.h"
+
+/*
+ *
+ *  *   TN
+ *
+ *     The Temporary Name (TN) structure describes the operands and result
+ *     of OPs. A TN can be used to describe either a register or a constant.
+ *     The TN_flags(tn) field is applicable to all TNs and is used to determine
+ *     the correct variant of the TN. The TN_size(tn) field is also applicable
+ *     to all TNs and gives the size of the operand/result in bytes.
+ *     All the other fields are applicable in specific contexts as described
+ *     below.
+ *
+ */
+
+BOOL is_str_expand = true;
+
+static std::vector<TN> _global_tn_vec;
+
+/**
+ * Dedicated TN Groups
+ */
+
+static TN *ded_tns[ISA_REGISTER_CLASS_MAX + 1][REGISTER_MAX + 1];
+static TN *f4_ded_tns[REGISTER_MAX + 1];
+static TN *v16_ded_tns[REGISTER_MAX + 1];
+static TN *v32_ded_tns[REGISTER_MAX + 1];
+static TN *i1_ded_tns[REGISTER_MAX + 1];
+static TN *i2_ded_tns[REGISTER_MAX + 1];
+static TN *i4_ded_tns[REGISTER_MAX + 1];
+
+TN *RA_TN = NULL;
+TN *SP_TN = NULL;
+TN *FP_TN = NULL;
+TN *Ep_TN = NULL;
+TN *GP_TN = NULL;
+TN *Zero_TN = NULL;
+TN *Pfs_TN = NULL;
+TN *True_TN = NULL;
+TN *FZero_TN = NULL;
+TN *FOne_TN = NULL;
+TN *LC_TN = NULL;
+
+/* Keep track of the TN_number for the last register TN generated. The
+ * first numbered TN is #1; #0 must remain unused (various algorithms
+ * make special use of 0).
+ */
+// TN_IDX Last_TN = 0;, Use Last_TN() instead, and Increment_last_tn();
+
+/* TN_number of the last dedicated TN */
+TN_IDX Last_Dedicated_TN = 0;
+/* TN_number of the last distinct dedicated TN*/
+TN_IDX Last_Distinct_Dedicated_TN = 0;
+/* TN_number of the first non-dedicated TN. */
+TN_IDX First_Regular_TN = 0;
+/* TN_number of the first non-dedicated TN in the current REGION. */
+TN_IDX First_REGION_TN = 0;
+
+TN *Gen_TN() {
+  UINT32 sz = _global_tn_vec.size();
+  _global_tn_vec.push_back(TN());
+  return &(_global_tn_vec[sz]);
+}
+
+namespace TNS {
+  UINT32 _last_tn = 0;
+}
+
+TN_IDX Last_TN() {
+  return TNS::_last_tn;
+}
+
+TN_IDX Increment_last_TN() {
+  return ++TNS::_last_tn;
+}
+
+void Check_TN_Vec_Size() {
+  AssertThat(TNS::_last_tn < 4096 && _global_tn_vec.size() < 4096, ("Too much TNs used"));
+}
+
+/* ====================================================================
+ *
+ * Dup_TN
+ *
+ * Duplicate a TN with a new number.
+ *
+ * The TN_GLOBAL_REG flag and any spill location associated with this TN
+ * is cleared in the new TN.
+ *
+ * ====================================================================
+ */
+
+TN *
+Dup_TN ( TN *tn )
+{
+  TN *new_tn = Gen_TN();
+
+  AssertThat(! TN_is_dedicated(tn),("Dup_TN of a dedicated TN: TN%d",
+    TN_number(tn)));
+
+  *new_tn = *tn;
+  if (!TN_is_constant(new_tn)) {
+    Check_TN_Vec_Size ();
+    Set_TN_number(new_tn, Last_TN());
+    Increment_last_TN();
+    Reset_TN_is_global_reg(new_tn);
+    TN_Allocate_Register (new_tn, REGISTER_UNDEFINED);
+    _global_tn_vec.assign(Last_TN(), *new_tn);
+    /* copy over TN_home for rematerializable TNs. */
+    if (!TN_is_rematerializable(tn) && !TN_is_gra_homeable(tn)) {
+      Set_TN_spill(new_tn, NULL);
+    }
+  }
+  return new_tn;
+}
+
+
+/* ====================================================================
+ *
+ * Create_Dedicated_TN
+ *
+ * Create and initialize a new dedicated TN and remember it for later.
+ *
+ * ====================================================================
+ */
+static TN *
+Create_Dedicated_TN (ISA_REGISTER_CLASS rclass, REGISTER reg)
+{
+  INT size = REGISTER_bit_size(rclass, reg) / 8;
+  /* Allocate the dedicated TN at file level, because we reuse them
+   * for all PUs.
+   */
+  TN *tn = Gen_TN();
+  Set_TN_number(tn, Last_TN());
+  Increment_last_TN();
+  Set_TN_is_dedicated(tn);
+  Set_TN_register_class(tn, rclass);
+  Set_TN_register(tn, reg);
+  Set_TN_size(tn, size);
+  return(tn);
+}
+
+/* ====================================================================
+ *
+ * Init_Dedicated_TNs
+ *
+ * See interface description.
+ *
+ * ====================================================================
+ */
+void
+Init_Dedicated_TNs(void) {
+  ISA_REGISTER_CLASS rclass;
+  REGISTER           reg;
+  TN_IDX             tnum = 0;
+
+  FOR_ALL_ISA_REGISTER_CLASS(rclass) {
+    for (reg = REGISTER_MIN;
+         reg <= REGISTER_CLASS_last_register(rclass);
+         reg++) {
+      ++tnum;
+      ded_tns[rclass][reg] = Create_Dedicated_TN(rclass, reg);
+    }
+  }
+
+  Last_Distinct_Dedicated_TN = tnum;
+
+  /* Initialize the dedicated integer register TNs: */
+  Zero_TN  = ded_tns[REGISTER_CLASS_zero][REGISTER_zero];
+  Ep_TN    = ded_tns[REGISTER_CLASS_ep][REGISTER_ep];
+  SP_TN    = ded_tns[REGISTER_CLASS_sp][REGISTER_sp];
+  FP_TN    = ded_tns[REGISTER_CLASS_fp][REGISTER_fp];
+  RA_TN    = ded_tns[REGISTER_CLASS_ra][REGISTER_ra];
+  Pfs_TN   = ded_tns[REGISTER_CLASS_pfs][REGISTER_pfs];
+  True_TN  = ded_tns[REGISTER_CLASS_true][REGISTER_true];
+  FZero_TN = ded_tns[REGISTER_CLASS_fzero][REGISTER_fzero];
+  FOne_TN  = ded_tns[REGISTER_CLASS_fone][REGISTER_fone];
+
+  /* allocate gp tn.  this may use a caller saved register, so
+   * we don't use the one allocated for $gp above.
+   */
+#ifdef ABI_PROPERTY_global_ptr
+  GP_TN = Create_Dedicated_TN (REGISTER_CLASS_gp, REGISTER_gp);
+  tnum++;
+#endif
+
+  for (reg = REGISTER_MIN;
+       reg <= REGISTER_CLASS_last_register(ISA_REGISTER_CLASS_float);
+       reg++) {
+    ++tnum;
+    f4_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_float, reg);
+    Set_TN_size(f4_ded_tns[reg], 4);
+    ++tnum;
+    v16_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_float, reg);
+    Set_TN_size(v16_ded_tns[reg], 16);
+    ++tnum;
+    v32_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_float, reg);
+    Set_TN_size(v32_ded_tns[reg], 32);
+  }
+
+  for (reg = REGISTER_MIN;
+       reg <= REGISTER_CLASS_last_register(ISA_REGISTER_CLASS_integer);
+       reg++) {
+    ++tnum;
+    i1_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_integer, reg);
+    Set_TN_size(i1_ded_tns[reg], 1);
+    ++tnum;
+    i2_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_integer, reg);
+    Set_TN_size(i2_ded_tns[reg], 2);
+    ++tnum;
+    i4_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_integer, reg);
+    Set_TN_size(i4_ded_tns[reg], 4);
+  }
+
+  Last_Dedicated_TN = tnum;
+}
+
+
+
+/* ====================================================================
+ *
+ * Build_Dedicated_TN
+ *
+ * See interface description.
+ *
+ * ====================================================================
+ */
+TN *
+Build_Dedicated_TN (ISA_REGISTER_CLASS rclass, REGISTER reg, INT size)
+{
+  // check for F4 tns and 16-byte vector tns
+  if (rclass == ISA_REGISTER_CLASS_float
+      && size != DEFAULT_RCLASS_SIZE(rclass) )
+  {
+    switch(size) {
+      case 4:  return f4_ded_tns[reg];
+      case 16: return v16_ded_tns[reg];
+      case 32: return v32_ded_tns[reg];
+    }
+  }
+  // check for I4 tns
+  if (rclass == ISA_REGISTER_CLASS_integer
+      && size != DEFAULT_RCLASS_SIZE(rclass) )
+  {
+    switch(size) {
+      case 1: return i1_ded_tns[reg];
+      case 2: return i2_ded_tns[reg];
+      case 4: return i4_ded_tns[reg];
+    }
+  }
+  return ded_tns[rclass][reg];
+}
+
+TN *
+Gen_Register_TN (ISA_REGISTER_CLASS rclass, INT size)
+{
+  AssertThat(rclass != ISA_REGISTER_CLASS_UNDEFINED,
+             ("Gen_Register_TN called with undefined reg class"));
+  if ( REGISTER_SET_EmptyP(REGISTER_CLASS_allocatable(rclass)) ) {
+    // only one reg in class, so make dedicated tn
+    AssertThat(REGISTER_CLASS_register_count(rclass) == 1,
+              ("don't know how to make dedicated TN for class %s",
+                REGISTER_CLASS_name(rclass)));
+    return Build_Dedicated_TN(rclass, REGISTER_MIN, size);
+  }
+  else {
+    TN *tn = Gen_TN();
+    Check_TN_Vec_Size ();
+    Set_TN_number(tn, Last_TN());
+    Increment_last_TN();
+    if ( size > 32 ) {
+      AssertThat(false, ("Size should not exceed 32bit."));
+    }
+    Set_TN_size(tn, size);
+    Set_TN_register_class(tn, rclass);
+    return tn;
+  }
+}
+
+void TN::Print(FILE *file) {
+  // Printing the TN.
+}

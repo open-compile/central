@@ -8,6 +8,7 @@
 #include "symtab.h"
 #include "opt_main.h"
 #include "cgir.h"
+#include "tn.h"
 #include <vector>
 #include <map>
 
@@ -47,6 +48,8 @@ void CG_process_func(FILE_MANAGER *file, COMPILER_CONFIG &config) {
 }
 
 INT32 CG_full_process(COMPILER_CONFIG &conf) {
+  REGISTER_Begin();	/* initialize the register package */
+  Init_Dedicated_TNs ();
   // Convert OCIR to CGIR
   CG_process_func(File(), conf);
   // Run emitting of assembly code.
