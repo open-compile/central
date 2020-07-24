@@ -214,18 +214,21 @@ INT32 Execute(COMPILER_CONFIG &config) {
     Run_preprocess(config);
     // Run_component(COMPONENT_PREP, config);
   }
-  if (config.assembly) {
-    // Run FE
-    Run_component(COMPONENT_FE, config);
-  }
-  if (config.assembly && !config.fe_only) {
-    // Run OPT
-    Run_component(COMPONENT_BE, config);
-    Run_component(COMPONENT_CG, config);
-  }
-  if (config.object_gen) {
-    // Run ASM
-    Run_component(COMPONENT_ASM, config);
+  // Run FE
+  Run_component(COMPONENT_FE, config);
+
+  if (!config.fe_only) {
+    if (config.assembly || config.object_gen) {
+      // Run OPT
+      Run_component(COMPONENT_BE, config);
+
+      // Run CG
+      Run_component(COMPONENT_CG, config);
+    }
+    if (config.object_gen) {
+      // Run ASM
+      Run_component(COMPONENT_ASM, config);
+    }
   }
   return 0;
 }
