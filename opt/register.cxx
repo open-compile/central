@@ -56,7 +56,7 @@ UINT8 ISA_REGISTER_CLASS_info_index[] = {
   8,  /* ISA_REGISTER_CLASS_mxcsr */
 };
 
-//  name         rclass                   count    members   reg_name
+//  name         rclass                count      members reg_name
 const ISA_REGISTER_SUBCLASS_INFO ISA_REGISTER_SUBCLASS_info[] = {
   { "UNDEFINED", ISA_REGISTER_CLASS_UNDEFINED, 0, { 0 }, { nullptr } },
   { "rax", ISA_REGISTER_CLASS_integer, 1,

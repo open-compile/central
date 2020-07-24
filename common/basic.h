@@ -84,5 +84,6 @@ extern BOOL Tracing(COMPONENTS_WHOLE tl, TRACE_KIND tk);
 #define COMP_PHASE_OPT_3 "OPT-3"
 #define COMP_PHASE_OPT_LOWER "LOWER"
 #define COMP_PHASE_CG "CODE_GEN"
+#define COMP_PHASE_ASM "ASSEMBLER"
 
 #endif
