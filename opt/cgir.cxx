@@ -56,25 +56,19 @@ CGIR::Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb) {
 
   if (false /* PREG */) {
     TN *tn_res = PREG_to_ST_TN(tree->Get_node(stmt)->Get_symbol_idx(), tree->Get_node(stmt)->Get_preg_num());
-    res = TN_number(tn_res);
+    res = TN_tn_idx(tn_res);
     // TODO: Conversion may still be needed here.
   } else {
     VARIANT variant = Memop_Variant(stmt);
     TN *tn_res = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
     AssertThat(tn_res != NULL, ("Expand of expr should not return null."));
-    res = TN_number(tn_res);
+    res = TN_tn_idx(tn_res);
     Exp_Store (OPCODE_desc(opcode),
       tn_res,
       tree->Get_node(stmt)->Get_symbol_idx(),
       tree->Get_node(stmt)->Get_load_offset(),
       cur_bb,
       variant);
-
-    res = Get_TN_from_symbol(tree->Get_node(stmt)->Get_symbol_idx());
-    IR_ITER expr_val = tree->Get_operand(stmt, 0);
-    CG_OPRAND expr = Get_TN_by_ir_node(expr_val, cur_bb);
-    CGOP *cgop = new CGOP(CGOPC_STR, cur_bb, res, expr, 0, 0); // Definition a CGOP
-    Cfg()->BB(cur_bb)->Add_stmt(cgop);
     // Add a map
     AssertThat(res < 4096 && res > 0, ("Result tn should be less than 4096 and greater than zero, but it is : %u", res));
   }
@@ -232,12 +226,22 @@ CGIR::Exp_Store (
   MTYPE_ID mtype,
   TN *src_tn,
   ST_IDX sym,
-  INT64 ofst,
+  INT64 ofst_val,
   CFG_BB_IDX bb_idx,
   VARIANT variant)
 {
-  OPCODE opcode = OPCODE_make_op(OPR_STID, MTYPE_V, mtype);
-  Exp_Ldst (opcode, src_tn, sym, ofst, FALSE, TRUE, FALSE, bb_idx, variant);
+  TN *src  = src_tn;
+  TN *base = Gen_TN();
+  TN *ofst = Gen_Literal_TN(ofst_val, 4);
+  CGOPC top = CGOPC_STR;
+  AssertThat(TN_is_constant(ofst), ("Expand_Store: Illegal offset TN"));
+  if (!TN_has_value(ofst) || TN_value(ofst) < (1 << 16)) {
+    Cfg()->BB(bb_idx)->Add_stmt(
+      new CGOP(top, bb_idx, TN_tn_idx(src), TN_tn_idx(base),
+               TN_tn_idx(ofst), 0));
+  } else {
+    AssertThat(false, ("Not implmented Exp_store case"));
+  }
 }
 
 void

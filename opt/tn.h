@@ -65,12 +65,13 @@ typedef enum {
 
 class TN {
 public:
+  UINT32   tn_idx;
   /* offset 0 */
   union {
     INT64	value;		/* TN_has_value: Integer constant */
     INT64	offset;		/* Offset from symbol (constant) */
     struct {
-      TN_IDX number;		/* The ID of the register TN */
+      UINT8  number;		/* The ID of the register TN */
       CLASS_REG_PAIR save_creg;	/* if save_tn, the corresponding save_reg */
       CLASS_REG_PAIR class_reg; /* Dedicated/allocated register ID
 				   and register class (see register.h) */
@@ -91,9 +92,9 @@ public:
     } u3;
   } u2;
   TN (UINT32 tn_number) {
-    u1.reg_tn.number = tn_number;
+    tn_idx = tn_number;
   }
-  TN_IDX Get_tn_num() { return u1.reg_tn.number; }
+  TN_IDX Get_tn_idx() { return tn_idx; }
   void Print(FILE * file = stderr);
   void Dup_from(TN *pTn);
   void Set_type(MTYPE_ID id);
@@ -142,6 +143,11 @@ enum {
 #define     TN_size(t)		(CAN_USE_TN(t)->size+0)
 #define Set_TN_size(t,x)	(CAN_USE_TN(t)->size = (x))
 #define     TN_number(t)	(CAN_USE_REG_TN(t)->u1.reg_tn.number+0)
+
+static inline TN_IDX TN_tn_idx(TN *tn) {
+  return tn->tn_idx;
+}
+
 #define	    TN_class_reg(t)	(CAN_USE_REG_TN(t)->u1.reg_tn.class_reg)
 #define	Set_TN_class_reg(t,x)	(CAN_USE_REG_TN(t)->u1.reg_tn.class_reg = (x))
 #define     TN_register(t)	\

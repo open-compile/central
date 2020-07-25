@@ -4,6 +4,8 @@
 #include <vector>
 #include "tn.h"
 
+#define POINTER_SIZE 4
+
 /*
  *
  *  *   TN
@@ -67,14 +69,14 @@ using namespace TN_CONTEXT;
 TN *Gen_TN() {
   UINT32 sz = _global_tn_vec.size();
   _global_tn_vec.push_back(TN(sz));
-  AssertThat(TN_tn(_global_tn_vec[sz].Get_tn_num()) == &(_global_tn_vec[sz]), ("Generation failed somehow."));
+  AssertThat(TN_tn(_global_tn_vec[sz].Get_tn_idx()) == &(_global_tn_vec[sz]), ("Generation failed somehow."));
   return &(_global_tn_vec[sz]);
 }
 
 TN_IDX Gen_TN(MTYPE_ID mtype) {
   TN *tn = Gen_TN();
   tn->Set_type(mtype);
-  return TN_number(tn);
+  return TN_tn_idx(tn);
 }
 
 TN *TN_tn(TN_IDX tn_idx) {
@@ -108,7 +110,7 @@ Dup_TN ( TN *tn )
   TN *new_tn = Gen_TN();
 
   AssertThat(! TN_is_dedicated(tn),("Dup_TN of a dedicated TN: TN%d",
-    TN_number(tn)));
+    TN_tn_idx(tn)));
 
   new_tn->Dup_from(tn);
   if (!TN_is_constant(new_tn)) {
@@ -285,11 +287,128 @@ void TN::Print(FILE *file) {
 }
 
 void TN::Dup_from(TN *pTn) {
-  UINT32 tn_number = this->Get_tn_num();
+  UINT32 tn_number = this->Get_tn_idx();
   memcpy(this, pTn, sizeof(TN));
-  this->u1.reg_tn.number = tn_number;
+  this->tn_idx = tn_number;
 }
 
 void TN::Set_type(MTYPE_ID id) {
 
+}
+
+
+// gen unique literal tn
+TN *
+Gen_Unique_Literal_TN (INT64 ivalue, INT size)
+{
+  TN *tn = Gen_TN ();
+  Set_TN_size(tn, size);
+  Set_TN_is_constant(tn);
+  Set_TN_has_value(tn);
+  Set_TN_value(tn, ivalue);
+  return tn;
+}
+
+/* ====================================================================
+ *
+ * Gen_Literal_TN
+ *
+ * Produce a literal TN with the given literal value and size, either a
+ * pre-existing one or a newly created one.
+ *
+ * ====================================================================
+ */
+
+TN *
+Gen_Literal_TN ( INT64 ivalue, INT size )
+{
+  TN *tn;
+  AssertThat(size != 4 || (ivalue >= -2147483648LL && ivalue <= 4294967295LL),
+             ("Gen_Literal_TN: 4-byte literal 0x%016llx is out-of-range", ivalue));
+
+  /* Check if there is already a constant TN with this value. Otherwise
+   * create a new one and add it to the hash table.
+   */
+  tn = NULL; //Search_For_Previous_Constant (ivalue, size);
+  if (tn == NULL) {
+    tn = Gen_TN ();
+    Set_TN_size(tn, size);
+    Set_TN_is_constant(tn);
+    Set_TN_has_value(tn);
+    TN_value(tn) = ivalue;
+  }
+  return tn;
+}
+
+/* ====================================================================
+ *
+ * Gen_Symbol_TN
+ *
+ * Produce a TN with the given symbol value, offset and relocs.
+ * This TN will represent the value of the symbol's address plus the
+ * offset.  Note that, for stack frame symbols, the address represented
+ * is relative to the stack pointer rather than absolute.
+ *
+ * ====================================================================
+ */
+
+TN *
+Gen_Symbol_TN ( ST_IDX st, INT64 offset, INT32 relocs)
+{
+  TN *tn;
+  INT hash_value;
+
+  /* First try to find an existing symbol TN */
+  tn = NULL; // Search_For_Previous_Symbol (st, offset, relocs);
+  if (tn == NULL) {
+    tn = Gen_TN ();
+    Set_TN_size(tn, POINTER_SIZE);
+    Set_TN_is_constant(tn);
+    Set_TN_is_symbol(tn);
+    Set_TN_var(tn, st);
+    TN_offset(tn) = offset;
+    TN_relocs(tn) = relocs;
+    // TODO: Save somewhere
+  }
+  return tn;
+}
+
+
+/* ====================================================================
+ *
+ * Gen_Label_TN
+ *
+ * Produce a TN with the given label value and offset.  This TN will
+ * represent the value of the label's address plus the offset.
+ *
+ * ====================================================================
+ */
+
+TN *
+Gen_Label_TN ( LABEL_IDX lab, INT64 offset )
+{
+  TN *tn;
+
+  /* Make an new one and put it into the table: */
+  tn = Gen_TN ();
+  Set_TN_size(tn, POINTER_SIZE);
+  Set_TN_is_constant(tn);
+  Set_TN_is_label(tn);
+  TN_label(tn) = lab;
+  TN_offset(tn) = offset;
+  return tn;
+}
+
+TN *
+Gen_Tag_TN ( LABEL_IDX tag)
+{
+  TN *tn;
+
+  /* Make an new one and put it into the table: */
+  tn = Gen_TN ();
+  Set_TN_size(tn, POINTER_SIZE);
+  Set_TN_is_constant(tn);
+  Set_TN_is_tag(tn);
+  TN_label(tn) = tag;
+  return tn;
 }
