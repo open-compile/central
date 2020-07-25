@@ -3,6 +3,7 @@
 //
 #include <vector>
 #include "tn.h"
+#include <memory.h>
 
 #define POINTER_SIZE 4
 
@@ -118,7 +119,7 @@ Dup_TN ( TN *tn )
     TN_Allocate_Register (new_tn, REGISTER_UNDEFINED);
     /* copy over TN_home for rematerializable TNs. */
     if (!TN_is_rematerializable(tn) && !TN_is_gra_homeable(tn)) {
-      Set_TN_spill(new_tn, NULL);
+      Set_TN_spill(new_tn, 0);
     }
   }
   return new_tn;

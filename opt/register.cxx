@@ -21,7 +21,7 @@ ISA_REGISTER_CLASS REGISTER_CLASS_vec[ISA_REGISTER_CLASS_MAX + 1] = {
 /*
  * Cached information about each ISA_REGISTER_CLASS:
  */
-const ISA_REGISTER_CLASS_INFO ISA_REGISTER_CLASS_info[] = {
+ISA_REGISTER_CLASS_INFO ISA_REGISTER_CLASS_info[] = {
   // isa  sz  min      max s  ms  name          reg_name
   { 0x00,  0,   0,   0, 0, 0, "UNDEFINED", { 0 } },
   { 0x01, 64,   0,  15, 1, 0, "integer",
@@ -57,7 +57,7 @@ UINT8 ISA_REGISTER_CLASS_info_index[] = {
 };
 
 //  name         rclass                count      members reg_name
-const ISA_REGISTER_SUBCLASS_INFO ISA_REGISTER_SUBCLASS_info[] = {
+ISA_REGISTER_SUBCLASS_INFO ISA_REGISTER_SUBCLASS_info[] = {
   { "UNDEFINED", ISA_REGISTER_CLASS_UNDEFINED, 0, { 0 }, { nullptr } },
   { "rax", ISA_REGISTER_CLASS_integer, 1,
                                                   { 0 },
