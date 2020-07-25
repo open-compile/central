@@ -176,26 +176,20 @@ enum OPERATOR {
 #define MTYPE_AA MTYPE_A4
 
 enum OPCODE {
-  OPC_I4I4ADD         = OPR_ADD             + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
-  OPC_I4I4SUB         = OPR_SUB             + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
-  OPC_I4I4MPY         = OPR_MPY             + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
-  OPC_I4I4MOD         = OPR_MOD             + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
-  OPC_FUNC_ENTRY      = OPR_FUNC_ENTRY      + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
-  OPC_BLOCK           = OPR_BLOCK           + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
-  OPC_I4STID          = OPR_STID            + RTYPE(MTYPE_V)     + DESC(MTYPE_I4),
-  OPC_I4LDID          = OPR_LDID            + RTYPE(MTYPE_I4)    + DESC(MTYPE_V),
-  OPC_I4I4ISTORE      = OPR_ISTORE          + RTYPE(MTYPE_AA)    + DESC(MTYPE_I4),
-  OPC_I4I4ILOAD       = OPR_ILOAD           + RTYPE(MTYPE_I4)    + DESC(MTYPE_AA),
-  OPC_IF              = OPR_IF              + RTYPE(MTYPE_V)     + DESC(MTYPE_B),
-  OPC_I4CONST         = OPR_CONST           + RTYPE(MTYPE_I4)    + DESC(MTYPE_V),
-  OPC_I8CONST         = OPR_CONST           + RTYPE(MTYPE_I8)    + DESC(MTYPE_V),
-  OPC_LABEL           = OPR_LABEL           + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
-  OPC_WHILE_DO        = OPR_WHILE_DO        + RTYPE(MTYPE_V)     + DESC(MTYPE_V),
-  OPC_I4I4LT          = OPR_LT              + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
-  OPC_I4I4GT          = OPR_GT              + RTYPE(MTYPE_I4)    + DESC(MTYPE_I4),
-  OPC_RETURN          = OPR_RETURN          + RTYPE(MTYPE_V)     + DESC(MTYPE_B),
-  OPC_RETURN_VAL      = OPR_RETURN_VAL      + RTYPE(MTYPE_V)     + DESC(MTYPE_B),
+// Define the logic here
+#define OCIR_OPC(opc_enum, opr, mtype_res, mtype_desc) \
+  opc_enum = opr + RTYPE(mtype_res) + DESC(mtype_desc),
+// Use the def table
+#include "opc_base.h"
 };
+
+typedef struct {
+  OPCODE    opc;
+  OPERATOR  opr;
+  MTYPE_ID  res;
+  MTYPE_ID  desc;
+  const char *name;
+} OPCODE_INFO;
 
 enum REGION_KIND{
   REGION_KIND_1 = 1,
@@ -211,7 +205,7 @@ public:
   union {
     struct {
       union {
-        TREE_OFFSET	    load_offset;
+        TREE_OFFSET	    load_offset; // load offset or preg num.
         TREE_OFFSET	    lda_offset;
         TREE_OFFSET	    store_offset;
         TREE_OFFSET	    idname_offset;
@@ -318,7 +312,6 @@ public:
   }
   IRNODE_IDX &Opnd(UINT32 pos);
   void Print(FILE *f);
-  const char *OPCODE_name(OPCODE opcode);
   OPCODE &Opcode() { return opcode; }
 
   void Set_symbol_idx(ST_IDX sym) { u1u2.uu.ub.st_idx = sym; };
@@ -335,6 +328,9 @@ public:
 
   void Set_const_val(UINT64 i) { u3.const_val = i; }
   UINT64 Get_const_val() { return u3.const_val; }
+
+  UINT32 Get_preg_num()  { return u1u2.uu.ua.load_offset; }
+  void Set_preg_num(PREG_IDX preg_num)  { u1u2.uu.ua.load_offset = preg_num; }
 };
 
 typedef IRNODE_IDX IR_TREE_ELEM;
@@ -389,6 +385,7 @@ void Set_current_tree(TREE *current);
 MTYPE_ID OPCODE_rtype(OPCODE opc); // get the return type part from the opcode.
 MTYPE_ID OPCODE_desc(OPCODE opc); // get the descriptor type part from the opcode.
 OPERATOR OPCODE_operator(OPCODE opc); // get operator(non-typed) from opcode(typed)
+const char *OPCODE_name(OPCODE opcode);
 BOOL OPCODE_is_const(OPCODE opc);
 BOOL OPCODE_is_bin_arith(OPCODE opc);
 

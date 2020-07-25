@@ -52,48 +52,23 @@ void IRNODE::Print(FILE *f) {
   }
 }
 
-const char *IRNODE::OPCODE_name(OPCODE opcode) {
-  switch (opcode) {
-    case OPC_I4I4ADD:
-      return "I4I4ADD";
-    case OPC_I4I4SUB:
-      return "I4I4SUB";
-    case OPC_I4I4MPY:
-      return "I4I4MPY";
-    case OPC_I4I4MOD:
-      return "I4I4MOD";
-    case OPC_FUNC_ENTRY:
-      return "FUNC_ENTRY";
-    case OPC_BLOCK:
-      return "BLOCK";
-    case OPC_I4STID:
-      return "I4STID";
-    case OPC_I4LDID:
-      return "I4LDID";
-    case OPC_I4I4ISTORE:
-      return "I4I4ISTORE";
-    case OPC_I4I4ILOAD:
-      return "I4I4ILOAD";
-    case OPC_IF:
-      return "IF";
-    case OPC_I4CONST:
-      return "I4CONST";
-    case OPC_I8CONST:
-      return "I8CONST";
-    case OPC_I4I4LT:
-      return "I4I4LT";
-    case OPC_I4I4GT:
-      return "I4I4GT";
-    case OPC_WHILE_DO:
-      return "WHILE_DO";
-    case OPC_RETURN:
-      return "RETURN";
-    case OPC_RETURN_VAL:
-      return "I4RETURN_VAL";
-    default: {
-      return "UNKNOWN-OPCODE";
-    }
+OPCODE_INFO opc_info_table[] = {
+#define OCIR_OPC(opc_enum, opr, mtype_res, mtype_desc) \
+  {opc_enum, opr, mtype_res, mtype_desc, #opc_enum},
+#include "opc_base.h"
+};
+
+const char *OPCODE_name(OPCODE opcode) {
+  // TODO: Print it by someway else
+  // Print mtype DESC
+  // Print mtype RES
+  // Print OPR
+  UINT32      count = sizeof(opc_info_table) / sizeof(OPCODE_INFO);
+  for (UINT32 i     = 0; i < count; i++) {
+    if (opc_info_table[i].opc == opcode)
+      return opc_info_table[i].name;
   }
+  return "UNKOWN";
 }
 
 IRNODE_IDX &IRNODE::Opnd(UINT32 pos) {
@@ -132,10 +107,12 @@ void TREE::Print_recursive(FILE *f) {
 }
 
 IR_ITER TREE::Get_root() {
+  AssertThat(this != nullptr, ("The tree should not be null."));
   return irtree.begin();
 }
 
 IRNODE *TREE::Get_node(IRNODE_IDX iridx) {
+  AssertThat(this != nullptr, ("The tree should not be null."));
   return &_ir_elem_tab[iridx];
 }
 

@@ -99,7 +99,7 @@ void Opt_verify_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
         break;
       }
       default: {
-        AssertThat(false, ("Opcode: %s should not be in the body", tree->Get_node(stmt)->OPCODE_name(tree->Get_node(stmt)->Opcode())));
+        AssertThat(false, ("Opcode: %s should not be in the body", OPCODE_name(tree->Get_node(stmt)->Opcode())));
       }
     }
   }

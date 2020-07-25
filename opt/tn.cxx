@@ -17,66 +17,73 @@
  *     below.
  *
  */
+namespace TN_CONTEXT {
+  BOOL is_str_expand = true;
 
-BOOL is_str_expand = true;
-
-static std::vector<TN> _global_tn_vec;
+  static std::vector<TN> _global_tn_vec;
 
 /**
  * Dedicated TN Groups
  */
+  static TN *ded_tns[ISA_REGISTER_CLASS_MAX + 1][REGISTER_MAX + 1];
+  static TN *f4_ded_tns[REGISTER_MAX + 1];
+  static TN *v16_ded_tns[REGISTER_MAX + 1];
+  static TN *v32_ded_tns[REGISTER_MAX + 1];
+  static TN *i1_ded_tns[REGISTER_MAX + 1];
+  static TN *i2_ded_tns[REGISTER_MAX + 1];
+  static TN *i4_ded_tns[REGISTER_MAX + 1];
 
-static TN *ded_tns[ISA_REGISTER_CLASS_MAX + 1][REGISTER_MAX + 1];
-static TN *f4_ded_tns[REGISTER_MAX + 1];
-static TN *v16_ded_tns[REGISTER_MAX + 1];
-static TN *v32_ded_tns[REGISTER_MAX + 1];
-static TN *i1_ded_tns[REGISTER_MAX + 1];
-static TN *i2_ded_tns[REGISTER_MAX + 1];
-static TN *i4_ded_tns[REGISTER_MAX + 1];
+  TN *RA_TN    = NULL;
+  TN *SP_TN    = NULL;
+  TN *FP_TN    = NULL;
+  TN *Ep_TN    = NULL;
+  TN *GP_TN    = NULL;
+  TN *Zero_TN  = NULL;
+  TN *Pfs_TN   = NULL;
+  TN *True_TN  = NULL;
+  TN *FZero_TN = NULL;
+  TN *FOne_TN  = NULL;
+  TN *LC_TN    = NULL;
 
-TN *RA_TN = NULL;
-TN *SP_TN = NULL;
-TN *FP_TN = NULL;
-TN *Ep_TN = NULL;
-TN *GP_TN = NULL;
-TN *Zero_TN = NULL;
-TN *Pfs_TN = NULL;
-TN *True_TN = NULL;
-TN *FZero_TN = NULL;
-TN *FOne_TN = NULL;
-TN *LC_TN = NULL;
-
-/* Keep track of the TN_number for the last register TN generated. The
- * first numbered TN is #1; #0 must remain unused (various algorithms
- * make special use of 0).
- */
-// TN_IDX Last_TN = 0;, Use Last_TN() instead, and Increment_last_tn();
+  /* Keep track of the TN_number for the last register TN generated. The
+   * first numbered TN is #1; #0 must remain unused (various algorithms
+   * make special use of 0).
+   */
+  // TN_IDX Last_TN = 0;, Use Last_TN() instead, and Increment_last_tn();
 
 /* TN_number of the last dedicated TN */
-TN_IDX Last_Dedicated_TN = 0;
+  TN_IDX Last_Dedicated_TN = 0;
 /* TN_number of the last distinct dedicated TN*/
-TN_IDX Last_Distinct_Dedicated_TN = 0;
+  TN_IDX Last_Distinct_Dedicated_TN = 0;
 /* TN_number of the first non-dedicated TN. */
-TN_IDX First_Regular_TN = 0;
+  TN_IDX First_Regular_TN = 0;
 /* TN_number of the first non-dedicated TN in the current REGION. */
-TN_IDX First_REGION_TN = 0;
+  TN_IDX First_REGION_TN = 0;
+
+};
+
+using namespace TN_CONTEXT;
 
 TN *Gen_TN() {
   UINT32 sz = _global_tn_vec.size();
-  _global_tn_vec.push_back(TN());
+  _global_tn_vec.push_back(TN(sz));
+  AssertThat(TN_tn(_global_tn_vec[sz].Get_tn_num()) == &(_global_tn_vec[sz]), ("Generation failed somehow."));
   return &(_global_tn_vec[sz]);
+}
+
+TN_IDX Gen_TN(MTYPE_ID mtype) {
+  TN *tn = Gen_TN();
+  tn->Set_type(mtype);
+  return TN_number(tn);
+}
+
+TN *TN_tn(TN_IDX tn_idx) {
+  AssertThat(_global_tn_vec.size() > tn_idx, ("TN_IDX = %d is out of max range = %d", tn_idx, _global_tn_vec.size()));
+  return &(_global_tn_vec[tn_idx]);
 }
 
 namespace TNS {
   UINT32 _last_tn = 0;
-}
-
-TN_IDX Last_TN() {
-  return TNS::_last_tn;
-}
-
-TN_IDX Increment_last_TN() {
-  return ++TNS::_last_tn;
 }
 
 void Check_TN_Vec_Size() {
@@ -103,14 +110,10 @@ Dup_TN ( TN *tn )
   AssertThat(! TN_is_dedicated(tn),("Dup_TN of a dedicated TN: TN%d",
     TN_number(tn)));
 
-  *new_tn = *tn;
+  new_tn->Dup_from(tn);
   if (!TN_is_constant(new_tn)) {
-    Check_TN_Vec_Size ();
-    Set_TN_number(new_tn, Last_TN());
-    Increment_last_TN();
     Reset_TN_is_global_reg(new_tn);
     TN_Allocate_Register (new_tn, REGISTER_UNDEFINED);
-    _global_tn_vec.assign(Last_TN(), *new_tn);
     /* copy over TN_home for rematerializable TNs. */
     if (!TN_is_rematerializable(tn) && !TN_is_gra_homeable(tn)) {
       Set_TN_spill(new_tn, NULL);
@@ -136,8 +139,6 @@ Create_Dedicated_TN (ISA_REGISTER_CLASS rclass, REGISTER reg)
    * for all PUs.
    */
   TN *tn = Gen_TN();
-  Set_TN_number(tn, Last_TN());
-  Increment_last_TN();
   Set_TN_is_dedicated(tn);
   Set_TN_register_class(tn, rclass);
   Set_TN_register(tn, reg);
@@ -270,9 +271,6 @@ Gen_Register_TN (ISA_REGISTER_CLASS rclass, INT size)
   }
   else {
     TN *tn = Gen_TN();
-    Check_TN_Vec_Size ();
-    Set_TN_number(tn, Last_TN());
-    Increment_last_TN();
     if ( size > 32 ) {
       AssertThat(false, ("Size should not exceed 32bit."));
     }
@@ -284,4 +282,14 @@ Gen_Register_TN (ISA_REGISTER_CLASS rclass, INT size)
 
 void TN::Print(FILE *file) {
   // Printing the TN.
+}
+
+void TN::Dup_from(TN *pTn) {
+  UINT32 tn_number = this->Get_tn_num();
+  memcpy(this, pTn, sizeof(TN));
+  this->u1.reg_tn.number = tn_number;
+}
+
+void TN::Set_type(MTYPE_ID id) {
+
 }

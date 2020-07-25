@@ -9,13 +9,6 @@
 #include "consts.h"
 #include "register.h"
 
-extern TN_IDX Last_Dedicated_TN;/* The last dedicated TN number */
-extern TN_IDX Last_Distinct_Dedicated_TN;
-extern TN_IDX First_Regular_TN;	/* after all the preallocated TNs */
-// extern TN_IDX Last_TN;		/* The last allocated TN number */
-extern TN_IDX Last_TN();
-extern TN_IDX First_REGION_TN;	/* The first non-dedicated TN in the current REGION */
-
 typedef enum {
   TN_RELOC_NONE	   = 0x00,
   TN_RELOC_GPREL16   = 0x01,	/* gp-relative reference to symbol */
@@ -97,7 +90,22 @@ public:
       IRNODE_IDX  home;		  /* IR home if rematerializable */
     } u3;
   } u2;
+  TN (UINT32 tn_number) {
+    u1.reg_tn.number = tn_number;
+  }
+  TN_IDX Get_tn_num() { return u1.reg_tn.number; }
   void Print(FILE * file = stderr);
+  void Dup_from(TN *pTn);
+  void Set_type(MTYPE_ID id);
+  void Set_value(UINT64 v) { u1.value = v; };
+  void Set_var(ST_IDX v)   { u2.var = v; };
+  void Set_label(LABEL_IDX l)   { u2.label = l; };
+  UINT32 Get_flags() const      { return flags;  }
+  void Set_flags(UINT32 flags)  { TN::flags = flags;  }
+  UINT8 Get_relocs() const      { return relocs;  }
+  void Set_relocs(UINT8 relocs) { TN::relocs = relocs;  }
+  UINT8 Get_size() const        { return size;  }
+  void Set_size(UINT8 size)     { TN::size = size;  }
 };
 
 enum {
@@ -128,21 +136,9 @@ enum {
 #define       TN_is_constant(r)	(TN_flags(r) &   TN_CONSTANT)
 #define   Set_TN_is_constant(r)	(TN_flags(r) |=  TN_CONSTANT)
 #define       TN_is_register(r)	(!TN_is_constant(r))
-extern  BOOL is_str_expand;
-inline TN * CAN_USE_REG_TN (const TN *t)
-{
-  if(!is_str_expand)
-    AssertThat(TN_is_register(t), ("not a register tn"));
-  return (TN*)t;
-}
 
-#ifdef TARG_NVISA
-#define     TN_relocs(t)	(CAN_USE_TN(t)->urs.relocs)
-#define Set_TN_relocs(t,x)	(CAN_USE_TN(t)->urs.relocs = (x))
-#else
 #define     TN_relocs(t)	(CAN_USE_TN(t)->relocs)
 #define Set_TN_relocs(t,x)	(CAN_USE_TN(t)->relocs = (x))
-#endif // TARG_NVISA
 #define     TN_size(t)		(CAN_USE_TN(t)->size+0)
 #define Set_TN_size(t,x)	(CAN_USE_TN(t)->size = (x))
 #define     TN_number(t)	(CAN_USE_REG_TN(t)->u1.reg_tn.number+0)
@@ -221,14 +217,12 @@ inline TN * CAN_USE_REG_TN (const TN *t)
 #define      TN_is_gra_cannot_split(r)  (TN_flags(r) &   TN_GRA_CANNOT_SPLIT)
 #define  Set_TN_is_gra_cannot_split(r)  (TN_flags(r) |=  TN_GRA_CANNOT_SPLIT)
 
-#ifdef TARG_X8664
 #define       TN_is_preallocated(r)  (TN_flags(r) &   TN_PREALLOCATED)
 #define   Set_TN_is_preallocated(r)  (TN_flags(r) |=  TN_PREALLOCATED)
 #define Reset_TN_is_preallocated(r)  (TN_flags(r) &= ~TN_PREALLOCATED)
 #define       TN_is_norename(r)	(TN_flags(r) &   TN_NO_RENAME)
 #define   Set_TN_is_norename(r)	(TN_flags(r) |=  TN_NO_RENAME)
 #define Reset_TN_is_norename(r)	(TN_flags(r) &= ~TN_NO_RENAME)
-#endif
 
 /* Macros to check if a TN is a particular dedicated register. */
 #define TN_is_sp_reg(r)	   (TN_register_and_class(r) == CLASS_AND_REG_sp)
@@ -245,6 +239,30 @@ inline TN * CAN_USE_REG_TN (const TN *t)
 #define TN_is_fzero_reg(r) (TN_register_and_class(r) == CLASS_AND_REG_fzero)
 #define TN_is_fone_reg(r)  (TN_register_and_class(r) == CLASS_AND_REG_fone)
 
+
+
+namespace TN_CONTEXT {
+  extern TN_IDX Last_Dedicated_TN;/* The last dedicated TN number */
+  extern TN_IDX Last_Distinct_Dedicated_TN;
+  extern TN_IDX First_Regular_TN;  /* after all the preallocated TNs */
+  extern TN_IDX First_REGION_TN;  /* The first non-dedicated TN in the current REGION */
+  extern	TN *Pfs_TN;		// Previous Function State TN
+  extern	TN *LC_TN;		// Loop Counter TN
+  extern	TN *EC_TN;		// Epilog Counter TN
+  extern	TN *True_TN;		// TN for true condition (predicate)
+  extern  TN *FZero_TN;		// Floating zero (0.0) register TN
+  extern  TN *FOne_TN;		// Floating one (1.0) register TN
+  extern  BOOL is_str_expand;
+  inline TN * CAN_USE_REG_TN (const TN *t)
+  {
+    if(!is_str_expand)
+      AssertThat(TN_is_register(t), ("not a register tn"));
+    return (TN*)t;
+  }
+
+}
+
+using namespace TN_CONTEXT;
 
 inline void  Set_TN_number(TN *t, int x)
 {
@@ -271,14 +289,6 @@ inline BOOL TN_is_dedicated_class_and_reg( TN *tn, UINT16 class_n_reg )
 }
 
 
-
-extern	TN *Pfs_TN;		// Previous Function State TN
-extern	TN *LC_TN;		// Loop Counter TN
-extern	TN *EC_TN;		// Epilog Counter TN
-extern	TN *True_TN;		// TN for true condition (predicate)
-extern  TN *FZero_TN;		// Floating zero (0.0) register TN
-extern  TN *FOne_TN;		// Floating one (1.0) register TN
-
 /* Intialize the dedicated TNs at the start of the compilation. */
 extern  void Init_Dedicated_TNs (void);
 
@@ -290,7 +300,9 @@ extern	void Init_TNs_For_PU (void);
 extern  TN* Gen_Register_TN (ISA_REGISTER_CLASS rclass, INT size);
 extern  TN *Build_Dedicated_TN ( ISA_REGISTER_CLASS rclass, REGISTER reg, INT size);
 extern	TN *Dup_TN ( TN *tn );	/* Duplicate an existing TN */
-
+extern  TN *TN_tn(TN_IDX tn_idx); // Getting tn from tn_idx.
+extern  TN *Gen_TN();
+extern  TN_IDX Gen_TN(MTYPE_ID mtype);
 
 
 /* Only the following routines should be used to build constant TNs. */
@@ -300,6 +312,5 @@ extern  TN *Gen_Unique_Literal_TN (INT64 ivalue, INT size);
 extern  TN *Gen_Symbol_TN ( ST_IDX s, INT64 offset, INT32 relocs);
 extern  TN *Gen_Label_TN ( LABEL_IDX lab, INT64 offset );
 extern	TN *Gen_Adjusted_TN( TN *tn, INT64 adjust );
-
 
 #endif //OCC_TN_H

@@ -10,7 +10,6 @@
 // Single instance for the program to use, for now.
 CGIR *_cgir_opt = nullptr;
 
-
 CGIR *Cgir() {
   if (_cgir_opt == nullptr) {
     _cgir_opt = new CGIR();
@@ -18,6 +17,12 @@ CGIR *Cgir() {
   return _cgir_opt;
 }
 
+/**
+ * CG processing of one function
+ * CG_Init, Exapnsion,
+ * @param file
+ * @param config
+ */
 void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
   // Convert OCIR to CGIR, saving the CGIR in file
   for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
@@ -36,6 +41,11 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
   }
 }
 
+/**
+ * CG Full processing, this is the only exported function to opt_main.cxx
+ * @param conf
+ * @return
+ */
 INT32 CG_full_process(COMPILER_CONFIG &conf) {
 
   // Local and Global register allocation
@@ -52,10 +62,13 @@ INT32 CG_full_process(COMPILER_CONFIG &conf) {
     }
   }
 
+  // This should only be run once.
   REGISTER_Begin();	/* initialize the register package */
   Init_Dedicated_TNs ();
+
   // Convert OCIR to CGIR
   CG_process_funcs(File(), conf);
+
   // Run emitting of assembly code.
   FILE *output_assembly_file = fopen(conf.output_file.c_str(), "w+");
   if (!output_assembly_file) {
@@ -89,6 +102,14 @@ void Emit_section_code(FILE *out, FILE_MANAGER *file) {
   }
 }
 
+
+/**
+ * Emitting function, the @deprecated way
+ * @deprecated
+ * @param func
+ * @param out
+ * @param file
+ */
 void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Emitting function ST_IDX = %d, name = %s \n",  func->proc_sym, ST_name(func->proc_sym)));
   file->Scopes()->Goto_function(func->proc_sym);
@@ -150,7 +171,7 @@ void Emit_tree(PU_INFO *func, TREE *tree, FILE *out, FILE_MANAGER *file) {
         break;
       }
       default: {
-        fprintf(out, "# [IRNODE:%llu] Skip stmt with opcode = %s\n", one_stmt_id, node->OPCODE_name(node->Opcode()));
+        fprintf(out, "# [IRNODE:%llu] Skip stmt with opcode = %s\n", one_stmt_id, OPCODE_name(node->Opcode()));
       }
     }
   }
