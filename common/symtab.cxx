@@ -401,11 +401,16 @@ FILE_MANAGER::Create_array_ty(STR_IDX string, TY_FLAG ty_flag,
   TY *ty = TY_ty(tyidx);
   ty->name_idx = string;
   ty->kind = KIND_ARRAY;
+  ty->u1.arb = arb;
   ty->Set_etype(element_type);
-  AssertThat(ARB_arb(arb)->dimension == 1,
-             ("Multi dimension array not supported, = %d",
+  AssertThat(ARB_arb(arb)->dimension == 1 || TY_kind(element_type) == KIND_ARRAY,
+             ("Multi dimension array should have array elements, = %d",
                ARB_arb(arb)->dimension));
-  ty->size = ARB_arb(arb)->Ubnd_val() * TY_size(element_type);
+  if (ARB_flags(arb) & ARB_CONST_UBND) {
+    ty->size = ARB_arb(arb)->Ubnd_val() * TY_size(element_type);
+  } else {
+    ty->size = 0;
+  }
   return tyidx;
 }
 
@@ -451,12 +456,14 @@ void FILE_MANAGER::Print(FILE *f) {
 
 ARB_IDX FILE_MANAGER::Create_array_bound_const(UINT64 ubnd_val, UINT64 stride_val, UINT32 dimen, UINT32 flag) {
   ARB_IDX arbnd = Tables()->Arb()->Add();
+  flag |= ARB_CONST_UBND;
   ARB_arb(arbnd)->Init_const(ubnd_val, stride_val, dimen, flag);
   return arbnd;
 }
 
 ARB_IDX FILE_MANAGER::Create_array_bound_var(ST_IDX ubnd_var, UINT64 stride_val, UINT32 dimen, UINT32 flag) {
   ARB_IDX arbnd = Tables()->Arb()->Add();
+  flag &= ~ARB_CONST_UBND;
   ARB_arb(arbnd)->Init_var(ubnd_var, stride_val, dimen, flag);
   return arbnd;
 }

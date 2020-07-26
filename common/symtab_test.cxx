@@ -39,11 +39,31 @@ INT32 main() {
   STR_IDX anon_array = File()->Save_string("_my_int_array");
 
   std::vector<ARB *> bound_vec;
+  // Creating int[30][50][70]
   ARB_IDX arb_idx =
-    File()->Create_array_bound_const(10, MTYPE_size(MTYPE_I4), 1,
-                                     ARB_FIRST_DIMEN | ARB_LAST_DIMEN);
+    File()->Create_array_bound_const(30, MTYPE_size(MTYPE_I4), 3, ARB_FIRST_DIMEN);
+  ARB_IDX mid = File()->Create_array_bound_const(50, MTYPE_size(MTYPE_I4), 2, 0);
+  ARB_IDX last = File()->Create_array_bound_const(70, MTYPE_size(MTYPE_I4), 1, ARB_LAST_DIMEN);
+
+  TY_IDX array_ty = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
+                                            ty_i4, last);
+  TY_IDX array_arr_ty = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
+                                                array_ty, mid);
   TY_IDX basic_array_ty = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
-                                                  ty_i4, arb_idx);
+                                                  array_arr_ty, arb_idx);
+
+  ARB_IDX one_arb = TY_arb(basic_array_ty);
+  AssertThat(one_arb == arb_idx, ("Incorrect saving"));
+  AssertThat(ARB_flags(one_arb) & ARB_CONST_UBND, ("Incorrect arb flag, not const upper bound"));
+
+  AssertThat(ARB_dimension(one_arb) == 3, ("Incorrect arb dimension"));
+  AssertThat(ARB_ubnd_val(one_arb) == 30, ("Incorrect arb upper-bound val"));
+
+  AssertThat(ARB_dimension(one_arb + 1) == 2, ("Incorrect arb dimension"));
+  AssertThat(ARB_ubnd_val(one_arb + 1) == 50, ("Incorrect arb dimension"));
+
+  AssertThat(ARB_dimension(one_arb + 2) == 1, ("Incorrect arb dimension"));
+  AssertThat(ARB_ubnd_val(one_arb + 2) == 70, ("Incorrect arb dimension"));
 
   // Dummy access
   TY_ty(basic_array_ty);
