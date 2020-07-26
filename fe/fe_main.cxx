@@ -135,11 +135,15 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
   } else if (stmt->getTypeName() == "NForStatement") {
       visitForStmt(tree, parent, level,
                           reinterpret_cast<const shared_ptr<NForStatement> &> (stmt));
+  } else if (stmt->getTypeName() == "NIdentifier") {
+      visitIdentifierStmt(tree, parent, level,
+                          reinterpret_cast<const shared_ptr<NIdentifier> &> (stmt));
   }
   else if (stmt->getTypeName() == "NReturnStatement") {
     visitReturnStmt(tree, parent, level,
                  reinterpret_cast<const shared_ptr<NReturnStatement> &> (stmt));
   }
+
   else {
     AssertThat(FALSE, ("not implemented kind of stmt = %s", stmt->getTypeName().c_str()));
   }
@@ -206,9 +210,14 @@ IR_ITER visitIfStmt(TREE *tree, IR_ITER parent, int level,
 IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
                     const shared_ptr<NForStatement> &stmt) {
 
+
     shared_ptr<NExpression> condition = stmt->condition;
     shared_ptr<NBlock> true_block = stmt->block;
     AssertThat(condition != nullptr, ("condition should not be null"));
+
+    IR_ITER test1_stmt;
+    IRNODE_IDX test1_node = tree->Create_node(OPC_WHILE_DO  );
+    test1_stmt = tree->Insert_stmt_to_block(parent, test1_node);
 
     IR_ITER while_stmt;
     IRNODE_IDX while_node = tree->Create_node(OPC_WHILE_DO  );
@@ -219,14 +228,28 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
     AssertThat(condition_expr != parent && condition_expr != while_stmt && condition_expr != nullptr, ("Invalid expr conversion result"));
     tree->Set_operand(while_stmt, 0, condition_expr);
 
+    IR_ITER test2_stmt;
+    IRNODE_IDX test2_node = tree->Create_node(OPC_WHILE_DO  );
+    test2_stmt = tree->Insert_stmt_to_block(parent, test2_node);
+
     //处理循环体
     IR_ITER do_stmt;
     IRNODE_IDX then_node = tree->Create_node(OPC_BLOCK);
     do_stmt = tree->Set_operand(while_stmt, 1, then_node);
     visitBlock(tree, do_stmt, level, true_block);
 
+    IR_ITER test3_stmt;
+    IRNODE_IDX test3_node = tree->Create_node(OPC_WHILE_DO  );
+    test3_stmt = tree->Insert_stmt_to_block(parent, test3_node);
 
     return parent;
+}
+
+IR_ITER visitIdentifierStmt(TREE *tree, IR_ITER parent, int level,
+                     const shared_ptr<NIdentifier> &stmt){
+    IR_ITER Identifier_stmt;
+    IRNODE_IDX Identifier_node = tree->Create_node(OPC_GOTO);
+    Identifier_stmt = tree->Insert_stmt_to_block(parent, Identifier_node);
 }
 
 IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
