@@ -210,14 +210,14 @@ public:
         TREE_OFFSET	    store_offset;
         TREE_OFFSET	    idname_offset;
         INT32   	    num_entries; /* used by computed goto statements; may be used by regions */
-        TY_IDX	    loadx_addr_ty; /* for OPR_ILOADX */
-        INT16	    cvtl_bits;
-        INT32	    label_number;
-        UINT32	    call_flag;
-        UINT32	    if_flag;
-        UINT32	    io_flag;
-        UINT32	    asm_flag;
-        UINT32          asm_operand_num;
+        TY_IDX	      loadx_addr_ty; /* for OPR_ILOADX */
+        INT16	        cvtl_bits;
+        INT32	        label_number;
+        UINT32	      call_flag;
+        UINT32	      if_flag;
+        UINT32	      io_flag;
+        UINT32	      asm_flag;
+        UINT32        asm_operand_num;
         struct {
           UINT16	    trip_est;
           UINT16	    loop_depth;
@@ -331,6 +331,9 @@ public:
 
   UINT32 Get_preg_num()  { return u1u2.uu.ua.load_offset; }
   void Set_preg_num(PREG_IDX preg_num)  { u1u2.uu.ua.load_offset = preg_num; }
+
+  UINT32 Get_label_num()  { return u1u2.uu.ua.label_number; }
+  void Set_label_num(LABEL_IDX label_n)  { u1u2.uu.ua.label_number = label_n; }
 };
 
 typedef IRNODE_IDX IR_TREE_ELEM;

@@ -50,6 +50,10 @@ Symtab_get<PU_INFO_IDX, PU_INFO, PU_INFO_TABLE>(PU_INFO_IDX idx);
 
 template TYLIST *Symtab_get<TYLIST_IDX, TYLIST, TYLIST_TABLE>(TYLIST_IDX idx);
 
+template LABEL  *Symtab_get<LABEL_IDX, LABEL, LABEL_TABLE>(LABEL_IDX idx);
+
+template PREG   *Symtab_get<PREG_IDX, PREG, PREG_TABLE>(PREG_IDX idx);
+
 //================================================================================
 // Defining IDX -> const char * functions, using STR Table, and a STR_IDX
 //================================================================================
@@ -209,6 +213,9 @@ class RELATED_SYMTAB_ACCESS<ST_IDX, ST, TABLE_KIND_ST>;
 
 template
 class RELATED_SYMTAB_ACCESS<PREG_IDX, PREG, TABLE_KIND_PREG>;
+
+template
+class RELATED_SYMTAB_ACCESS<LABEL_IDX, LABEL, TABLE_KIND_LABEL>;
 
 template
 class GLOBAL_SYMTAB_ACCESS<PU_INFO_IDX, PU_INFO>;

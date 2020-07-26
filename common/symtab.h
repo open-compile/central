@@ -307,8 +307,8 @@ enum LABEL_FLAGS {
 };
 
 struct LABEL {
-  STR_IDX name_idx;
-  UINT32 flags: 24;
+  STR_IDX    name_idx;
+  UINT32     flags: 24;
   LABEL_KIND kind: 8;
 
   // operations
@@ -318,10 +318,32 @@ struct LABEL {
     kind = LKIND_DEFAULT;
   }
 
+  STR_IDX Get_name_idx() const {
+    return name_idx;
+  }
+
+  void Set_name_idx(STR_IDX nameIdx) {
+    name_idx = nameIdx;
+  }
+
+  UINT32 Get_flags() const {
+    return flags;
+  }
+
+  void Set_flags(UINT32 flags) {
+    LABEL::flags = flags;
+  }
+
+  LABEL_KIND Get_kind() const {
+    return kind;
+  }
+
+  void Set_kind(LABEL_KIND kind) {
+    LABEL::kind = kind;
+  }
+
   LABEL(STR_IDX idx, LABEL_KIND k) : name_idx(idx), kind(k) {}
-
   void Verify(UINT level) const {};
-
   void Print(FILE *f) const {};
 }; // LABEL
 
@@ -641,22 +663,25 @@ typedef GLOBAL_SYMTAB_ACCESS<TY_IDX, TY> TY_TABLE;
 typedef GLOBAL_SYMTAB_ACCESS<ARB_IDX, ARB> ARB_TABLE;
 typedef GLOBAL_SYMTAB_ACCESS<TYLIST_IDX, TYLIST> TYLIST_TABLE;
 typedef GLOBAL_SYMTAB_ACCESS<PU_IDX, PU> PU_TABLE;
+typedef GLOBAL_SYMTAB_ACCESS<PU_INFO_IDX , PU_INFO> PU_INFO_TABLE;
 typedef RELATED_SYMTAB_ACCESS<ST_IDX, ST, TABLE_KIND_ST> ST_TABLE;
 typedef RELATED_SYMTAB_ACCESS<PREG_IDX, PREG, TABLE_KIND_PREG> PREG_TABLE;
-typedef GLOBAL_SYMTAB_ACCESS<PU_INFO_IDX , PU_INFO> PU_INFO_TABLE;
+typedef RELATED_SYMTAB_ACCESS<LABEL_IDX, LABEL, TABLE_KIND_LABEL> LABEL_TABLE;
 
 /**
  * File-level symbol tables
  */
 class FILE_SYMTAB {
 private:
-  SCOPE_MANAGER *_scope_manager;
-  TY_TABLE *_ty_tab;
-  ST_TABLE *_st_tab;
-  PU_TABLE * _pu_tab;
-  PU_INFO_TABLE *_pu_info_tab;
+  SCOPE_MANAGER * _scope_manager;
+  TY_TABLE      * _ty_tab;
+  ST_TABLE      * _st_tab;
+  PU_TABLE      * _pu_tab;
+  PU_INFO_TABLE * _pu_info_tab;
   TYLIST_TABLE  * _tylist_tab;
-  ARB_TABLE *_arb_tab;
+  ARB_TABLE     * _arb_tab;
+  LABEL_TABLE   * _label_tab;
+  PREG_TABLE    * _preg_tab;
 
   // STRING TABLE SPECIFIC
   char * internal_str_tab_buffer;
@@ -678,18 +703,24 @@ public:
     _pu_tab->Add();
     _tylist_tab      = new TYLIST_TABLE();
     _tylist_tab->Add();
+    _label_tab       = new LABEL_TABLE(this);
+    _label_tab->Add(0);
+    _preg_tab       = new PREG_TABLE(this);
+    _label_tab->Add(0);
     internal_str_tab_buffer = NULL;
     allocated_size_of_buffer = 0;
     used_size_of_buffer = 1;
   };
 
   // Tables
-  TY_TABLE *Ty() { return _ty_tab; };
-  ARB_TABLE *Arb() { return _arb_tab; };
-  ST_TABLE *Sym() { return _st_tab; };
-  PU_TABLE *Pu() { return _pu_tab; };
-  TYLIST_TABLE *Tylist() { return _tylist_tab; };
+  TY_TABLE *Ty()           { return _ty_tab;  };
+  ARB_TABLE *Arb()         { return _arb_tab; };
+  ST_TABLE *Sym()          { return _st_tab;  };
+  PU_TABLE *Pu()           { return _pu_tab;  };
+  TYLIST_TABLE *Tylist()   { return _tylist_tab;  };
   PU_INFO_TABLE *Pu_info() { return _pu_info_tab; };
+  LABEL_TABLE *Label()     { return _label_tab;   };
+  PREG_TABLE *Preg()       { return _preg_tab;    };
 
   /**
    * Utilities
@@ -720,6 +751,12 @@ public:
   }
   PU_TABLE *Get_table(PU *base) {
     return _pu_tab;
+  }
+  LABEL_TABLE *Get_table(LABEL *base) {
+    return _label_tab;
+  }
+  PREG_TABLE *Get_table(PREG *base) {
+    return _preg_tab;
   }
   const char *Get_string(STR_IDX idx);
 
@@ -799,6 +836,7 @@ public:
                          TY_IDX element_type, ARB_IDX arb);
   TY_IDX Create_func_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
                         TY_FLAG ty_flag, std::vector<TY_IDX> &ret_and_params);
+  LABEL_IDX Create_label(STR_IDX name, UINT32 flags, LABEL_KIND lbk);
   ST_IDX Create_var(STR_IDX string, TY_IDX idx, UINT8 level,
                     SYM_SCLASS sclass, SYM_ECLASS eclass, SYM_CLASS symclass);
 

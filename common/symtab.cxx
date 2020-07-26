@@ -491,6 +491,15 @@ ST_IDX FILE_MANAGER::Find_symbol_by_name(const char *name) {
   return 0;
 }
 
+LABEL_IDX FILE_MANAGER::Create_label(STR_IDX name, UINT32 flags, LABEL_KIND k) {
+  LABEL_IDX label_idx = Tables()->Label()->Add(LOCAL_SYMTAB);
+  LABEL *lbl = LABEL_label(label_idx);
+  lbl->Set_name_idx(name);
+  lbl->Set_flags(flags);
+  lbl->Set_kind(k);
+  return label_idx;
+}
+
 void SCOPE::Print(FILE *f) {
   if (st_idx <= 0) {
     fprintf(f, "[Scope] sym = %d, (dummy function)", st_idx);
