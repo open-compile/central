@@ -214,8 +214,13 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
     AssertThat(condition != nullptr, ("condition should not be null"));
 
     IR_ITER label1_stmt;
-    IRNODE_IDX label1_node = tree->Create_node(OPC_WHILE_DO  );
+    STR_IDX str = File()->Save_string("while_start");
+    IRNODE_IDX label1_node = tree->Create_node(OPC_LABEL);
+    LABEL_IDX label_id = File()->Create_label(str,
+                                              LABEL_ADDR_SAVED,
+                                              LKIND_DEFAULT);
     label1_stmt = tree->Insert_stmt_to_block(parent, label1_node);
+    tree->Get_node(label1_stmt)->Set_label_num(label_id);
 
     IR_ITER while_stmt;
     IRNODE_IDX while_node = tree->Create_node(OPC_WHILE_DO  );
@@ -227,7 +232,7 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
     tree->Set_operand(while_stmt, 0, condition_expr);
 
     IR_ITER label2_stmt;
-    IRNODE_IDX label2_node = tree->Create_node(OPC_WHILE_DO  );
+    IRNODE_IDX label2_node = tree->Create_node(OPC_LABEL);
     label2_stmt = tree->Insert_stmt_to_block(parent, label2_node);
 
     //处理循环体
@@ -237,7 +242,7 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
     visitBlock(tree, do_stmt, level, true_block);
 
     IR_ITER label3_stmt;
-    IRNODE_IDX label3_node = tree->Create_node(OPC_WHILE_DO  );
+    IRNODE_IDX label3_node = tree->Create_node(OPC_LABEL);
     label3_stmt = tree->Insert_stmt_to_block(parent, label3_node);
 
     return parent;

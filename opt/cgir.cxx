@@ -269,6 +269,25 @@ VARIANT CGIR::Memop_Variant(IR_ITER iterator) {
   return V_BR_NONE;
 }
 
+void CGIR::Emit_label(PU_INFO *func, FILE *out, UINT32 label_idx) {
+  fprintf(out, "%s%llu:\n", "label_", label_idx);
+}
+
+void CGIR::Emit_operand(CGOP *oper, CGOPR_KIND kind, UINT32 ch_id, FILE* out) {
+  AssertThat(ch_id < 4, ("operand count must be less than 4."));
+  CG_OPRAND cgoper = oper->getResOpnd()[ch_id];
+  if (CGOPR_R == kind) {
+    TN *tn = TN_tn(cgoper.tn);
+    if (TN_is_dedicated(tn)) {
+      UINT32 reg_id = TN_register(tn);
+      fprintf(out, "r%d ", reg_id);
+    } else {
+      UINT32 reg_id = TN_register(tn);
+      fprintf(out, "r%d ", reg_id);
+    }
+  }
+}
+
 template<typename NODE_TYPE>
 void CFG_BB_BASE<NODE_TYPE>::Print(FILE * file) {
   fprintf(file, "===== Printing CFG_BB_BASE id = %d =======\n", _id);

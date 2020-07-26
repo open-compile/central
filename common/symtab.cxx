@@ -500,6 +500,14 @@ LABEL_IDX FILE_MANAGER::Create_label(STR_IDX name, UINT32 flags, LABEL_KIND k) {
   return label_idx;
 }
 
+LABEL_IDX FILE_MANAGER::Create_preg(STR_IDX preg_name, UINT32 desire_num) {
+  PREG_IDX preg_idx = Tables()->Preg()->Add(LOCAL_SYMTAB);
+  PREG *preg        = PREG_preg(preg_idx);
+  preg->setDesireRegNum(desire_num);
+  preg->setNameIdx(preg_name);
+  return preg_idx;
+}
+
 void SCOPE::Print(FILE *f) {
   if (st_idx <= 0) {
     fprintf(f, "[Scope] sym = %d, (dummy function)", st_idx);

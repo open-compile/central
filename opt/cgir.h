@@ -34,6 +34,11 @@ enum CGBB_FLAGS {
   CGBB_ENTRY = 0x2,
 };
 
+enum CGOPR_KIND {
+  CGOPR_IMM = 1,
+  CGOPR_R = 2,
+};
+
 template <typename NODE_TYPE> class CFG_BB_BASE;
 template <typename NODE_TYPE>
 class CFG_BASE {
@@ -83,6 +88,12 @@ public:
   void  Print(FILE *file = stderr);
 };
 
+// BB definitions
+typedef CFG_BB_BASE<CGOP> CGBB;
+typedef vector<CGBB *> CGBB_VECTOR;
+typedef typename vector<CGBB *>::iterator CGBB_ITER;
+
+
 template<typename NODE_TYPE>
 class CFG_BB_BASE {
 private:
@@ -100,6 +111,7 @@ private:
 
   vector<NODE_TYPE *> _stmts;
   UINT32              _flags = 0;
+  UINT32              _label_id = 0;
   BB_TYPE            *_idom  = nullptr;  // immediate dominator on CFG
   BB_TYPE            *_ipdom = nullptr;  // immediate dominator on RCFG
   BB_LIST             _preds;  // list of predesessors
@@ -359,6 +371,9 @@ public:
   const_bb_iterator df_begin(BOOL df) const { return (df) ? _df_list.begin() : _cd_list.begin(); }
   const_bb_iterator df_end(BOOL df) const   { return (df) ? _df_list.end() : _cd_list.end();       }
   void  Print(FILE *file = stderr);
+  UINT32 Get_flags() const { return _flags; }
+  UINT32 Get_label_id() const { return _label_id; }
+  void Set_label_id(UINT32 labelId) { _label_id = labelId; }
 };
 
 typedef CFG_BB_BASE<CGOP>    CGBB;
@@ -426,6 +441,8 @@ public:
   inline  void  Exp_op3(OPCODE c, TN *r, TN *o1, TN *o2, TN *o3, CGOP *ops)     {  Exp_op(c,r,o1,o2,o3,V_NONE,ops); }
   inline  void  Exp_op3v(OPCODE c, TN *r, TN *o1, TN *o2, TN *o3, VARIANT v, CGOP *ops)  {  Exp_op(c,r,o1,o2,o3,v,ops); }
 
+  void          Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file);
+
   VARIANT Memop_Variant(IR_ITER iterator);
 
   void Exp_Store(MTYPE_ID mtype, TN *src_tn, ST_IDX sym, INT64 ofst, CFG_BB_IDX ops,
@@ -440,6 +457,9 @@ public:
         BOOL is_load,
         CFG_BB_IDX ops,
         VARIANT variant);
+
+  void Emit_label(PU_INFO *func, FILE *out, UINT32 label_idx);
+  void Emit_operand(CGOP *oper, CGOPR_KIND k, UINT32 ch_id, FILE*out);
 };
 
 

@@ -349,12 +349,29 @@ struct LABEL {
 
 struct PREG {
   STR_IDX name_idx;
+  UINT32  desire_reg_num;
   // operations
   PREG(void) {
     memset(this, 0,sizeof(PREG));
   }
   void Print(FILE *file) {
-    fprintf(file, "[PREG] [name_idx: %d]\n", name_idx);
+    fprintf(file, "[PREG] [name_idx: %d], desire = %d\n", name_idx, desire_reg_num);
+  }
+
+  STR_IDX getNameIdx() const {
+    return name_idx;
+  }
+
+  void setNameIdx(STR_IDX nameIdx) {
+    name_idx = nameIdx;
+  }
+
+  UINT32 getDesireRegNum() const {
+    return desire_reg_num;
+  }
+
+  void setDesireRegNum(UINT32 desireRegNum) {
+    desire_reg_num = desireRegNum;
   }
 
 }; // PREG
@@ -848,6 +865,7 @@ public:
                                  UINT32 dimen, UINT32 flag);
 
   ST_IDX Find_symbol_by_name(const char *name);
+  LABEL_IDX Create_preg(STR_IDX preg_name, UINT32 desire_num);
 };
 const char *STR_str(STR_IDX idx);
 
