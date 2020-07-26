@@ -210,9 +210,12 @@ IR_ITER visitIfStmt(TREE *tree, IR_ITER parent, int level,
 IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
                     const shared_ptr<NForStatement> &stmt) {
 
+
     shared_ptr<NExpression> condition = stmt->condition;
     shared_ptr<NBlock> true_block = stmt->block;
     AssertThat(condition != nullptr, ("condition should not be null"));
+
+    IRNODE_IDX test1_node = tree->Create_node(OPC_WHILE_DO  );
 
     IR_ITER while_stmt;
     IRNODE_IDX while_node = tree->Create_node(OPC_WHILE_DO  );
@@ -223,12 +226,15 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
     AssertThat(condition_expr != parent && condition_expr != while_stmt && condition_expr != nullptr, ("Invalid expr conversion result"));
     tree->Set_operand(while_stmt, 0, condition_expr);
 
+    IRNODE_IDX test2_node = tree->Create_node(OPC_WHILE_DO  );
+
     //处理循环体
     IR_ITER do_stmt;
     IRNODE_IDX then_node = tree->Create_node(OPC_BLOCK);
     do_stmt = tree->Set_operand(while_stmt, 1, then_node);
     visitBlock(tree, do_stmt, level, true_block);
 
+    IRNODE_IDX test3_node = tree->Create_node(OPC_WHILE_DO  );
 
     return parent;
 }
