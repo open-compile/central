@@ -96,9 +96,6 @@ IR_ITER visitReturnStmt(TREE *tree, IR_ITER parent, int level,
 IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
                         shared_ptr<NExpression> expr);
 
-IR_ITER visitIdentifierStmt(TREE *tree, IR_ITER parent, int level,
-                     const shared_ptr<NIdentifier> &stmt);
-
 OPERATOR Get_op_by_token(FEOPCODE op);
 
 #endif //OCC_FE_MAIN_H
