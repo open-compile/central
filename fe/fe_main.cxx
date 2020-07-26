@@ -135,11 +135,15 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
   } else if (stmt->getTypeName() == "NForStatement") {
       visitForStmt(tree, parent, level,
                           reinterpret_cast<const shared_ptr<NForStatement> &> (stmt));
+  } else if (stmt->getTypeName() == "NIdentifier") {
+      visitIdentifierStmt(tree, parent, level,
+                          reinterpret_cast<const shared_ptr<NIdentifier> &> (stmt));
   }
   else if (stmt->getTypeName() == "NReturnStatement") {
     visitReturnStmt(tree, parent, level,
                  reinterpret_cast<const shared_ptr<NReturnStatement> &> (stmt));
   }
+
   else {
     AssertThat(FALSE, ("not implemented kind of stmt = %s", stmt->getTypeName().c_str()));
   }
@@ -227,6 +231,13 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
 
 
     return parent;
+}
+
+IR_ITER visitIdentifierStmt(TREE *tree, IR_ITER parent, int level,
+                     const shared_ptr<NIdentifier> &stmt){
+    IR_ITER Identifier_stmt;
+    IRNODE_IDX Identifier_node = tree->Create_node(OPC_GOTO);
+    Identifier_stmt = tree->Insert_stmt_to_block(parent, Identifier_node);
 }
 
 IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,

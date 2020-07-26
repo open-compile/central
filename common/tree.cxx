@@ -90,6 +90,8 @@ const char *IRNODE::OPCODE_name(OPCODE opcode) {
       return "RETURN";
     case OPC_RETURN_VAL:
       return "I4RETURN_VAL";
+      case OPC_GOTO:
+          return "GOTO";
     default: {
       return "UNKNOWN-OPCODE";
     }
