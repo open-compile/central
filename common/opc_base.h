@@ -1,0 +1,24 @@
+//
+// Created by xc5 on 2020/7/26.
+//
+
+//      Opcode  Enum      Operator          Result Type    Desc Type
+OCIR_OPC(OPC_I4I4ADD,     OPR_ADD,           MTYPE_I4,      MTYPE_I4)
+OCIR_OPC(OPC_I4I4SUB,     OPR_SUB,           MTYPE_I4,      MTYPE_I4)
+OCIR_OPC(OPC_I4I4MPY,     OPR_MPY,           MTYPE_I4,      MTYPE_I4)
+OCIR_OPC(OPC_I4I4MOD,     OPR_MOD,           MTYPE_I4,      MTYPE_I4)
+OCIR_OPC(OPC_FUNC_ENTRY,  OPR_FUNC_ENTRY,    MTYPE_V,       MTYPE_V)
+OCIR_OPC(OPC_BLOCK,       OPR_BLOCK,         MTYPE_V,       MTYPE_V)
+OCIR_OPC(OPC_I4STID,      OPR_STID,          MTYPE_V,       MTYPE_I4)
+OCIR_OPC(OPC_I4LDID,      OPR_LDID,          MTYPE_I4,      MTYPE_V)
+OCIR_OPC(OPC_I4I4ISTORE,  OPR_ISTORE,        MTYPE_AA,      MTYPE_I4)
+OCIR_OPC(OPC_I4I4ILOAD,   OPR_ILOAD,         MTYPE_I4,      MTYPE_AA)
+OCIR_OPC(OPC_IF,          OPR_IF,            MTYPE_V,       MTYPE_B)
+OCIR_OPC(OPC_I4CONST,     OPR_CONST,         MTYPE_I4,      MTYPE_V)
+OCIR_OPC(OPC_I8CONST,     OPR_CONST,         MTYPE_I8,      MTYPE_V)
+OCIR_OPC(OPC_LABEL,       OPR_LABEL,         MTYPE_V,       MTYPE_V)
+OCIR_OPC(OPC_WHILE_DO,    OPR_WHILE_DO,      MTYPE_V,       MTYPE_V)
+OCIR_OPC(OPC_I4I4LT,      OPR_LT,            MTYPE_I4,      MTYPE_I4)
+OCIR_OPC(OPC_I4I4GT,      OPR_GT,            MTYPE_I4,      MTYPE_I4)
+OCIR_OPC(OPC_RETURN,      OPR_RETURN,        MTYPE_V,       MTYPE_B)
+OCIR_OPC(OPC_RETURN_VAL,  OPR_RETURN_VAL,    MTYPE_V,       MTYPE_B)

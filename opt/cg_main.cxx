@@ -1,0 +1,204 @@
+//
+// Created by xc5 on 2020/7/24.
+//
+#include <file_util.h>
+#include "options.h"
+#include "cgir.h"
+#include "cg_main.h"
+#include "tn.h"
+
+// Single instance for the program to use, for now.
+CGIR *_cgir_opt = nullptr;
+
+CGIR *Cgir() {
+  if (_cgir_opt == nullptr) {
+    _cgir_opt = new CGIR();
+  }
+  return _cgir_opt;
+}
+
+/**
+ * CG processing of one function
+ * CG_Init, Exapnsion,
+ * @param file
+ * @param config
+ */
+void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
+  // Convert OCIR to CGIR, saving the CGIR in file
+  for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
+    // Iterate over each pu_info (functions), dump each of the function
+    PU_INFO *pu_info = file->Tables()->Pu_info()->Get(it);
+    if (pu_info->proc_sym != 0) {
+      Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_OPTIONS),
+               (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
+      Cgir()->CG_Init(&pu_info->scope);
+      if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
+        Cgir()->Print(pu_info->proc_sym, TFile);
+      }
+    } else {
+      AssertThat(false, ("Incomoplete pu_infoo for PU_INFO_IDX = %u, or %0#x", it, it));
+    }
+  }
+}
+
+/**
+ * CG Full processing, this is the only exported function to opt_main.cxx
+ * @param conf
+ * @return
+ */
+INT32 CG_full_process(COMPILER_CONFIG &conf) {
+
+  // Local and Global register allocation
+  // Instruction scheduling etc.,
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_OPTIONS),
+           (TFile, "Writing assembly to %s\n", conf.output_file.c_str()));
+  AssertThat(conf.output_file.size() > 0, ("Incorrect output file name"));
+  if (File_exists(conf.output_file)) {
+    // delete the file if it exists
+    Is_Trace(Tracing(COMPONENT_CG, TRACE_OPTIONS),
+             (TFile, "Removing old output file under %s\n", conf.output_file.c_str()));
+    if (remove(conf.output_file.c_str()) != 0) {
+      Comp_Failure("Cannot delete file : %s", conf.output_file.c_str());
+    }
+  }
+
+  // This should only be run once.
+  REGISTER_Begin();	/* initialize the register package */
+  Init_Dedicated_TNs ();
+
+  // Convert OCIR to CGIR
+  CG_process_funcs(File(), conf);
+
+  // Run emitting of assembly code.
+  FILE *output_assembly_file = fopen(conf.output_file.c_str(), "w+");
+  if (!output_assembly_file) {
+    Comp_Failure("Cannot open output file to write = %s",
+                 conf.output_file.c_str());
+  }
+  Emit_section_data(output_assembly_file, File());
+  Emit_section_code(output_assembly_file, File());
+  if (fclose(output_assembly_file) != 0) {
+    Comp_Failure("Cannot close output file to write = %s",
+                 conf.output_file.c_str());
+  }
+  return 0;
+}
+
+
+
+void Emit_section_code(FILE *out, FILE_MANAGER *file) {
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (TFile, "%sEmitting section: code\n%s", DBAR, DBAR));
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Debugging info enabled, writing file-level code section\n"));
+  fprintf(out, ".text\n\n");
+  for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
+    // Iterate over each pu_info (functions), dump each of the function
+    PU_INFO *pu_info = file->Tables()->Pu_info()->Get(it);
+    if (pu_info->proc_sym != 0) {
+      // Valid pu_info.
+      Emit_function(pu_info, out, file);
+    } else {
+      Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Skip PU_INFO for id = %d, due to unknown proc_symid = %d \n", it, pu_info->proc_sym));
+    }
+  }
+}
+
+
+/**
+ * Emitting function, the @deprecated way
+ * @deprecated
+ * @param func
+ * @param out
+ * @param file
+ */
+void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Emitting function ST_IDX = %d, name = %s \n",  func->proc_sym, ST_name(func->proc_sym)));
+  file->Scopes()->Goto_function(func->proc_sym);
+  // Inside the function now, emitting all symtab info
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Function has %d non-trivial symbols\n", file->Tables()->Sym()->Length(&(func->scope)) - 1));
+  for (UINT32 i = 1; i < file->Tables()->Sym()->Length(&(func->scope)); i++) {
+    ST_IDX one = (i << 8) | LOCAL_SYMTAB;
+    fprintf(out, "# Id: %0#x, Symbol : %s, Type: %d \n", one, ST_name(one), ST_ty(one));
+  }
+  // Dump the instructions
+  const char *func_name = ST_name(func->proc_sym);
+  fprintf(out, ".global %s\n", func_name);
+  fprintf(out, "%s: \n", func_name);
+  Emit_tree(func, func->entry, out, file);
+  // TODO: Use CGIR's emission instead.
+}
+
+void Emit_tree(PU_INFO *func, TREE *tree, FILE *out, FILE_MANAGER *file) {
+  IR_ITER it = tree->Get_root();
+  fprintf(out, "\tstr\tfp, [sp, #-4]!\n");
+  fprintf(out, "\tadd\tfp, sp, #0\n");
+  AssertThat(tree->Get_node(it)->Opcode() == OPC_FUNC_ENTRY, ("Incorrect root opcode"));
+  // Get the function body.
+  IR_ITER body = tree->Get_operand(it, TREE_SEQ_BODY);
+  IRTREE &irtree = tree->Internal_tree();
+  UINT32 stmt_count = tree->Number_of_children(body);
+  map<ST_IDX, UINT32> temp_labels;
+  // Generate all statements in the function-level body block
+  for (UINT32 i = 0; i < stmt_count; i++) {
+    IR_ITER one_stmt = tree->Get_operand(body, i);
+    IRNODE_IDX one_stmt_id = *one_stmt;
+    IRNODE *node = tree->Get_node(one_stmt_id);
+    switch (OPCODE_operator(node->Opcode())) {
+      case OPR_STID: {
+        // generate memory access
+        IR_ITER expr = tree->Get_operand(one_stmt, 0);
+        AssertThat(tree->Get_node(expr)->Opcode() == OPC_I4CONST,
+                   ("Not implemented expr to generate assembly for"));
+        if (temp_labels.find(node->Get_symbol_idx()) == temp_labels.end()) {
+          temp_labels.insert(
+            std::make_pair(node->Get_symbol_idx(), temp_labels.size()));
+        }
+        AssertThat(temp_labels.find(node->Get_symbol_idx()) !=
+                   temp_labels.end(), ("Cannot locate correct entry in map"));
+        UINT32 temp_label_id = temp_labels.find(node->Get_symbol_idx())->second;
+        fprintf(out, "# [IRNODE:%llu] I4STID, sym = %s, stidx = %0#x, "
+                     "temp_label_id = %u  \n",
+                one_stmt_id, ST_name(node->Get_symbol_idx()),
+                node->Get_symbol_idx(), temp_label_id);
+        fprintf(out, "\tldr %s, .TL%s_%u\n", "r2", ST_name(func->proc_sym), temp_label_id);
+        fprintf(out, "\tmov %s, #%d\n", "r3", (INT32) tree->Get_node(expr)->Get_const_val());
+        fprintf(out, "\tstr %s, [%s]\n", "r3", "r2");
+        break;
+      }
+      case OPR_LABEL: {
+        // generate memory access
+        fprintf(out, "# [IRNODE:%llu] LABEL\n", one_stmt_id);
+        fprintf(out, "%s%llu:\n", "label_", one_stmt_id);
+        break;
+      }
+      default: {
+        fprintf(out, "# [IRNODE:%llu] Skip stmt with opcode = %s\n", one_stmt_id, OPCODE_name(node->Opcode()));
+      }
+    }
+  }
+  fprintf(out, ".%s_end:\n", ST_name(func->proc_sym));
+  // Finishing function
+  fprintf(out, "\tadd\tsp, fp, #0\n");
+  fprintf(out, "\tldr\tfp, [sp], #4\n");
+  fprintf(out, "\tbx\tlr\n");
+
+  // Dumping temp labels
+  fprintf(out, "# Dumping temp labels : total = %lu \n", temp_labels.size());
+  for (auto local_temp_it : temp_labels) {
+    fprintf(out, ".TL%s_%u:\t.word %s\n", ST_name(func->proc_sym), local_temp_it.second, ST_name(local_temp_it.first));
+  }
+}
+
+INT32 Emit_section_data(FILE *out, FILE_MANAGER *manager) {
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (TFile, "%sEmitting section: data\n%s", DBAR, DBAR));
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Debugging info enabled, writing file-level data section\n"));
+  fprintf(out, ".section data\n\n");
+  for (UINT32 it = 1; it < manager->Tables()->Sym()->Length(); it++) {
+    ST_IDX new_idx = (it << 8) + 1;
+    if (ST_st(new_idx) != NULL && ST_st(new_idx)->sym_class == SYM_CLASS_VAR) {
+      Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# # Variable ST_IDX = %d, name = %s \n",  new_idx, ST_name(new_idx)));
+      fprintf(out, "%s: \n", ST_name(new_idx));
+      fprintf(out, ".word 0\n");
+    }
+  }
+  return 0;
+}

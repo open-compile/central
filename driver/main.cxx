@@ -214,17 +214,21 @@ INT32 Execute(COMPILER_CONFIG &config) {
     Run_preprocess(config);
     // Run_component(COMPONENT_PREP, config);
   }
-  if (config.assembly) {
-    // Run FE
-    Run_component(COMPONENT_FE, config);
-  }
-  if (config.assembly && !config.fe_only) {
-    // Run OPT + CG = BE
-    Run_component(COMPONENT_BE, config);
-  }
-  if (config.object_gen) {
-    // Run ASM
-    Run_component(COMPONENT_ASM, config);
+  // Run FE
+  Run_component(COMPONENT_FE, config);
+
+  if (!config.fe_only) {
+    if (config.assembly || config.object_gen) {
+      // Run OPT
+      Run_component(COMPONENT_BE, config);
+
+      // Run CG
+      Run_component(COMPONENT_CG, config);
+    }
+    if (config.object_gen) {
+      // Run ASM
+      Run_component(COMPONENT_ASM, config);
+    }
   }
   return 0;
 }
@@ -247,6 +251,7 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
   }
   switch (component) {
     case COMPONENT_FE: {
+      Compilation_Phase = COMP_PHASE_IR_GEN;
       for (INT32 file_id = 0; file_id < config.files.size(); file_id++) {
         operands[0] = "fe";
         operands[1] = config.files[file_id].c_str();
@@ -256,12 +261,20 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
       break;
     }
     case COMPONENT_BE: {
+      Compilation_Phase = COMP_PHASE_OPT_LOWER;
       Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking direct sub-process: back-end\n"));
       BE_EXTERNAL_MAIN_NAME(config);
       break;
     }
+    case COMPONENT_CG: {
+      Compilation_Phase = COMP_PHASE_CG;
+      Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking direct sub-process: code generation\n"));
+      CG_full_process(config);
+      break;
+    }
     case COMPONENT_ASM: {
       // "[A.s] -o [A.o]"
+      Compilation_Phase = COMP_PHASE_ASM;
 #ifdef SUBPROCESS_ENABLED
       for (INT32 file_id = 0; file_id < config.files.size(); file_id++) {
         operands[0] = "arm-linux-gnueabihf-as";
@@ -286,8 +299,9 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
         }
       }
 #else
-      std::cout << "Skipped" << std::endl;
+      std::cout << "ASM stage Skipped" << std::endl;
 #endif
+      break;
     }
     default:
       break;

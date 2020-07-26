@@ -6,15 +6,15 @@
 #define OCC_REGISTER_H
 
 #include "basic.h"
+#include "targ_reg.h"
+#include "util.h"
 
-const int ISA_REGISTER_MAX = 33;
-const int ISA_REGISTER_CLASS_MAX = 33;
+#define REGISTER_UNDEFINED          ((REGISTER) 0)
+#define REGISTER_MIN                ((REGISTER) 1)
+#define REGISTER_MAX                ((REGISTER) (ISA_REGISTER_MAX + REGISTER_MIN))
 
-#define ISA_REGISTER_SUBCLASS_MAX ISA_REGISTER_CLASS_MAX
-#define REGISTER_MAX ISA_REGISTER_MAX
 
 typedef UINT16   REGISTER;             // 16-bit registeer number
-typedef UINT16   ISA_REGISTER_CLASS;   // 16-bit registeer number
 
 /* define 32-bit structure to hold both the class and register number,
    and a union with an UINT32 so that we can efficiently compare
@@ -51,9 +51,26 @@ extern void Set_CLASS_REG_PAIR(CLASS_REG_PAIR& rp, ISA_REGISTER_CLASS rclass, RE
  * Register set definition, is an array here.
  */
 
+#if ISA_REGISTER_MAX < 32
+
+typedef UINT32 REGISTER_SET;
+
+#define REGISTER_SET_EMPTY_SET		((REGISTER_SET)0)
+
+/* These are private!!!!
+ */
+#define REGISTER_SET_WORD		UINT32
+#define REGISTER_SET_ELEM(set, idx)	(set)
+#define REGISTER_SET_IDX(iv)
+#define FOR_REGISTER_SET(init, test, incr) if (0)
+#define MAX_REGISTER_SET_IDX		(0)
+#define REGISTER_SET_WORD_IDX(bit)	(0)
+#define REGISTER_SET_BIT_IDX(bit)	(bit)
+
+#else
+
 typedef struct {
-  UINT64 v[(ISA_REGISTER_MAX/64)+1];
-} REGISTER_SET;
+  UINT64 v[(ISA_REGISTER_MAX/64);
 
 extern const REGISTER_SET REGISTER_SET_EMPTY_SET;
 
@@ -67,6 +84,7 @@ extern const REGISTER_SET REGISTER_SET_EMPTY_SET;
 #define REGISTER_SET_WORD_IDX(bit)	((bit) >> 6)
 #define REGISTER_SET_BIT_IDX(bit)	((bit) & (64-1))
 
+#endif
 
 /****************************************************************************
  * Register info class
@@ -249,8 +267,212 @@ extern CLASS_REG_PAIR		CLASS_REG_PAIR_fone;
 #define REGISTER_CLASS_fone	CLASS_REG_PAIR_rclass(CLASS_REG_PAIR_fone)
 #define CLASS_AND_REG_fone	CLASS_REG_PAIR_class_n_reg(CLASS_REG_PAIR_fone)
 
+
+/* The simple functions are defined as inline functions here. The other
+ * functions are defined in register.c.
+ */
+
+inline BOOL
+REGISTER_SET_EqualP(
+  REGISTER_SET set1,
+  REGISTER_SET set2
+)
+{
+  REGISTER_SET_IDX(i);
+
+  FOR_REGISTER_SET(i = 0, i < MAX_REGISTER_SET_IDX, ++i) {
+    if (REGISTER_SET_ELEM(set1, i) != REGISTER_SET_ELEM(set2, i)) {
+      return FALSE;
+    }
+  }
+  return    REGISTER_SET_ELEM(set1, MAX_REGISTER_SET_IDX)
+            == REGISTER_SET_ELEM(set2, MAX_REGISTER_SET_IDX);
+}
+
+inline BOOL
+REGISTER_SET_EmptyP(
+  REGISTER_SET set
+)
+{
+  REGISTER_SET_IDX(i);
+
+  FOR_REGISTER_SET(i = 0, i < MAX_REGISTER_SET_IDX, ++i) {
+    if (REGISTER_SET_ELEM(set, i)) return FALSE;
+  }
+  return REGISTER_SET_ELEM(set, MAX_REGISTER_SET_IDX) == 0;
+}
+
+inline REGISTER_SET
+REGISTER_SET_Intersection(
+  REGISTER_SET set1,
+  REGISTER_SET set2
+)
+{
+  REGISTER_SET result;
+  REGISTER_SET_IDX(i);
+
+  FOR_REGISTER_SET(i = 0, i < MAX_REGISTER_SET_IDX, ++i) {
+    REGISTER_SET_ELEM(result, i) =
+      REGISTER_SET_ELEM(set1, i) & REGISTER_SET_ELEM(set2, i);
+  }
+  REGISTER_SET_ELEM(result, MAX_REGISTER_SET_IDX) =
+    REGISTER_SET_ELEM(set1, MAX_REGISTER_SET_IDX)
+    & REGISTER_SET_ELEM(set2, MAX_REGISTER_SET_IDX);
+
+  return result;
+}
+
+inline REGISTER_SET
+REGISTER_SET_Union(
+  REGISTER_SET set1,
+  REGISTER_SET set2
+)
+{
+  REGISTER_SET result;
+  REGISTER_SET_IDX(i);
+
+  FOR_REGISTER_SET(i = 0, i < MAX_REGISTER_SET_IDX, ++i) {
+    REGISTER_SET_ELEM(result, i) =
+      REGISTER_SET_ELEM(set1, i) | REGISTER_SET_ELEM(set2, i);
+  }
+  REGISTER_SET_ELEM(result, MAX_REGISTER_SET_IDX) =
+    REGISTER_SET_ELEM(set1, MAX_REGISTER_SET_IDX)
+    | REGISTER_SET_ELEM(set2, MAX_REGISTER_SET_IDX);
+
+  return result;
+}
+
+inline REGISTER_SET
+REGISTER_SET_Difference(
+  REGISTER_SET set1,
+  REGISTER_SET set2
+)
+{
+  REGISTER_SET result;
+  REGISTER_SET_IDX(i);
+
+  FOR_REGISTER_SET(i = 0, i < MAX_REGISTER_SET_IDX, ++i) {
+    REGISTER_SET_ELEM(result, i) =
+      REGISTER_SET_ELEM(set1, i) & ~REGISTER_SET_ELEM(set2, i);
+  }
+  REGISTER_SET_ELEM(result, MAX_REGISTER_SET_IDX) =
+    REGISTER_SET_ELEM(set1, MAX_REGISTER_SET_IDX)
+    & ~REGISTER_SET_ELEM(set2, MAX_REGISTER_SET_IDX);
+
+  return result;
+}
+
+inline BOOL
+REGISTER_SET_IntersectsP(
+  REGISTER_SET set1,
+  REGISTER_SET set2
+)
+{
+  REGISTER_SET_IDX(i);
+
+  FOR_REGISTER_SET(i = 0, i < MAX_REGISTER_SET_IDX, ++i) {
+    if (REGISTER_SET_ELEM(set1, i) & REGISTER_SET_ELEM(set2, i)) {
+      return TRUE;
+    }
+  }
+  return (  REGISTER_SET_ELEM(set1, MAX_REGISTER_SET_IDX)
+            & REGISTER_SET_ELEM(set2, MAX_REGISTER_SET_IDX)) != 0;
+}
+
+inline BOOL
+REGISTER_SET_ContainsP(
+  REGISTER_SET set1,
+  REGISTER_SET set2
+)
+{
+  REGISTER_SET_IDX(i);
+
+  FOR_REGISTER_SET(i = 0, i < MAX_REGISTER_SET_IDX, ++i) {
+    if (REGISTER_SET_ELEM(set2, i) & ~REGISTER_SET_ELEM(set1, i)) {
+      return FALSE;
+    }
+  }
+  return (   REGISTER_SET_ELEM(set2, MAX_REGISTER_SET_IDX)
+             & ~REGISTER_SET_ELEM(set1, MAX_REGISTER_SET_IDX)) == 0;
+}
+
+inline REGISTER_SET
+REGISTER_SET_Difference1(
+  REGISTER_SET set,
+  REGISTER     reg
+)
+{
+  REGISTER_SET result = set;
+  INT bit = reg - REGISTER_MIN;
+  AssertThat((UINT)bit <= (REGISTER_MAX - REGISTER_MIN),
+          ("REGISTER_SET_Difference1: register value out of range"));
+  REGISTER_SET_ELEM(result, REGISTER_SET_WORD_IDX(bit)) =
+    REGISTER_SET_ELEM(set, REGISTER_SET_WORD_IDX(bit))
+    & ~((REGISTER_SET_WORD)1 << REGISTER_SET_BIT_IDX(bit));
+  return result;
+}
+
+inline REGISTER_SET
+REGISTER_SET_Union1(
+  REGISTER_SET set,
+  REGISTER     reg
+)
+{
+  REGISTER_SET result = set;
+  INT bit = reg - REGISTER_MIN;
+  INT total = (REGISTER_MAX - REGISTER_MIN);
+  AssertThat((UINT) bit <= total,
+          ("REGISTER_SET_Union1: register value out of range"));
+  REGISTER_SET_ELEM(result, REGISTER_SET_WORD_IDX(bit)) =
+    REGISTER_SET_ELEM(set, REGISTER_SET_WORD_IDX(bit))
+    | ((REGISTER_SET_WORD)1 << REGISTER_SET_BIT_IDX(bit));
+  return result;
+}
+
+inline REGISTER_SET
+REGISTER_SET_Intersection1(
+  REGISTER_SET set,
+  REGISTER     reg
+)
+{
+  REGISTER_SET result = set;
+  INT bit = reg - REGISTER_MIN;
+  AssertThat((UINT)bit <= (REGISTER_MAX - REGISTER_MIN),
+          ("REGISTER_SET_Intersection1: register value out of range"));
+  REGISTER_SET_ELEM(result, REGISTER_SET_WORD_IDX(bit)) =
+    REGISTER_SET_ELEM(set, REGISTER_SET_WORD_IDX(bit))
+    & ((REGISTER_SET_WORD)1 << REGISTER_SET_BIT_IDX(bit));
+  return result;
+}
+
+inline BOOL
+REGISTER_SET_MemberP(
+  REGISTER_SET set,
+  REGISTER     reg
+)
+{
+  INT bit = reg - REGISTER_MIN;
+  AssertThat((UINT)bit <= (REGISTER_MAX - REGISTER_MIN),
+          ("REGISTER_SET_MemberP: register value out of range"));
+  return (  REGISTER_SET_ELEM(set, REGISTER_SET_WORD_IDX(bit))
+            & ((REGISTER_SET_WORD)1 << REGISTER_SET_BIT_IDX(bit))) != 0;
+}
+
 // Functions
 extern void REGISTER_Begin(void);
 extern void REGISTER_Pu_Begin(void);
+
+
+/* Find leftmost set bit */
+/*	extern const mUINT8 UINT8_most_sig_one[256];	*/
+extern UINT32
+UINT32_Most_Sig_One(
+  UINT32 x
+);
+
+extern UINT32
+UINT32_Least_Sig_One(
+  UINT32 x
+);
 
 #endif //OCC_REGISTER_H

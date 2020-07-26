@@ -7,6 +7,7 @@
 
 #include "basic.h"
 #include "symtab.h"
+#include "consts.h"
 #include "tree.h"
 #include <vector>
 #include <unordered_map>
@@ -15,6 +16,9 @@
 #include "register.h"
 #include "tree_util.h"
 #include "data_layout.h"
+#include "cg_basic.h"
+#include "cg_variant.h"
+#include "tn.h"
 #include <list>
 
 #define POS_INVALID -1
@@ -22,172 +26,8 @@
 using std::vector;
 using std::map;
 using std::set;
-typedef UINT32 CFG_BB_IDX;
-typedef UINT32 CGOP_IDX;
-typedef UINT32 TN_IDX;
-typedef UINT32 CFG_STMT_IDX;
-
-enum CGOPC {
-  // Memory, data transfer
-  CGOPC_MOV,
-  CGOPC_STR  ,
-  CGOPC_LDR  ,
-  // Control
-  CGOPC_LEAVE,
-  CGOPC_CALL ,
-  CGOPC_BR,
-  CGOPC_B, // branch as well
-  CGOPC_BEQ,
-  CGOPC_BNE,
-  CGOPC_BGE,
-  CGOPC_BLT,
-  CGOPC_BGT,
-  CGOPC_BLE,
-  // Arithmetic
-  CGOPC_ADD,
-  CGOPC_MUL,
-  CGOPC_SUBS,
-};
-
-/**
- * Flags to mark on basic blocks
- */
-enum BB_FLAG{
-  BB_FLAG_ENTRY       = 0x0001,
-  BB_FLAG_EXIT        = 0x0002,
-  BB_FLAG_HANDLER     = 0x0004,
-  BB_FLAG_CALL        = 0x0008,
-  BB_FLAG_LABEL       = 0x0010,
-  BB_FLAG_UNREACH     = 0x0020,
-  BB_FLAG_SCHED       = 0x0040,
-  BB_FLAG_SPILL       = 0x0080,
-  BB_FLAG_LRA         = 0x0100,
-};
-
-struct CGOPC_INFO {
-  const char *name;
-  CGOPC opcode;
-  UINT8 n_res;  // num of results
-  UINT8 n_oprs; // num of operands
-};
-
-UINT8 ISA_OPCODE_results(CGOPC cgopc);
-
-UINT8 ISA_OPCODE_operands(CGOPC cgopc);
-
-const char *ISA_OPCODE_name(CGOPC cgopc);
-
-class CG_FRAME_SECT {
-public:
-  const char * name;
-  UINT32       section_id;
-  UINT32       section_size;
-  UINT32       section_offset;
-};
-
-struct CG_OPRAND {
-  union {
-    UINT32  tn;
-    UINT32  immediate;
-  };
-  operator int() {
-    return tn;
-  }
-  CG_OPRAND(UINT32 tn_id) {
-    tn = tn_id;
-  }
-  CG_OPRAND() {
-    tn = 0;
-  }
-};
-
-class CGOP {
-private:
-  CGOPC        opcode;         // assign, ... ...
-  UINT8        results;
-  UINT8        operands;
-  TN_IDX       res_ops;   // operands
-
-  // Other related info
-  CFG_BB_IDX   bb;
-  UINT32       flags;         // flags related to the CGOP
-  UINT32       index_in_bb;   // index inside the BB, unique in BB
-  UINT16       variant;
-
-  // unroll related
-  CFG_BB_IDX   unroll_bb;
-  UINT32       orig_id;
-  UINT8        which_unroll;
-  CG_OPRAND    res_opnd[5];
-
-public:
-  CGOP (CGOPC opc, CFG_BB_IDX bb_idx,
-        CG_OPRAND op1, CG_OPRAND op2,
-        CG_OPRAND op3, CG_OPRAND op4) {
-    opcode = opc;
-    results = ISA_OPCODE_results(opc);
-    operands = ISA_OPCODE_operands(opc);
-    bb = bb_idx;
-    index_in_bb = 0;
-    res_opnd[0] = op1;
-    res_opnd[1] = op2;
-    res_opnd[2] = op3;
-    res_opnd[3] = op4;
-  }
-
-  CGOPC getOpcode() const {
-    return opcode;
-  }
-
-  UINT8 getResults() const {
-    return results;
-  }
-
-  UINT8 getOperands() const {
-    return operands;
-  }
-
-  CFG_BB_IDX getBb() const {
-    return bb;
-  }
-
-  UINT32 getIndexInBb() const {
-    return index_in_bb;
-  }
-
-  const CG_OPRAND *getResOpnd() const {
-    return res_opnd;
-  }
-
-  void setResOps(TN_IDX resOps) {
-    res_ops = resOps;
-  }
-
-  void setFlags(UINT32 flags) {
-    CGOP::flags = flags;
-  }
-
-  void setIndexInBb(UINT32 indexInBb) {
-    index_in_bb = indexInBb;
-  }
-
-  void setVariant(UINT16 variant) {
-    CGOP::variant = variant;
-  }
-
-  void setUnrollBb(CFG_BB_IDX unrollBb) {
-    unroll_bb = unrollBb;
-  }
-
-  void setOrigId(UINT32 origId) {
-    orig_id = origId;
-  }
-
-  void setWhichUnroll(UINT8 whichUnroll) {
-    which_unroll = whichUnroll;
-  }
-  void Print(FILE * file = stderr);
-};
+using IR_TN_MAP = std::unordered_map<IRNODE_IDX, TN*>;
+using TN_IR_MAP = std::unordered_map<TN*, IRNODE_IDX>;
 
 enum CGBB_FLAGS {
   CGBB_EXIT = 0x1,
@@ -529,10 +369,13 @@ private:
   // CGIR_Table
   map<ST_IDX, CG_CFG *>        trees;
   map<ST_IDX, DATA_LAYOUT*>    layout;
+  IR_TN_MAP                    ir_to_tn_map;
+  TN_IR_MAP                    tn_to_ir_map;
   // Memory Layout
   CG_FRAME_SECT                sections[8];
   CG_CFG                     *_current;
   ST_IDX                      _current_sym;
+  TREE                       *tree;
 public:
   CG_CFG    *Get_function(ST_IDX func_sym) {
     if(trees.find(func_sym) == trees.end()) {
@@ -540,21 +383,64 @@ public:
     }
     return trees[func_sym];
   }
+  TN           *Get_tn_by_ir(IRNODE_IDX ir) {
+    if (ir_to_tn_map.find(ir) != ir_to_tn_map.end()) {
+      return ir_to_tn_map[ir];
+    }
+    Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INFO),
+             (TFile, "IR not found in ir_to_tn_map, ir = %lld", ir));
+    return nullptr;
+  }
+  IRNODE_IDX    Get_ir_by_tn(TN *tn) {
+    if (tn_to_ir_map.find(tn) != tn_to_ir_map.end()) {
+      return tn_to_ir_map[tn];
+    }
+    Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INFO),
+             (TFile, "TN not found in tn_to_ir, tn = 0x%016llx", (UINT64) tn));
+    return 0;
+  }
   void          CG_Init(SCOPE *scope);        // Initialize the CG stuff
   void          Data_layout(SCOPE *scope);    // Do data layout
   void          IR_to_CGIR(ST_IDX func_sym);
-  void          Handle_STID(TREE *tree, IR_ITER stmt, CFG_BB_IDX cur_bb);
-  void          Handle_Entry(TREE *tree, IR_ITER entry, CFG_BB_IDX cur_bb);
-  void          Handle_Expr(TREE *tree, IR_ITER entry, CFG_BB_IDX cur_bb);
-  TN_IDX        PREG_To_TN (TY_IDX preg_ty, PREG_NUM preg_num);
+  void          Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb);
+  TN           *Handle_LDID(IR_ITER ldid, TN *result);
+  void          Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb);
+  TN           *Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result);
+  TN           *PREG_to_TN (TY_IDX preg_ty, PREG_NUM preg_num);
+  TN           *PREG_to_ST_TN(ST_IDX sym_idx, PREG_NUM preg_num);
+
+  void          Exp_op(OPCODE opcode, TN *result, TN *op1, TN *op2, TN *op3,
+                       VARIANT variant, CGOP *ops);
   void          Set_current_cgir(CG_CFG *cgir, ST_IDX sym);
   CG_CFG       *Cfg() { return _current; }
-  TN_IDX        Gen_TN(MTYPE_ID preg_ty);
   TN_IDX        Get_TN_from_symbol(ST_IDX sym);
-  TN_IDX        Get_TN_by_ir_node(TREE *tree, IR_ITER node, CFG_BB_IDX cur_bb);
+  TN_IDX        Get_TN_by_ir_node(IR_ITER node, CFG_BB_IDX cur_bb);
   void          Local_register_allocate(PU_INFO *info);
   void          Print(FILE *file = stderr);
   void          Print(ST_IDX sym, FILE *file = stderr);
+  inline  void  Exp_op0(OPCODE c, TN *r, CGOP *ops)              {  Exp_op(c,r,NULL,NULL,NULL,V_NONE,ops); }
+  inline  void  Exp_op1(OPCODE c, TN *r, TN *o1, CGOP *ops)           {  Exp_op(c,r,o1,NULL,NULL,V_NONE,ops); }
+  inline  void  Exp_op1v(OPCODE c, TN *r, TN *o1, VARIANT v, CGOP *ops)        {  Exp_op(c,r,o1,NULL,NULL,v,ops); }
+  inline  void  Exp_op2(OPCODE c, TN *r, TN *o1, TN *o2, CGOP *ops)        {  Exp_op(c,r,o1,o2,NULL,V_NONE,ops); }
+  inline  void  Exp_op2v(OPCODE c, TN *r, TN *o1, TN *o2,VARIANT v, CGOP *ops)     {  Exp_op(c,r,o1,o2,NULL,v,ops); }
+  inline  void  Exp_op3(OPCODE c, TN *r, TN *o1, TN *o2, TN *o3, CGOP *ops)     {  Exp_op(c,r,o1,o2,o3,V_NONE,ops); }
+  inline  void  Exp_op3v(OPCODE c, TN *r, TN *o1, TN *o2, TN *o3, VARIANT v, CGOP *ops)  {  Exp_op(c,r,o1,o2,o3,v,ops); }
+
+  VARIANT Memop_Variant(IR_ITER iterator);
+
+  void Exp_Store(MTYPE_ID mtype, TN *src_tn, ST_IDX sym, INT64 ofst, CFG_BB_IDX ops,
+                 VARIANT variant);
+  void Exp_Ldst (
+        OPCODE opcode,
+        TN *tn,
+        ST_IDX sym,
+        INT64 ofst,
+        BOOL indirect_call,
+        BOOL is_store,
+        BOOL is_load,
+        CFG_BB_IDX ops,
+        VARIANT variant);
 };
+
 
 #endif //OCC_CGIR_H

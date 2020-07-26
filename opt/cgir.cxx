@@ -34,29 +34,48 @@ void CGIR::IR_to_CGIR(ST_IDX sym) {
   File()->Scopes()->Goto_function(sym);
   CG_CFG    *function_cgir = Get_function(sym);
   Set_current_cgir(function_cgir, sym);
-  PU_INFO_IDX   info = File()->Tables()->Get_pu_info_by_st_idx(sym);
-  PU_INFO      *pu_info = PU_INFO_pu_info(info);
-  TREE         *tree = pu_info->entry;
-  Handle_Entry(tree, tree->Get_root(), 0);
+  Handle_Entry(tree->Get_root(), 0);
+}
+
+TN*
+Handle_LDID(IR_ITER ldid, TN *result) {
+  AssertThat(false, ("HandleLDID not impl."));
+  return nullptr;
 }
 
 void
-CGIR::Handle_STID(TREE *tree, IR_ITER stmt, CFG_BB_IDX cur_bb) {
-  TN_IDX result = 0;
+CGIR::Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_STID\n"));
   AssertThat(OPCODE_operator(tree->Node(stmt)->Opcode()) == OPR_STID, ("Not a stid to be passed to Handle_stid"));
   AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in STID, 1 expected, got %d", tree->Number_of_children(stmt)));
+
   MTYPE_ID stid_type = OPCODE_desc(tree->Get_node(stmt)->Opcode());
-  CG_OPRAND res = Get_TN_from_symbol(tree->Get_node(stmt)->Get_symbol_idx());
-  IR_ITER expr_val = tree->Get_operand(stmt, 0);
-  Handle_Expr(tree, expr_val, cur_bb);
-  CG_OPRAND expr = Get_TN_by_ir_node(tree, expr_val, cur_bb);
-  CGOP *cgop = new CGOP(CGOPC_STR, cur_bb, res, expr, 0, 0); // Definition a CGOP
-  Cfg()->BB(cur_bb)->Add_stmt(cgop);
+  CG_OPRAND res      = 0;
+  OPCODE opcode      = tree->Get_node(stmt)->Opcode();
+
+  if (false /* PREG */) {
+    TN *tn_res = PREG_to_ST_TN(tree->Get_node(stmt)->Get_symbol_idx(), tree->Get_node(stmt)->Get_preg_num());
+    res = TN_tn_idx(tn_res);
+    // TODO: Conversion may still be needed here.
+  } else {
+    VARIANT variant = Memop_Variant(stmt);
+    TN *tn_res = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
+    AssertThat(tn_res != NULL, ("Expand of expr should not return null."));
+    res = TN_tn_idx(tn_res);
+    Exp_Store (OPCODE_desc(opcode),
+      tn_res,
+      tree->Get_node(stmt)->Get_symbol_idx(),
+      tree->Get_node(stmt)->Get_load_offset(),
+      cur_bb,
+      variant);
+    // Add a map
+    AssertThat(res < 4096 && res > 0, ("Result tn should be less than 4096 and greater than zero, but it is : %u", res));
+  }
+  return;
 }
 
-void CGIR::Handle_Entry(TREE *tree, IR_ITER entry, CFG_BB_IDX cur_bb) {
+void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
   // Create a block
   cur_bb = Cfg()->Add_bb();
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
@@ -82,41 +101,78 @@ void CGIR::Handle_Entry(TREE *tree, IR_ITER entry, CFG_BB_IDX cur_bb) {
     switch (OPCODE_operator(tree->Get_node(stmt)->Opcode())) {
       // What kind of opcode is allowed here.
       case OPR_STID: {
-        Handle_STID(tree, stmt, cur_bb);
+        Handle_STID(stmt, cur_bb);
         break;
       }
       default: {
-        AssertThat(false, ("Opcode: %s should not be in the body", tree->Get_node(stmt)->OPCODE_name(tree->Get_node(stmt)->Opcode())));
+        AssertThat(false, ("Opcode: %s should not be in the body", OPCODE_name(tree->Get_node(stmt)->Opcode())));
       }
     }
   }
 }
 
-TN_IDX CGIR::Gen_TN(MTYPE_ID preg_ty) {
-  return 1;
+TN *CGIR::PREG_to_TN(TY_IDX preg_ty, PREG_NUM preg_num) {
+  AssertThat(false, ("PREG to TN is not implemented"));
+  return nullptr;
 }
 
-TN_IDX CGIR::PREG_To_TN(TY_IDX preg_ty, PREG_NUM preg_num) {
-  AssertThat(false, ("PREG to TN is not implemented"));
-  return 1;
+TN *CGIR::PREG_to_ST_TN(ST_IDX sym_idx, PREG_NUM preg_num) {
+  AssertThat(false, ("PREG_to_ST_TN is not implemented"));
+  return nullptr;
 }
+
 
 void CGIR::Set_current_cgir(CG_CFG *cgir, ST_IDX sym) {
   _current = cgir;
   _current_sym = sym;
+  tree = PU_INFO_pu_info(File()->Tables()->Get_pu_info_by_st_idx(sym))->entry;
 }
 
-void CGIR::Handle_Expr(TREE *tree, IR_ITER entry, CFG_BB_IDX cur_bb) {
+/**
+ * Expanding a expression to CGOP sequence.
+ * @param entry
+ * @param parent
+ * @param cur_bb
+ * @param result
+ * @return
+ */
+TN *
+CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_expr\n"));
+  // TODO: LDID
+  switch (OPCODE_operator(tree->Node(entry)->Opcode())) {
+    case OPR_LDID:
+      return TN_tn(Gen_TN(MTYPE_I4));
+    case OPR_CONST:
+      return TN_tn(Gen_TN(MTYPE_I4));
+    default:
+      AssertThat(false, ("Operator not implemented : %s", OPCODE_name(tree->Node(entry)->Opcode())));
+      return nullptr;
+  }
 }
 
+/**
+ * Find the symbol represented by the TN.
+ * @param sym
+ * @return
+ */
 TN_IDX CGIR::Get_TN_from_symbol(ST_IDX sym) {
-  return 2;
+  TY_IDX ty_idx = ST_ty(sym);
+  AssertThat(MTYPE_to_ty(MTYPE_I4) == ty_idx,
+             ("Should be a I4 type, rather, it's %d ", ty_idx));
+  return Gen_TN(MTYPE_I4);
 }
 
-TN_IDX CGIR::Get_TN_by_ir_node(TREE *tree, IR_ITER node, CFG_BB_IDX cur_bb) {
-  return 3;
+/**
+ * Find the TN mapped by the ir, in the map(cached)
+ * @param node
+ * @param cur_bb
+ * @return
+ */
+TN_IDX CGIR::Get_TN_by_ir_node(IR_ITER node, CFG_BB_IDX cur_bb) {
+  // TODO: This is only for testing. change this later.
+  return Gen_TN(MTYPE_I4);
 }
 
 void CGIR::Local_register_allocate(PU_INFO *info) {
@@ -144,6 +200,75 @@ void CGIR::Print(ST_IDX sym, FILE *file) {
   Get_function(sym)->Print(file);
 }
 
+
+//void
+//CGIR::Exp_Load (
+//  TYPE_ID rtype,
+//  TYPE_ID desc,
+//  TN *tgt_tn,
+//  ST *sym,
+//  INT64 ofst,
+//  OPS *ops,
+//  VARIANT variant)
+//{
+//  OPCODE opcode = OPCODE_make_op (OPR_LDID, rtype, desc);
+//  Exp_Ldst (opcode, tgt_tn, sym, ofst, FALSE, FALSE, TRUE, ops, variant);
+//  if (TN_register_class(tgt_tn) == ISA_REGISTER_CLASS_mmx)
+//    Build_OP(TOP_emms, ops); // bug 11800
+//}
+
+OPCODE OPCODE_make_op(OPERATOR opr, MTYPE_ID res, MTYPE_ID desc) {
+  return (OPCODE) (opr + RTYPE(res) + DESC(desc));
+}
+
+void
+CGIR::Exp_Store (
+  MTYPE_ID mtype,
+  TN *src_tn,
+  ST_IDX sym,
+  INT64 ofst_val,
+  CFG_BB_IDX bb_idx,
+  VARIANT variant)
+{
+  TN *src  = src_tn;
+  TN *base = Gen_TN();
+  TN *ofst = Gen_Literal_TN(ofst_val, 4);
+  CGOPC top = CGOPC_STR;
+  AssertThat(TN_is_constant(ofst), ("Expand_Store: Illegal offset TN"));
+  if (!TN_has_value(ofst) || TN_value(ofst) < (1 << 16)) {
+    Cfg()->BB(bb_idx)->Add_stmt(
+      new CGOP(top, bb_idx, TN_tn_idx(src), TN_tn_idx(base),
+               TN_tn_idx(ofst), 0));
+  } else {
+    AssertThat(false, ("Not implmented Exp_store case"));
+  }
+}
+
+void
+CGIR::Exp_Ldst (
+  OPCODE opcode,
+  TN *tn,
+  ST_IDX sym,
+  INT64 ofst,
+  BOOL indirect_call,
+  BOOL is_store,
+  BOOL is_load,
+  CFG_BB_IDX bb_idx,
+  VARIANT variant)
+{
+
+}
+
+void CGIR::Exp_op(OPCODE opcode, TN *result, TN *op1, TN *op2, TN *op3,
+                  VARIANT variant, CGOP *ops) {
+  // ...
+  AssertThat(false, ("Exp_op not impl."));
+}
+
+VARIANT CGIR::Memop_Variant(IR_ITER iterator) {
+  return V_BR_NONE;
+}
+
 template<typename NODE_TYPE>
 void CFG_BB_BASE<NODE_TYPE>::Print(FILE * file) {
   fprintf(file, "===== Printing CFG_BB_BASE id = %d =======\n", _id);
@@ -166,21 +291,18 @@ void CFG_BASE<NODE_TYPE>::Print(FILE * file) {
 }
 
 void CGOP::Print(FILE *file) {
-  fprintf(file, "[CGOP] opc = %s(%d), index:%d, operands: [%u] [%u] [%u] [%u] \n",
+  fprintf(file, "[CGOP] opc = %s(%d), index:%d, res/opnd: [%u] [%u] [%u] [%u] \n",
           ISA_OPCODE_name(getOpcode()), getOpcode(), getIndexInBb(),
           (UINT32) res_opnd[0], (UINT32) res_opnd[1],
           (UINT32) res_opnd[2], (UINT32) res_opnd[3]);
-
 }
 
 CGOPC_INFO CGOPC_INFO_LIST[] = {
-  // Opcode     n_res,   n_operands
-  // Memory,
-  { "CGOPC_MOV",    CGOPC_MOV   , 1,     1 },
+  // Opcode                     n_res,   n_operands
+  { "CGOPC_MOV",    CGOPC_MOV   , 1,     1 }, // Memory
   { "CGOPC_STR",    CGOPC_STR   , 1,     2 },
   { "CGOPC_LDR",    CGOPC_LDR   , 1,     2 },
-  // Control
-  { "CGOPC_LEAVE",  CGOPC_LEAVE , 1,     0 },
+  { "CGOPC_LEAVE",  CGOPC_LEAVE , 1,     0 }, // Control
   { "CGOPC_CALL",   CGOPC_CALL  , 1,     1 },
   { "CGOPC_BR",     CGOPC_BR    , 1,     1 },
   { "CGOPC_B",      CGOPC_B     , 1,     1 }, // branch as well
@@ -190,8 +312,7 @@ CGOPC_INFO CGOPC_INFO_LIST[] = {
   { "CGOPC_BLT",    CGOPC_BLT   , 1,     1 },
   { "CGOPC_BGT",    CGOPC_BGT   , 1,     1 },
   { "CGOPC_BLE",    CGOPC_BLE   , 1,     1 },
-  // Arithmetic ... TODO: to be addeed
-  { "CGOPC_ADD",    CGOPC_ADD   , 1,     2 },
+  { "CGOPC_ADD",    CGOPC_ADD   , 1,     2 }, // Arithmetic ... TODO: to be addeed
   { "CGOPC_MUL",    CGOPC_MUL   , 1,     2 },
   { "CGOPC_SUBS",   CGOPC_SUBS  , 1,     2 },
 };
