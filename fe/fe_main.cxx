@@ -10,7 +10,8 @@
 #include "ir.h"
 #include "fe_main.h"
 
-BIN_OP_TO_OPR FEOPCODE_INFO[6] = {
+// Opcode
+BIN_OP_TO_OPR FEOPCODE_INFO[] = {
   { "+", TPLUS,  OPR_ADD },
   { "*", TMUL,   OPR_MPY },
   { "-", TMINUS, OPR_SUB },
@@ -20,6 +21,7 @@ BIN_OP_TO_OPR FEOPCODE_INFO[6] = {
 };
 
 INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_name) {
+    // TODO:
   extern FILE *yyin;
   if ((yyin = fopen(file_name, "r")) == NULL) {
     Comp_Failure("Failed to open source code : %s", file_name);
