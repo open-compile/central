@@ -259,6 +259,9 @@ Build_Dedicated_TN (ISA_REGISTER_CLASS rclass, REGISTER reg, INT size)
       case 4: return i4_ded_tns[reg];
     }
   }
+
+  AssertThat(ded_tns[rclass][reg] != NULL,
+             ("Cannot use such TN, rclass = %d, reg = %d", rclass, reg));
   return ded_tns[rclass][reg];
 }
 

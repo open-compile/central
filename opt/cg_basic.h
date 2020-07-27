@@ -46,6 +46,78 @@ struct CGOPC_INFO {
   CGOPR_KIND op3;
   const char *ins_token;
   CGOPC_KIND opk;
+
+  const char *getName() const {
+    return name;
+  }
+
+  void setName(const char *name) {
+    CGOPC_INFO::name = name;
+  }
+
+  CGOPC getOpcode() const {
+    return opcode;
+  }
+
+  void setOpcode(CGOPC opcode) {
+    CGOPC_INFO::opcode = opcode;
+  }
+
+  UINT8 getNRes() const {
+    return n_res;
+  }
+
+  void setNRes(UINT8 nRes) {
+    n_res = nRes;
+  }
+
+  UINT8 getNOprs() const {
+    return n_oprs;
+  }
+
+  void setNOprs(UINT8 nOprs) {
+    n_oprs = nOprs;
+  }
+
+  CGOPR_KIND getOp1() const {
+    return op1;
+  }
+
+  void setOp1(CGOPR_KIND op1) {
+    CGOPC_INFO::op1 = op1;
+  }
+
+  CGOPR_KIND getOp2() const {
+    return op2;
+  }
+
+  void setOp2(CGOPR_KIND op2) {
+    CGOPC_INFO::op2 = op2;
+  }
+
+  CGOPR_KIND getOp3() const {
+    return op3;
+  }
+
+  void setOp3(CGOPR_KIND op3) {
+    CGOPC_INFO::op3 = op3;
+  }
+
+  const char *getInsToken() const {
+    return ins_token;
+  }
+
+  void setInsToken(const char *insToken) {
+    ins_token = insToken;
+  }
+
+  CGOPC_KIND getOpk() const {
+    return opk;
+  }
+
+  void setOpk(CGOPC_KIND opk) {
+    CGOPC_INFO::opk = opk;
+  }
 };
 
 

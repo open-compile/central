@@ -146,11 +146,12 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
 
     // label to be set
     if (cgbb->Get_label_id() != 0) {
+      Is_Trace(TR_EMIT(), (out, "#  ---  BB has a label: ---   \n"));
       Emit_label(func, out, cgbb->Get_label_id());
     }
 
     // Tracings
-    if (Tracing(CO_CG_EMIT, TRACE_EMIT_CORE)) {
+    if (TR_EMIT()) {
       fprintf(out, "#  --------- Processing BB : %d ---------  \n"
                    "#  --------- BB label = %d      ---------  \n"
                    "#  Pred: ", i, cgbb->Get_label_id());
@@ -192,7 +193,10 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
             Emit_operand(cgop, CGOPR_R, 0, out);
           }
           if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
-            fprintf(out, ", ");
+            if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
+              // Printed operator before.
+              fprintf(out, ", ");
+            }
             if (CGOPC_is_ldst(cgop->getOpcode())) {
               fprintf(out, "[");
             }
@@ -218,6 +222,14 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
   fprintf(out, "# Dumping temp labels : total = %lu \n", temp_labels.size());
   for (auto local_temp_it : temp_labels) {
     fprintf(out, ".TL%s_%u:\t.word %s\n", ST_name(func->proc_sym), local_temp_it.second, ST_name(local_temp_it.first));
+  }
+  LABEL_TABLE *tbl = File()->Tables()->Label();
+  SCOPE *scope = File()->Scopes()->Current();
+  for (UINT32 i = 1; i < tbl->Length(scope); i++) {
+    LABEL_IDX lbl_idx = (i << 8) + LOCAL_SYMTAB;
+    const char *name = LABEL_name(lbl_idx);
+    ST_IDX sym = LABEL_label(lbl_idx)->Get_temp_sym();
+    fprintf(out, "%s:\t.word %s\n", name, ST_name(sym));
   }
 }
 

@@ -172,7 +172,8 @@ public:
   } u2;
   UINT32 pad; // 4 pad bytes (initialize to zero)
   UINT32 offset; // offset from base
-  ST_IDX base_idx; // base of the allocated block
+  INT32  fp_offset; // offset from base
+  ST_IDX base_idx; // base in the allocated block.
   // ST_IDX st_idx; // my own st_idx
   // operations
 
@@ -185,6 +186,78 @@ public:
   void Print_details(FILE *f);
   void Print_storage_class(FILE *f);
   PU_INFO_IDX Pu_info_idx();
+
+  SYM_ATTR getAttr() const {
+    return attr;
+  }
+
+  void setAttr(SYM_ATTR attr) {
+    ST::attr = attr;
+  }
+
+  SYM_CLASS getSymClass() const {
+    return sym_class;
+  }
+
+  void setSymClass(SYM_CLASS symClass) {
+    sym_class = symClass;
+  }
+
+  SYM_SCLASS getStorageClass() const {
+    return storage_class;
+  }
+
+  void setStorageClass(SYM_SCLASS storageClass) {
+    storage_class = storageClass;
+  }
+
+  SYM_ECLASS getExportClass() const {
+    return export_class;
+  }
+
+  void setExportClass(SYM_ECLASS exportClass) {
+    export_class = exportClass;
+  }
+
+  ST_TLS_MODEL getTlsModel() const {
+    return tls_model;
+  }
+
+  void setTlsModel(ST_TLS_MODEL tlsModel) {
+    tls_model = tlsModel;
+  }
+
+  UINT32 getPad() const {
+    return pad;
+  }
+
+  void setPad(UINT32 pad) {
+    ST::pad = pad;
+  }
+
+  UINT32 getOffset() const {
+    return offset;
+  }
+
+  void setOffset(UINT32 offset) {
+    ST::offset = offset;
+  }
+
+  INT32 getFpOffset() const {
+    return fp_offset;
+  }
+
+  void setFpOffset(INT32 fpOffset) {
+    fp_offset = fpOffset;
+  }
+
+  ST_IDX getBaseIdx() const {
+    return base_idx;
+  }
+
+  void setBaseIdx(ST_IDX baseIdx) {
+    base_idx = baseIdx;
+  }
 }; // ST
 
 // Give information about a dimension of an array.  The TY of the array type
@@ -310,6 +383,7 @@ struct LABEL {
   STR_IDX    name_idx;
   UINT32     flags: 24;
   LABEL_KIND kind: 8;
+  ST_IDX     temp_sym;
 
   // operations
   LABEL() {
@@ -340,6 +414,14 @@ struct LABEL {
 
   void Set_kind(LABEL_KIND kind) {
     LABEL::kind = kind;
+  }
+
+  ST_IDX Get_temp_sym() const {
+    return temp_sym;
+  }
+
+  void Set_temp_sym(ST_IDX tempSym) {
+    temp_sym = tempSym;
   }
 
   LABEL(STR_IDX idx, LABEL_KIND k) : name_idx(idx), kind(k) {}

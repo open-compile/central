@@ -112,9 +112,14 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
       }
     }
   }
-  // Adding exit BB.
+  // Adding function epilog (exit BB)
   cur_bb = Cfg()->Add_bb(cur_bb);
   Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_EXIT);
+  Cfg()->BB(cur_bb)->Add_stmt(
+    new CGOP(CGOPC_BX, cur_bb,
+             0,
+             TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_ra, REGISTER_ra, 4)),
+             0, 0));
 }
 
 TN *CGIR::PREG_to_TN(TY_IDX preg_ty, PREG_NUM preg_num) {
@@ -253,6 +258,7 @@ CGIR::Exp_Store (
 {
   TN *src  = src_tn;
   TN *base = nullptr;
+  UINT64 offset_from_base = ofst_val;
   if (ST_sclass(sym) != SYMC_AUTO) {
     // Create a LDR first
     base = TN_tn(Gen_TN(MTYPE_I4));
@@ -260,8 +266,9 @@ CGIR::Exp_Store (
     Cfg()->BB(bb_idx)->Add_stmt(
       new CGOP(CGOPC_LDRLBL, bb_idx, TN_tn_idx(base), TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0));
   } else {
-    base = Build_Dedicated_TN(ISA_REGISTER_CLASS_integer,
-                              REGISTER_sp, MTYPE_size(MTYPE_I4));
+    base = Build_Dedicated_TN(REGISTER_CLASS_sp,
+                              REGISTER_sp,
+                              MTYPE_size(MTYPE_I4));
   }
   TN *ofst = Gen_Literal_TN(ofst_val, 4);
   CGOPC top = CGOPC_STR;
@@ -301,20 +308,26 @@ VARIANT CGIR::Memop_Variant(IR_ITER iterator) {
 }
 
 void CGIR::Emit_label(PU_INFO *func, FILE *out, LABEL_IDX label_idx) {
-  fprintf(out, ".%s:\n", LABEL_name(label_idx));
+  fprintf(out, "%s:\n", LABEL_name(label_idx));
 }
 
 void CGIR::Emit_operand(CGOP *oper, CGOPR_KIND kind, UINT32 ch_id, FILE* out) {
   AssertThat(ch_id < 4, ("operand count must be less than 4."));
   CG_OPRAND cgoper = oper->getResOpnd()[ch_id];
-  AssertThat(cgoper != 0, ("Should not be empty."));
+  AssertThat(cgoper != 0,
+             ("Should not be empty, cgopc = %s", Get_cg_opc_info(
+               oper->getOpcode())->getName()));
   if (CGOPR_R == kind) {
     TN *tn = TN_tn(cgoper.tn);
     if (TN_is_symbol(tn)) {
       ST_IDX sym = TN_var(tn);
-      AssertThat(ST_sclass(sym) == SYMC_FILE_STATIC, ("this should only be used for static/global var."));
+      AssertThat(ST_sclass(sym) == SYMC_FILE_STATIC,
+                 ("this should only be used for static/global var."));
       // Generate labels for current func.
-      fprintf(out, "%s ", STR_str(LABEL_label(Get_addr_label(sym))->Get_name_idx()));
+      fprintf(out, "%s ", LABEL_name(Get_addr_label(sym)));
+    } else if (TN_is_label(tn)) {
+      LABEL_IDX lbl = TN_label(tn);
+      fprintf(out, "%s ", LABEL_name(lbl));
     } else if (TN_is_constant(tn)) {
       fprintf(out, "#%lld ", TN_value(tn));
     } else if (TN_is_label(tn)) {
@@ -322,7 +335,7 @@ void CGIR::Emit_operand(CGOP *oper, CGOPR_KIND kind, UINT32 ch_id, FILE* out) {
     } else if (TN_is_dedicated(tn)) {
       UINT32 reg_id = TN_register(tn);
       if (reg_id == REGISTER_ra) {
-        fprintf(out, "r0");
+        fprintf(out, "lr ");
       } else if (reg_id == REGISTER_sp) {
         fprintf(out, "sp");
       } else if (reg_id == REGISTER_fp) {
@@ -399,16 +412,17 @@ CGOPC_INFO *CGIR::Get_cg_opc_info(CGOPC cgopc) {
 LABEL_IDX CGIR::Get_addr_label(ST_IDX sym) {
   char *targ = (char*) malloc(sizeof(".taddr_") + strlen(ST_name(sym)) + 2);
   sprintf(targ, ".taddr_%s", ST_name(sym));
-  for (UINT32 i = 1; i < File()->Tables()->Label()->Length(File()->Scopes()->Current()); i++) {
+  for (UINT32 i       = 1; i < File()->Tables()->Label()->Length(File()->Scopes()->Current()); i++) {
     LABEL_IDX lbl = (LABEL_IDX) (i << 8) + LOCAL_SYMTAB;
-    if (strcmp(targ, STR_str(File()->Tables()->Label()->Get(lbl)->Get_name_idx())) == 0) {
+    if (LABEL_label(lbl)->Get_temp_sym() == sym) {
       free(targ);
       return lbl;
     }
   }
-  LABEL_IDX lbl_idx =
-              File()->Create_label(File()->Save_string(targ),
-                                   LABEL_ADDR_PASSED & LABEL_ADDR_SAVED, LKIND_ASSIGNED);
+  STR_IDX     name    = File()->Save_string(targ);
+  LABEL_IDX   lbl_idx = File()->Create_label(name, LABEL_ADDR_PASSED &
+                                             LABEL_ADDR_SAVED, LKIND_ASSIGNED);
+  LABEL_label(lbl_idx)->Set_temp_sym(sym);
   free(targ);
   return lbl_idx;
 }
