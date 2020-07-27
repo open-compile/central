@@ -181,6 +181,7 @@ enum OPCODE {
   opc_enum = opr + RTYPE(mtype_res) + DESC(mtype_desc),
 // Use the def table
 #include "opc_base.h"
+#undef OCIR_OPC
 };
 
 typedef struct {

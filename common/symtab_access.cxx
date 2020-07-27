@@ -61,6 +61,8 @@ template const char *Symtab_name<ST_IDX, ST, ST_TABLE>(ST_IDX idx);
 
 template const char *Symtab_name<TY_IDX, TY, TY_TABLE>(TY_IDX idx);
 
+template const char *Symtab_name<LABEL_IDX, LABEL, LABEL_TABLE>(LABEL_IDX idx);
+
 //================================================================================
 // Defining IDX -> BOOL functions, using bit level AND op
 //================================================================================

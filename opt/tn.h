@@ -7,6 +7,7 @@
 
 #include "basic.h"
 #include "consts.h"
+#include "memory.h"
 #include "register.h"
 
 typedef enum {
@@ -92,6 +93,7 @@ public:
     } u3;
   } u2;
   TN (UINT32 tn_number) {
+    memset(this, 0, sizeof(TN));
     tn_idx = tn_number;
   }
   TN_IDX Get_tn_idx() { return tn_idx; }
@@ -145,6 +147,7 @@ enum {
 #define     TN_number(t)	(CAN_USE_REG_TN(t)->u1.reg_tn.number+0)
 
 static inline TN_IDX TN_tn_idx(TN *tn) {
+  AssertThat(!tn, ("Tn is null"));
   return tn->tn_idx;
 }
 

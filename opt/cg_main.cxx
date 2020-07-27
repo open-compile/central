@@ -151,97 +151,68 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
 
     // Tracings
     if (Tracing(CO_CG_EMIT, TRACE_EMIT_CORE)) {
-      fprintf(out, ";;  --------- Processing BB : %d ---------  \n"
-                   ";;  --------- BB label = %d      ---------  \n"
-                   ";;  Pred: ", i, cgbb->Get_label_id());
+      fprintf(out, "#  --------- Processing BB : %d ---------  \n"
+                   "#  --------- BB label = %d      ---------  \n"
+                   "#  Pred: ", i, cgbb->Get_label_id());
       for (auto prd_id = cgbb->Pred_begin();
            prd_id != cgbb->Pred_end(); prd_id++) {
         fprintf(out, "%d ", (*prd_id)->Get_id());
       }
-      fprintf(out, "\n;;  Succ: ");
+      fprintf(out, "\n#  Succ: ");
       for (auto prd_id = cgbb->Succ_begin();
            prd_id != cgbb->Succ_end(); prd_id++) {
         fprintf(out, "%d ", (*prd_id)->Get_id());
       }
+      fprintf(out, "\n");
     }
 
     // function prologue
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & CGBB_FLAGS::CGBB_ENTRY) {
-      Is_Trace(TR_EMIT(), (out, ";;  ---  function prologue ---   \n"));
-      fprintf(out, "\tstr\tfp, [sp, #-4]!\n");
-      fprintf(out, "\tadd\tfp, sp, #0\n");
-    }
-
-    Is_Trace(TR_EMIT(), (out, "\n;;  -------- Begin Code ---------- \n"));
-    // If there is a label to it, emit the label
-    for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
-      CGOP *cgop = (*stmt_it);
-      switch (cgop->getOpcode()) {
-        case CGOPC_STR: {
-          fprintf(out, "\tstr\t");
-          // Print the opcode
-          Emit_operand(cgop, CGOPR_R, 0, out);
-          Emit_operand(cgop, CGOPR_R, 1, out);
-          Emit_operand(cgop, CGOPR_R, 2, out);
-          fprintf(out, "\n");
-          break;
-        }
-        case CGOPC_ADD: {
-          fprintf(out, "\tadd\tfp, sp, #0\n");
-        }
-        default: {
-          AssertThat(false,
-                     ("CG opcode = %d emission not implemented.",
-                       cgop->getOpcode()));
-        }
-      }
+      Is_Trace(TR_EMIT(), (out, "#  ---  function prologue ---   \n"));
+//      fprintf(out, "\tstr\tfp, [sp, #-4]!\n");
+//      fprintf(out, "\tadd\tfp, sp, #0\n");
     }
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & CGBB_FLAGS::CGBB_EXIT) {
       // Finishing function
-      Is_Trace(TR_EMIT(), (out, ";;  ---  function epilog ---   \n"));
-      fprintf(out, "\tadd\tsp, fp, #0\n");
-      fprintf(out, "\tldr\tfp, [sp], #4\n");
-      fprintf(out, "\tbx\tlr\n");
+      Is_Trace(TR_EMIT(), (out, "#  ---  function epilog ---   \n"));
+//      fprintf(out, "\tadd\tsp, fp, #0\n");
+//      fprintf(out, "\tldr\tfp, [sp], #4\n");
+//      fprintf(out, "\tbx\tlr\n");
     }
-
-    /*
-    IR_ITER body = tree->Get_operand(it, TREE_SEQ_BODY);
-    IRTREE &irtree = tree->Internal_tree();
-    UINT32 stmt_count = tree->Number_of_children(body);
-    IR_ITER one_stmt = tree->Get_operand(body, i);
-    IRNODE_IDX one_stmt_id = *one_stmt;
-    IRNODE *node = tree->Get_node(one_stmt_id);
-    switch (OPCODE_operator(node->Opcode())) {
-      case OPR_STID: {
-        // generate memory access
-        IR_ITER expr = tree->Get_operand(one_stmt, 0);
-        AssertThat(tree->Get_node(expr)->Opcode() == OPC_I4CONST,
-                   ("Not implemented expr to generate assembly for"));
-        if (temp_labels.find(node->Get_symbol_idx()) == temp_labels.end()) {
-          temp_labels.insert(
-            std::make_pair(node->Get_symbol_idx(), temp_labels.size()));
+    Is_Trace(TR_EMIT(), (out, "#  -------- Begin Code ---------- \n"));
+    // If there is a label to it, emit the label
+    for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
+      CGOP *cgop = (*stmt_it);
+      switch (cgop->getOpcode()) {
+        default: {
+          fprintf(out, "\t%s\t", Get_cg_opc_info(cgop->getOpcode())->ins_token);
+          if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
+            Emit_operand(cgop, CGOPR_R, 0, out);
+          }
+          if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
+            fprintf(out, ", ");
+            if (CGOPC_is_ldst(cgop->getOpcode())) {
+              fprintf(out, "[");
+            }
+            Emit_operand(cgop, CGOPR_R, 1, out);
+          }
+          if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
+            fprintf(out, ", ");
+            Emit_operand(cgop, CGOPR_R, 2, out);
+          }
+          if (CGOPC_is_ldst(cgop->getOpcode())) {
+            fprintf(out, "]");
+          }
+          fprintf(out, "\n");
+          break;
+//          AssertThat(false,
+//                     ("CG opcode = %d emission not implemented.",
+//                       cgop->getOpcode()));
         }
-        AssertThat(temp_labels.find(node->Get_symbol_idx()) !=
-                   temp_labels.end(), ("Cannot locate correct entry in map"));
-        UINT32 temp_label_id = temp_labels.find(node->Get_symbol_idx())->second;
-        fprintf(out, "# [IRNODE:%llu] I4STID, sym = %s, stidx = %0#x, "
-                     "temp_label_id = %u  \n",
-                one_stmt_id, ST_name(node->Get_symbol_idx()),
-                node->Get_symbol_idx(), temp_label_id);
-        fprintf(out, "\tldr %s, .TL%s_%u\n", "r2", ST_name(func->proc_sym), temp_label_id);
-        fprintf(out, "\tmov %s, #%d\n", "r3", (INT32) tree->Get_node(expr)->Get_const_val());
-        fprintf(out, "\tstr %s, [%s]\n", "r3", "r2");
-        break;
       }
-      case OPR_LABEL: {
-        // generate memory access
-      }
-      default: {
-        fprintf(out, "# [IRNODE:%llu] Skip stmt with opcode = %s\n", one_stmt_id, OPCODE_name(node->Opcode()));
-      }
-    }*/
+    }
   }
   // Dumping temp labels
   fprintf(out, "# Dumping temp labels : total = %lu \n", temp_labels.size());

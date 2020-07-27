@@ -10,7 +10,8 @@
 #include "ir.h"
 #include "fe_main.h"
 
-BIN_OP_TO_OPR FEOPCODE_INFO[6] = {
+// Opcode
+BIN_OP_TO_OPR FEOPCODE_INFO[] = {
   { "+", TPLUS,  OPR_ADD },
   { "*", TMUL,   OPR_MPY },
   { "-", TMINUS, OPR_SUB },
@@ -20,6 +21,7 @@ BIN_OP_TO_OPR FEOPCODE_INFO[6] = {
 };
 
 INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_name) {
+    // TODO:
   extern FILE *yyin;
   if ((yyin = fopen(file_name, "r")) == NULL) {
     Comp_Failure("Failed to open source code : %s", file_name);
@@ -251,18 +253,28 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
     tree->Set_operand(while_stmt, 0, condition_expr);
 
     IR_ITER label2_stmt;
+    STR_IDX str2 = File()->Save_string("while_do");
     IRNODE_IDX label2_node = tree->Create_node(OPC_LABEL);
-    label2_stmt = tree->Insert_stmt_to_block(parent, label2_node);
+    LABEL_IDX label2_id = File()->Create_label(str2,
+                                              LABEL_ADDR_SAVED,
+                                              LKIND_DEFAULT);
 
     //处理循环体
     IR_ITER do_stmt;
     IRNODE_IDX then_node = tree->Create_node(OPC_BLOCK);
     do_stmt = tree->Set_operand(while_stmt, 1, then_node);
     visitBlock(tree, do_stmt, level, true_block);
+    label2_stmt = tree->Insert_stmt_to_block(parent, label2_node);
+    tree->Get_node(label2_stmt)->Set_label_num(label2_id);
 
     IR_ITER label3_stmt;
+    STR_IDX str3 = File()->Save_string("while_end");
     IRNODE_IDX label3_node = tree->Create_node(OPC_LABEL);
+    LABEL_IDX label3_id = File()->Create_label(str3,
+                                               LABEL_ADDR_SAVED,
+                                               LKIND_DEFAULT);
     label3_stmt = tree->Insert_stmt_to_block(parent, label3_node);
+    tree->Get_node(label3_stmt)->Set_label_num(label3_id);
 
     return parent;
 }
@@ -272,6 +284,7 @@ IR_ITER visitIdentifierStmt(TREE *tree, IR_ITER parent, int level,
     IR_ITER Identifier_stmt;
     IRNODE_IDX Identifier_node = tree->Create_node(OPC_GOTO);
     Identifier_stmt = tree->Insert_stmt_to_block(parent, Identifier_node);
+    return parent;
 }
 
 IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,

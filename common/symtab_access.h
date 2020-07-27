@@ -85,6 +85,7 @@ extern template const char * Symtab_name<ST_IDX, ST, ST_TABLE> (ST_IDX idx);
 extern template const char * Symtab_name<TY_IDX, TY, TY_TABLE> (TY_IDX idx);
 #define TY_name(ty_idx) Symtab_name<TY_IDX, TY, TY_TABLE>(ty_idx)
 #define ST_name(st_idx) Symtab_name<ST_IDX, ST, ST_TABLE>(st_idx)
+#define LABEL_name(lbl_idx) Symtab_name<LABEL_IDX, LABEL, LABEL_TABLE>(lbl_idx)
 
 //================================================================================
 // Defining IDX -> BOOL functions, using bit level AND op

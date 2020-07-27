@@ -82,8 +82,11 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
            (TFile, "CGIR::Handle_Entry\n"));
   AssertThat(OPC_FUNC_ENTRY == tree->Get_node(entry)->Opcode(),
              ("Incorrect root entry"));
+
+  // Adding entry BB.
   Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_ENTRY); //Assuming there is only one BB.
-  Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_EXIT);
+  cur_bb = Cfg()->Add_bb(cur_bb);
+
   // Do nothing
   IR_ITER root = tree->Get_root();
   AssertThat(root != nullptr, ("root should not be empty"));
@@ -109,6 +112,9 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
       }
     }
   }
+  // Adding exit BB.
+  cur_bb = Cfg()->Add_bb(cur_bb);
+  Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_EXIT);
 }
 
 TN *CGIR::PREG_to_TN(TY_IDX preg_ty, PREG_NUM preg_num) {
@@ -140,12 +146,27 @@ TN *
 CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_expr\n"));
+  if (result == NULL) {
+    result = TN_tn(Gen_TN(MTYPE_I4));
+  }
   // TODO: LDID
   switch (OPCODE_operator(tree->Node(entry)->Opcode())) {
-    case OPR_LDID:
+    case OPR_LDID: {
       return TN_tn(Gen_TN(MTYPE_I4));
-    case OPR_CONST:
-      return TN_tn(Gen_TN(MTYPE_I4));
+    }
+    case OPR_CONST: {
+      UINT64 val = tree->Node(entry)->Get_const_val();
+      AssertThat(val < (1llu << 32u), ("val should be with in range"));
+      Cfg()->BB(cur_bb)->Add_stmt(
+          new CGOP(CGOPC_MOV, cur_bb, TN_tn_idx(result),
+                 TN_tn_idx(Gen_Literal_TN((val) & 0xFFFF, 2)), 0, 0));
+      if (((val >> 16) & 0xFFFF) != 0) {
+        Cfg()->BB(cur_bb)->Add_stmt(
+          new CGOP(CGOPC_MOVT, cur_bb, TN_tn_idx(result),
+                   TN_tn_idx(Gen_Literal_TN((val >> 16) & 0xFFFF, 2)), 0, 0));
+      }
+      return result;
+    }
     default:
       AssertThat(false, ("Operator not implemented : %s", OPCODE_name(tree->Node(entry)->Opcode())));
       return nullptr;
@@ -231,7 +252,17 @@ CGIR::Exp_Store (
   VARIANT variant)
 {
   TN *src  = src_tn;
-  TN *base = Gen_TN();
+  TN *base = nullptr;
+  if (ST_sclass(sym) != SYMC_AUTO) {
+    // Create a LDR first
+    base = TN_tn(Gen_TN(MTYPE_I4));
+    LABEL_IDX lbl = Get_addr_label(sym);
+    Cfg()->BB(bb_idx)->Add_stmt(
+      new CGOP(CGOPC_LDRLBL, bb_idx, TN_tn_idx(base), TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0));
+  } else {
+    base = Build_Dedicated_TN(ISA_REGISTER_CLASS_integer,
+                              REGISTER_sp, MTYPE_size(MTYPE_I4));
+  }
   TN *ofst = Gen_Literal_TN(ofst_val, 4);
   CGOPC top = CGOPC_STR;
   AssertThat(TN_is_constant(ofst), ("Expand_Store: Illegal offset TN"));
@@ -269,22 +300,45 @@ VARIANT CGIR::Memop_Variant(IR_ITER iterator) {
   return V_BR_NONE;
 }
 
-void CGIR::Emit_label(PU_INFO *func, FILE *out, UINT32 label_idx) {
-  fprintf(out, "%s%llu:\n", "label_", label_idx);
+void CGIR::Emit_label(PU_INFO *func, FILE *out, LABEL_IDX label_idx) {
+  fprintf(out, ".%s:\n", LABEL_name(label_idx));
 }
 
 void CGIR::Emit_operand(CGOP *oper, CGOPR_KIND kind, UINT32 ch_id, FILE* out) {
   AssertThat(ch_id < 4, ("operand count must be less than 4."));
   CG_OPRAND cgoper = oper->getResOpnd()[ch_id];
+  AssertThat(cgoper != 0, ("Should not be empty."));
   if (CGOPR_R == kind) {
     TN *tn = TN_tn(cgoper.tn);
-    if (TN_is_dedicated(tn)) {
+    if (TN_is_symbol(tn)) {
+      ST_IDX sym = TN_var(tn);
+      AssertThat(ST_sclass(sym) == SYMC_FILE_STATIC, ("this should only be used for static/global var."));
+      // Generate labels for current func.
+      fprintf(out, "%s ", STR_str(LABEL_label(Get_addr_label(sym))->Get_name_idx()));
+    } else if (TN_is_constant(tn)) {
+      fprintf(out, "#%lld ", TN_value(tn));
+    } else if (TN_is_label(tn)) {
+      fprintf(out, ".%s ", LABEL_name(TN_label(tn)));
+    } else if (TN_is_dedicated(tn)) {
       UINT32 reg_id = TN_register(tn);
-      fprintf(out, "r%d ", reg_id);
+      if (reg_id == REGISTER_ra) {
+        fprintf(out, "r0");
+      } else if (reg_id == REGISTER_sp) {
+        fprintf(out, "sp");
+      } else if (reg_id == REGISTER_fp) {
+        fprintf(out, "fp");
+      } else {
+        AssertThat(false, ("not implemented"));
+      }
     } else {
       UINT32 reg_id = TN_register(tn);
       fprintf(out, "r%d ", reg_id);
     }
+  } else if (CGOPR_IMM == kind) {
+    UINT32 val = TN_value(TN_tn(cgoper.tn));
+    fprintf(out, "#%d ", val);
+  } else {
+    AssertThat(false, ("not implemented."));
   }
 }
 
@@ -309,6 +363,14 @@ void CFG_BASE<NODE_TYPE>::Print(FILE * file) {
   }
 }
 
+template<typename NODE_TYPE>
+CFG_BB_IDX CFG_BASE<NODE_TYPE>::Add_bb(INT pred) {
+  CFG_BB_IDX new_bb = Add_bb();
+  this->BB(pred)->Add_succ(BB(new_bb));
+  this->BB(new_bb)->Add_pred(BB(pred));
+  return new_bb;
+}
+
 void CGOP::Print(FILE *file) {
   fprintf(file, "[CGOP] opc = %s(%d), index:%d, res/opnd: [%u] [%u] [%u] [%u] \n",
           ISA_OPCODE_name(getOpcode()), getOpcode(), getIndexInBb(),
@@ -317,24 +379,43 @@ void CGOP::Print(FILE *file) {
 }
 
 CGOPC_INFO CGOPC_INFO_LIST[] = {
-  // Opcode                     n_res,   n_operands
-  { "CGOPC_MOV",    CGOPC_MOV   , 1,     1 }, // Memory
-  { "CGOPC_STR",    CGOPC_STR   , 1,     2 },
-  { "CGOPC_LDR",    CGOPC_LDR   , 1,     2 },
-  { "CGOPC_LEAVE",  CGOPC_LEAVE , 1,     0 }, // Control
-  { "CGOPC_CALL",   CGOPC_CALL  , 1,     1 },
-  { "CGOPC_BR",     CGOPC_BR    , 1,     1 },
-  { "CGOPC_B",      CGOPC_B     , 1,     1 }, // branch as well
-  { "CGOPC_BEQ",    CGOPC_BEQ   , 1,     1 },
-  { "CGOPC_BNE",    CGOPC_BNE   , 1,     1 },
-  { "CGOPC_BGE",    CGOPC_BGE   , 1,     1 },
-  { "CGOPC_BLT",    CGOPC_BLT   , 1,     1 },
-  { "CGOPC_BGT",    CGOPC_BGT   , 1,     1 },
-  { "CGOPC_BLE",    CGOPC_BLE   , 1,     1 },
-  { "CGOPC_ADD",    CGOPC_ADD   , 1,     2 }, // Arithmetic ... TODO: to be addeed
-  { "CGOPC_MUL",    CGOPC_MUL   , 1,     2 },
-  { "CGOPC_SUBS",   CGOPC_SUBS  , 1,     2 },
+#define CGOPDEF(enum_name, nres, nopr, opr1, opr2, opr3, ins_name, kind)   \
+  { #enum_name, enum_name, nres, nopr, opr1, opr2, opr3, ins_name, kind },
+#include "cg_opc.h"
+#undef CGOPDEF
 };
+
+CGOPC_INFO *CGIR::Get_cg_opc_info(CGOPC cgopc) {
+  UINT32 count = sizeof(CGOPC_INFO_LIST) / sizeof(CGOPC_INFO);
+  for (UINT32 i = 0; i < count; i++) {
+    if (CGOPC_INFO_LIST[i].opcode == cgopc) {
+      return &(CGOPC_INFO_LIST[i]);
+    }
+  }
+  AssertThat(false, ("Cannot find opcode in table = %d", cgopc));
+  return &(CGOPC_INFO_LIST[0]);
+}
+
+LABEL_IDX CGIR::Get_addr_label(ST_IDX sym) {
+  char *targ = (char*) malloc(sizeof(".taddr_") + strlen(ST_name(sym)) + 2);
+  sprintf(targ, ".taddr_%s", ST_name(sym));
+  for (UINT32 i = 1; i < File()->Tables()->Label()->Length(File()->Scopes()->Current()); i++) {
+    LABEL_IDX lbl = (LABEL_IDX) (i << 8) + LOCAL_SYMTAB;
+    if (strcmp(targ, STR_str(File()->Tables()->Label()->Get(lbl)->Get_name_idx())) == 0) {
+      free(targ);
+      return lbl;
+    }
+  }
+  LABEL_IDX lbl_idx =
+              File()->Create_label(File()->Save_string(targ),
+                                   LABEL_ADDR_PASSED & LABEL_ADDR_SAVED, LKIND_ASSIGNED);
+  free(targ);
+  return lbl_idx;
+}
+
+BOOL CGIR::CGOPC_is_ldst(CGOPC cgopc) {
+  return (Get_cg_opc_info(cgopc)->opk == CGOPK_LDST);
+}
 
 UINT8 ISA_OPCODE_results(CGOPC cgopc) {
   UINT32 count = sizeof(CGOPC_INFO_LIST) / sizeof(CGOPC_INFO);
