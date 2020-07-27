@@ -36,6 +36,18 @@ typedef INT64  TREE_ESIZE;
 typedef UINT64 IRNODE_IDX;
 
 
+// Code generation related.
+enum CGBB_FLAGS {
+  CGBB_EXIT = 0x1,
+  CGBB_ENTRY = 0x2,
+};
+
+enum CGOPR_KIND {
+  CGOPR_IMM = 1,
+  CGOPR_R = 2,
+  CGOPR_N = 3,
+};
+
 // Symbol Table Frame Work
 enum SYM_ATTR {
   ST_CONST = 0,

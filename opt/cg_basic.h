@@ -8,25 +8,10 @@
 #include "basic.h"
 
 enum CGOPC {
-  // Memory, data transfer
-  CGOPC_MOV,
-  CGOPC_STR  ,
-  CGOPC_LDR  ,
-  // Control
-  CGOPC_LEAVE,
-  CGOPC_CALL ,
-  CGOPC_BR,
-  CGOPC_B, // branch as well
-  CGOPC_BEQ,
-  CGOPC_BNE,
-  CGOPC_BGE,
-  CGOPC_BLT,
-  CGOPC_BGT,
-  CGOPC_BLE,
-  // Arithmetic
-  CGOPC_ADD,
-  CGOPC_MUL,
-  CGOPC_SUBS,
+#define CGOPDEF(enum_name, nres, nopr, opr1, opr2, opr3, ins_name, opk)   \
+  enum_name,
+#include "cg_opc.h"
+#undef CGOPDEF
 };
 
 /**
@@ -44,11 +29,23 @@ enum BB_FLAG{
   BB_FLAG_LRA         = 0x0100,
 };
 
+enum CGOPC_KIND {
+  CGOPK_LDST,
+  CGOPK_UBR,
+  CGOPK_CBR,
+  CGOPK_NONE,
+};
+
 struct CGOPC_INFO {
   const char *name;
   CGOPC opcode;
   UINT8 n_res;  // num of results
   UINT8 n_oprs; // num of operands
+  CGOPR_KIND op1;
+  CGOPR_KIND op2;
+  CGOPR_KIND op3;
+  const char *ins_token;
+  CGOPC_KIND opk;
 };
 
 

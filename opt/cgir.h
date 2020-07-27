@@ -29,16 +29,6 @@ using std::set;
 using IR_TN_MAP = std::unordered_map<IRNODE_IDX, TN*>;
 using TN_IR_MAP = std::unordered_map<TN*, IRNODE_IDX>;
 
-enum CGBB_FLAGS {
-  CGBB_EXIT = 0x1,
-  CGBB_ENTRY = 0x2,
-};
-
-enum CGOPR_KIND {
-  CGOPR_IMM = 1,
-  CGOPR_R = 2,
-};
-
 template <typename NODE_TYPE> class CFG_BB_BASE;
 template <typename NODE_TYPE>
 class CFG_BASE {
@@ -86,6 +76,7 @@ public:
   }
 
   void  Print(FILE *file = stderr);
+  CFG_BB_IDX Add_bb(INT pred);
 };
 
 // BB definitions
@@ -460,6 +451,10 @@ public:
 
   void Emit_label(PU_INFO *func, FILE *out, UINT32 label_idx);
   void Emit_operand(CGOP *oper, CGOPR_KIND k, UINT32 ch_id, FILE*out);
+  CGOPC_INFO *Get_cg_opc_info(CGOPC cgopc);
+  LABEL_IDX Get_addr_label(ST_IDX sym);
+
+  BOOL CGOPC_is_ldst(CGOPC cgopc);
 };
 
 

@@ -4,6 +4,7 @@
 #include <vector>
 #include "tn.h"
 #include <memory.h>
+#include <ir.h>
 
 #define POINTER_SIZE 4
 
@@ -77,6 +78,7 @@ TN *Gen_TN() {
 TN_IDX Gen_TN(MTYPE_ID mtype) {
   TN *tn = Gen_TN();
   tn->Set_type(mtype);
+  tn->Set_size(MTYPE_size(mtype));
   return TN_tn_idx(tn);
 }
 

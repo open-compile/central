@@ -56,6 +56,7 @@ OPCODE_INFO opc_info_table[] = {
 #define OCIR_OPC(opc_enum, opr, mtype_res, mtype_desc) \
   {opc_enum, opr, mtype_res, mtype_desc, #opc_enum},
 #include "opc_base.h"
+#undef OCIR_OPC
 };
 
 const char *OPCODE_name(OPCODE opcode) {

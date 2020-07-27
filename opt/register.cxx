@@ -27,6 +27,8 @@ ISA_REGISTER_CLASS_INFO ISA_REGISTER_CLASS_info[] = {
   { 0x01, 64,   0,  15, 1, 0, "integer",
                                            { "%rax", "%rbx", "%rbp", "%rsp", "%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9", "%r10", "%r11", "%r12",
                                              "%r13", "%r14", "%r15" } },
+  //  { "r1", "r2", "r3", "r4", "r5", "r6", "r7", "%rcx", "%r8", "%r9", "%r10", "%r11", "%r12",
+  //    "r1", "%r14", "%r15" } },
   { 0x01, 64,   0,  15, 1, 0, "float",
                                            { "%ymm0", "%ymm1", "%ymm2", "%ymm3", "%ymm4", "%ymm5", "%ymm6", "%ymm7", "%ymm8", "%ymm9", "%ymm10", "%ymm11", "%ymm12",
                                              "%ymm13", "%ymm14", "%ymm15" } },
@@ -58,42 +60,23 @@ UINT8 ISA_REGISTER_CLASS_info_index[] = {
 
 //  name         rclass                count      members reg_name
 ISA_REGISTER_SUBCLASS_INFO ISA_REGISTER_SUBCLASS_info[] = {
-  { "UNDEFINED", ISA_REGISTER_CLASS_UNDEFINED, 0, { 0 }, { nullptr } },
-  { "rax", ISA_REGISTER_CLASS_integer, 1,
-                                                  { 0 },
-                                                         { nullptr } },
-  { "rdx", ISA_REGISTER_CLASS_integer, 1,
-                                                  { 6 },
-                                                         { nullptr } },
-  { "rbx", ISA_REGISTER_CLASS_integer, 1,
-                                                  { 1 },
-                                                         { nullptr } },
-  { "rcx", ISA_REGISTER_CLASS_integer, 1,
-                                                  { 7 },
-                                                         { nullptr } },
-  { "rbp", ISA_REGISTER_CLASS_integer, 1,
-                                                  { 2 },
-                                                         { nullptr } },
-  { "rsp", ISA_REGISTER_CLASS_integer, 1,
-                                                  { 3 },
-                                                         { nullptr } },
-  { "rdi", ISA_REGISTER_CLASS_integer, 1,
-                                                  { 4 },
-                                                         { nullptr } },
-  { "r11", ISA_REGISTER_CLASS_integer, 1,
-                                                  { 11 },
-                                                         { nullptr } },
-  { "xmm0", ISA_REGISTER_CLASS_float, 1,
-                                                  { 0 },
-                                                         { nullptr } },
-  { "m32_8bit_regs", ISA_REGISTER_CLASS_integer, 4,
-                                                  { 0, 1, 7, 6 },
+  { "UNDEFINED",     ISA_REGISTER_CLASS_UNDEFINED, 0, { 0 }, { nullptr } },
+  { "r0",            ISA_REGISTER_CLASS_integer,   1, { 0 }, { nullptr } },
+  { "rdx",           ISA_REGISTER_CLASS_integer,   1, { 6 }, { nullptr } },
+  { "rbx",           ISA_REGISTER_CLASS_integer,   1, { 1 }, { nullptr } },
+  { "rcx",           ISA_REGISTER_CLASS_integer,   1, { 7 }, { nullptr } },
+  { "rbp",           ISA_REGISTER_CLASS_integer,   1, { 2 }, { nullptr } },
+  { "rsp",           ISA_REGISTER_CLASS_integer,   1, { 3 }, { nullptr } },
+  { "rdi",           ISA_REGISTER_CLASS_integer,   1, { 4 }, { nullptr } },
+  { "r11",           ISA_REGISTER_CLASS_integer,   1, { 11}, { nullptr } },
+  { "xmm0",          ISA_REGISTER_CLASS_float,     1, { 0 }, { nullptr } },
+  { "m32_8bit_regs", ISA_REGISTER_CLASS_integer,   4, { 0, 1, 7, 6 },
                                                          { nullptr } },
 };
 
 
 static const char* const isa_subset_names[] = {
-  "x86_64",  "UNDEFINED"
+  "armv7a",  "UNDEFINED"
 };
 
 ISA_SUBSET ISA_SUBSET_Value = ISA_SUBSET_UNDEFINED;
