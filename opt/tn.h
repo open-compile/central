@@ -7,6 +7,7 @@
 
 #include "basic.h"
 #include "consts.h"
+#include "memory.h"
 #include "register.h"
 
 typedef enum {
