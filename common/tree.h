@@ -24,6 +24,7 @@
 #include "basic.h"
 #include "consts.h"
 #include "tree_util.h"
+#include <memory.h>
 
 enum OPERATOR {
   OPERATOR_UNKNOTREE = 0,
