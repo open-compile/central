@@ -412,7 +412,7 @@ public:
   void          Data_layout(SCOPE *scope);    // Do data layout
   void          IR_to_CGIR(ST_IDX func_sym);
   void          Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb);
-  TN *Handle_LDID(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *pTn);
+  TN           *Handle_LDID(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *pTn);
   void          Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb);
   void          Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb);
   TN           *Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result);

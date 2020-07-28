@@ -4,6 +4,7 @@
 #include <string.h>
 #include <vector>
 #include <typeinfo>
+#include <memory.h>
 
 #ifndef OCC_SYMTAB_H
 #define OCC_SYMTAB_H
