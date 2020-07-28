@@ -658,9 +658,7 @@ REGISTER_SET_Range(UINT low, UINT high)
  *
  * ====================================================================
  */
-inline REGISTER REGISTER_SET_Choose_Engine(
-  REGISTER_SET set
-)
+inline REGISTER REGISTER_SET_Choose_Engine(REGISTER_SET set)
 {
   INT i = 0;
   do {
@@ -683,10 +681,8 @@ inline REGISTER REGISTER_SET_Choose_Engine(
  *
  * ====================================================================
  */
-extern REGISTER
-REGISTER_SET_Choose(
-  REGISTER_SET set
-)
+REGISTER
+REGISTER_SET_Choose(REGISTER_SET set)
 {
   return REGISTER_SET_Choose_Engine(set);
 }
@@ -805,10 +801,10 @@ Initialize_Register_Class(
 //      Set_CLASS_REG_PAIR_reg(CLASS_REG_PAIR_gp, reg);
 //      Set_CLASS_REG_PAIR_rclass(CLASS_REG_PAIR_gp, rclass);
 //    }
-//    else if ( ABI_PROPERTY_Is_ret_addr(rclass, isa_reg) ) {
-//      Set_CLASS_REG_PAIR_reg(CLASS_REG_PAIR_ra, reg);
-//      Set_CLASS_REG_PAIR_rclass(CLASS_REG_PAIR_ra, rclass);
-//    }
+    else if (ABI_PROPERTY_Is_ret_addr(rclass, isa_reg) ) {
+      Set_CLASS_REG_PAIR_reg(CLASS_REG_PAIR_ra, reg);
+      Set_CLASS_REG_PAIR_rclass(CLASS_REG_PAIR_ra, rclass);
+    }
     else if ( ABI_PROPERTY_Is_stack_ptr(rclass, isa_reg) ) {
       Set_CLASS_REG_PAIR_reg(CLASS_REG_PAIR_sp, reg);
       Set_CLASS_REG_PAIR_rclass(CLASS_REG_PAIR_sp, rclass);
@@ -946,7 +942,7 @@ void
 REGISTER_Begin(void)
 {
   ISA_REGISTER_CLASS rclass;
-
+  ABI_PROPERTIES_Initialize();
   /*  Create the register classes for all the target registers.
    */
   FOR_ALL_ISA_REGISTER_CLASS( rclass ) {

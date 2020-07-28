@@ -4,6 +4,7 @@
 #include <string.h>
 #include <vector>
 #include <typeinfo>
+#include <memory.h>
 
 #ifndef OCC_SYMTAB_H
 #define OCC_SYMTAB_H
@@ -161,18 +162,19 @@ struct PU {
 class ST {
 public:
   STR_IDX name_idx; // index to the name string
-  SYM_ATTR attr: 4;
-  SYM_CLASS sym_class: 4;
-  SYM_SCLASS storage_class: 4; // storage info
-  SYM_ECLASS export_class: 4;
+  UINT32  attr: 4; // SYM_ATTR
+  SYM_CLASS    sym_class: 4;
+  SYM_SCLASS   storage_class: 4; // storage info
+  SYM_ECLASS   export_class: 4;
   ST_TLS_MODEL tls_model: 4; // Thread-Local-Storage(TLS) model
   union {
     TY_IDX type;   // idx to high-level type
     PU_IDX pu;   // idx to program unit
-  } u2;
-  UINT32 pad; // 4 pad bytes (initialize to zero)
-  UINT32 offset; // offset from base
-  ST_IDX base_idx; // base of the allocated block
+  }            u2;
+  UINT32       pad; // 4 pad bytes (initialize to zero)
+  UINT32       offset; // offset from base
+  INT32        sp_offset; // offset from base
+  ST_IDX       base_idx; // base in the allocated block.
   // ST_IDX st_idx; // my own st_idx
   // operations
 
@@ -185,6 +187,82 @@ public:
   void Print_details(FILE *f);
   void Print_storage_class(FILE *f);
   PU_INFO_IDX Pu_info_idx();
+
+  UINT32 getAttr() const {
+    return attr;
+  }
+
+  void Set_attr(UINT32 attr) {
+    ST::attr |= attr;
+  }
+
+  void Clear_attr(UINT32 attr) {
+    ST::attr &= (~attr);
+  }
+
+  SYM_CLASS getSymClass() const {
+    return sym_class;
+  }
+
+  void setSymClass(SYM_CLASS symClass) {
+    sym_class = symClass;
+  }
+
+  SYM_SCLASS getStorageClass() const {
+    return storage_class;
+  }
+
+  void setStorageClass(SYM_SCLASS storageClass) {
+    storage_class = storageClass;
+  }
+
+  SYM_ECLASS getExportClass() const {
+    return export_class;
+  }
+
+  void setExportClass(SYM_ECLASS exportClass) {
+    export_class = exportClass;
+  }
+
+  ST_TLS_MODEL getTlsModel() const {
+    return tls_model;
+  }
+
+  void setTlsModel(ST_TLS_MODEL tlsModel) {
+    tls_model = tlsModel;
+  }
+
+  UINT32 getPad() const {
+    return pad;
+  }
+
+  void setPad(UINT32 pad) {
+    ST::pad = pad;
+  }
+
+  UINT32 getOffset() const {
+    return offset;
+  }
+
+  void setOffset(UINT32 offset) {
+    ST::offset = offset;
+  }
+
+  INT32 getSpOffset() const {
+    return sp_offset;
+  }
+
+  void setSpOffset(INT32 fpOffset) {
+    sp_offset = fpOffset;
+  }
+
+  ST_IDX getBaseIdx() const {
+    return base_idx;
+  }
+
+  void setBaseIdx(ST_IDX baseIdx) {
+    base_idx = baseIdx;
+  }
 }; // ST
 
 // Give information about a dimension of an array.  The TY of the array type
@@ -297,7 +375,8 @@ enum LABEL_KIND {
   LKIND_END_EH_RANGE = 3,
   LKIND_BEGIN_HANDLER = 4,
   LKIND_END_HANDLER = 5,
-  LKIND_TAG = 6 // symbolic address, never branched to
+  LKIND_TAG = 6, // symbolic address, never branched to
+  LKIND_RELOC = 7,
 };
 
 enum LABEL_FLAGS {
@@ -310,6 +389,7 @@ struct LABEL {
   STR_IDX    name_idx;
   UINT32     flags: 24;
   LABEL_KIND kind: 8;
+  ST_IDX     temp_sym;
 
   // operations
   LABEL() {
@@ -340,6 +420,14 @@ struct LABEL {
 
   void Set_kind(LABEL_KIND kind) {
     LABEL::kind = kind;
+  }
+
+  ST_IDX Get_temp_sym() const {
+    return temp_sym;
+  }
+
+  void Set_temp_sym(ST_IDX tempSym) {
+    temp_sym = tempSym;
   }
 
   LABEL(STR_IDX idx, LABEL_KIND k) : name_idx(idx), kind(k) {}

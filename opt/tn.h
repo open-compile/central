@@ -147,7 +147,7 @@ enum {
 #define     TN_number(t)	(CAN_USE_REG_TN(t)->u1.reg_tn.number+0)
 
 static inline TN_IDX TN_tn_idx(TN *tn) {
-  AssertThat(!tn, ("Tn is null"));
+  AssertThat(tn != NULL, ("Tn is null"));
   return tn->tn_idx;
 }
 
