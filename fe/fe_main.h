@@ -99,6 +99,9 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
 IR_ITER visitIdentifierStmt(TREE *tree, IR_ITER parent, int level,
                      const shared_ptr<NIdentifier> &stmt);
 
+IR_ITER visitArrayDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
+                       const shared_ptr<NArrayIndex>& arraydecl);
+
 OPERATOR Get_op_by_token(FEOPCODE op);
 
 #endif //OCC_FE_MAIN_H

@@ -159,11 +159,13 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
   } else if (stmt->getTypeName() == "NIdentifier") {
       visitIdentifierStmt(tree, parent, level,
                           reinterpret_cast<const shared_ptr<NIdentifier> &> (stmt));
-  }
-  else if (stmt->getTypeName() == "NReturnStatement") {
+  } else if (stmt->getTypeName() == "NReturnStatement") {
     visitReturnStmt(tree, parent, level,
-                 reinterpret_cast<const shared_ptr<NReturnStatement> &> (stmt));
-  } else {
+                    reinterpret_cast<const shared_ptr<NReturnStatement> &> (stmt));
+  } /*else if (stmt->getTypeName() == "NArrayIndex") {
+    visitArrayDecl(tree, parent, level,
+                    reinterpret_cast<const shared_ptr<NArrayIndex> &> (stmt));
+  }*/ else {
     AssertThat(FALSE, ("not implemented kind of stmt = %s", stmt->getTypeName().c_str()));
   }
   return parent;
@@ -358,11 +360,27 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     tree->Get_node(ldid_node)->Set_symbol_idx(sym);
     IR_ITER cur_node = tree->Insert_temp_node(ldid_node);
     return cur_node;
-  } else {
-    AssertThat(false,
-               ("Expression type not implemented : %s",
-                expr->getTypeName().c_str()));
+  } /*else if (expr->getTypeName() == "NArrayIndex") {
+    // use of variable.
+    auto val = reinterpret_cast<shared_ptr<NArrayIndex> &>(expr);
+    IRNODE_IDX iload_node = tree->Create_node(OPC_I4I4ILOAD);
+    // Find symbol idx.
+    ST_IDX sym = File()->Find_symbol_by_name(val->arrayName->name.c_str());
+    if (sym == 0) {
+      Comp_Failure("Use of undeclared symbol : %s ", val->arrayName->name.c_str());
+    }
+    tree->Get_node(iload_node)->Set_symbol_idx(sym);
+    IR_ITER cur_node = tree->Insert_temp_node(iload_node);
+    return cur_node;
+
+
+    ARB_IDX one_arb = TY_arb(basic_array_ty);
+  } */else {
+      AssertThat(false,
+        ("Expression type not implemented : %s",
+          expr->getTypeName().c_str()));
   }
+
   return parent;
 }
 
@@ -417,7 +435,61 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
   }
   return block_iter;
 }
+/*
 
+IR_ITER visitArrayDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
+                     const shared_ptr<NArrayIndex>& arraydecl) {
+  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
+           (TFile, "Visit Var Decl\n"));
+  std::shared_ptr<NIdentifier> arrayname = arraydecl->arrayName;
+  std::shared_ptr<ExpressionList> expressions = arraydecl->expressions;
+
+  TY_IDX i4_idx = MTYPE_to_ty(MTYPE_I4);
+  ST_IDX sym_idx = File()->Find_symbol_by_name(arrayname->name.c_str());
+  // Check if symbol exists, if so, use the previous one.
+  if (sym_idx != 0) {
+    // Variable redeclare
+    Is_Trace(Tracing(COMPONENT_FE, TRACE_WARN),
+             (TFile, "Variable redeclare: %s\n", arrayname->name.c_str()));
+    return block_iter;
+  }
+  STR_IDX anon_array = File()->Save_string(arrayname->name.c_str());
+  if (level <= 1) {
+    ARB_IDX arb_idx[expressions->size()];//维数
+    int i = 0;
+    int j = expressions->size();
+    for (auto it = expressions->begin(); it != expressions->end(); it++, i++) {
+      IR_ITER expr = visitExpression(tree, if_stmt, level, it);
+      arb_idx[i] = File()->Create_array_bound_const(expr, MTYPE_size(MTYPE_I4), j--,
+                                                    i == 0 ? ARB_FIRST_DIMEN : (i == expressions->size() - 1 ? ARB_LAST_DIMEN : 0));
+    }
+
+    TY_IDX array_ty[expressions->size()];
+    for (int k = 0; k < expressions->size(); ++k) {
+      array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
+                                            k == 0 ? i4_idx : array_ty[k-1], arb_idx[--i]);
+    }
+  } else {
+    AssertThat(level == 2, ("Invalid level = %d", level));
+    AssertThat(tree != NULL && block_iter != NULL, ("Null visit context in visitVarDecl"));
+    ARB_IDX arb_idx[expressions->size()];//维数
+    int i = 0;
+    int j = expressions->size();
+    for (auto it = expressions->begin(); it != expressions->end(); it++, i++) {
+      IR_ITER expr = visitExpression(tree, if_stmt, level, it);
+      arb_idx[i] = File()->Create_array_bound_const(expr, MTYPE_size(MTYPE_I4), j--,
+                                                    i == 0 ? ARB_FIRST_DIMEN : (i == expressions->size() - 1 ? ARB_LAST_DIMEN : 0));
+    }
+
+    TY_IDX array_ty[expressions->size()];
+    for (int k = 0; k < expressions->size(); ++k) {
+      array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
+                                            i4_idx, arb_idx[--i]);
+    }
+  }
+  return block_iter;
+}
+*/
 
 void yyerror(char *s, ...)
 {
