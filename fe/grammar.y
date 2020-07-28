@@ -2,6 +2,7 @@
 	#include "ASTNodes.h"
 	#include "basic.h"
 	#include <stdio.h>
+	#define register
 	NBlock* programBlock;
 	extern int yylex();
 	extern int yyerror(char *msg, ...);
@@ -27,13 +28,14 @@
 %token <token> TIF TELSE TFOR TWHILE TRETURN TSTRUCT
 
 %type <index> array_index
-%type <ident> ident primary_typename array_typename struct_typename typename
+%type <ident> ident primary_typename struct_typename typename
 %type <expr> numeric expr assign
 %type <varvec> func_decl_args struct_members
 %type <exprvec> call_args
 %type <block> program stmts block
 %type <stmt> stmt var_decl func_decl struct_decl if_stmt for_stmt while_stmt
 %type <token> comparison
+%type <var_decl> basic_var_decl
 
 %left TPLUS TMINUS
 %left TMUL TDIV TMOD
@@ -66,15 +68,6 @@ primary_typename : TYINT { $$ = new NIdentifier(*$1); $$->isType = true;  delete
 					| TYVOID { $$ = new NIdentifier(*$1); $$->isType = true; delete $1; }
 					| TYSTRING { $$ = new NIdentifier(*$1); $$->isType = true; delete $1; }
 
-array_typename : primary_typename TLBRACKET TINTEGER TRBRACKET { 
-					$1->isArray = true; 
-					$1->arraySize->push_back(make_shared<NInteger>(atol($3->c_str()))); 
-					$$ = $1; 
-				}
-				| array_typename TLBRACKET TINTEGER TRBRACKET {
-					$1->arraySize->push_back(make_shared<NInteger>(atol($3->c_str())));
-					$$ = $1;
-				}
 
 struct_typename : TSTRUCT ident {
 				$2->isType = true;
@@ -82,16 +75,25 @@ struct_typename : TSTRUCT ident {
 			}
 
 typename : primary_typename { $$ = $1; }
-			| array_typename { $$ = $1; }
-			| struct_typename { $$ = $1; }
+	 | struct_typename { $$ = $1; }
 
-var_decl : typename ident { $$ = new NVariableDeclaration(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($2), nullptr); }
-				 | typename ident TEQUAL expr { $$ = new NVariableDeclaration(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($2), shared_ptr<NExpression>($4)); }
-				 | typename ident TEQUAL TLBRACKET call_args TRBRACKET {
-					 $$ = new NArrayInitialization(make_shared<NVariableDeclaration>(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($2), nullptr), shared_ptr<ExpressionList>($5));
-				 }
-				 | typename array_index { $$ = $2;  }
-				 ;
+basic_var_decl : typename ident { $$ = new NVariableDeclaration(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($2), nullptr); }
+	| basic_var_decl TLBRACKET TINTEGER TRBRACKET {
+          		$1->type->arraySize->push_back(make_shared<NInteger>(atol($3->c_str())));
+          		$1->type->isArray = true;
+          		$$ = $1;
+        }
+        ;
+
+var_decl : basic_var_decl { $$ = $1; }
+	 | basic_var_decl TEQUAL expr {
+	 	$1->assignmentExpr = shared_ptr<NExpression>($3);
+	 	$$ = $1;
+	 }
+	 | basic_var_decl TEQUAL TLBRACKET call_args TRBRACKET {
+		 $$ = new NArrayInitialization(shared_ptr<NVariableDeclaration>($1), shared_ptr<ExpressionList>($4));
+	 }
+	 ;
 
 func_decl : typename ident TLPAREN func_decl_args TRPAREN block
 				{ $$ = new NFunctionDeclaration(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($2), shared_ptr<VariableList>($4), shared_ptr<NBlock>($6));  }

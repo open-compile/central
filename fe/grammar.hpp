@@ -109,7 +109,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 10 "grammar.y"
+#line 11 "grammar.y"
 
 	NBlock* block;
 	NExpression* expr;
