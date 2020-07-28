@@ -5,7 +5,7 @@
 #ifndef OCC_DRIVER_MAIN_H
 #define OCC_DRIVER_MAIN_H
 
-#include "../common/basic.h"
+#include "basic.h"
 
 // Executing the whole flow
 INT32 Execute(COMPILER_CONFIG &config);

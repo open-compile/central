@@ -10,7 +10,7 @@
 #include <vector>
 #include <string>
 #include <string.h>
-#include <ir.h>
+#include "ir.h"
 
 #ifdef SUBPROCESS_ENABLED
 #include "subprocess.h" // Unlicense
