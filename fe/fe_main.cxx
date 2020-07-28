@@ -94,8 +94,27 @@ void visitFunction(const shared_ptr<NFunctionDeclaration> &func) {
   TY_IDX ty_i4 = MTYPE_to_ty(MTYPE_I4);
   TY_IDX ty_v = MTYPE_to_ty(MTYPE_V);
   std::vector<TY_IDX> *param_ret_vec = new std::vector<TY_IDX>;
-  param_ret_vec->push_back(ty_i4);
-  param_ret_vec->push_back(ty_v);
+  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
+           (TFile, "  func typename : %s\n", func->type->name.c_str()));
+  if (func->type->name == "int") {
+    param_ret_vec->push_back(ty_i4);
+  } else if (func->type->name == "void") {
+    param_ret_vec->push_back(ty_v);
+  } else {
+    AssertThat(false, ("Not impl  : %s\n", func->type->name.c_str()))
+  }
+  for (UINT32 i = 0; i < func->arguments->size(); i++) {
+    if ((*(func->arguments))[i]->type->name == "int") {
+      param_ret_vec->push_back(ty_i4);
+    } else {
+      AssertThat(false, ("Not impl  : %s\n", func->type->name.c_str()))
+    }
+  }
+  if (func->arguments->size() == 0) {
+    param_ret_vec->push_back(ty_v);
+  }
+  AssertThat(param_ret_vec->size() >= 2,
+             ("param return vec length should be at least 2  : %d\n", param_ret_vec->size()) );
   TY_IDX basic_func_ty = File()->Create_func_ty(func_name, 0, MTYPE_V,
                                                 (TY_FLAG) 0, *param_ret_vec);
   ST_IDX func_sym = File()->Create_var(func_name, basic_func_ty,
