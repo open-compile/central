@@ -100,7 +100,8 @@ extern int yydebug;
     TFOR = 301,                    /* TFOR  */
     TWHILE = 302,                  /* TWHILE  */
     TRETURN = 303,                 /* TRETURN  */
-    TSTRUCT = 304                  /* TSTRUCT  */
+    TSTRUCT = 304,                 /* TSTRUCT  */
+    TCONST = 305                   /* TCONST  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -122,7 +123,7 @@ union YYSTYPE
 	std::string* string;
 	int token;
 
-#line 126 "grammar.hpp"
+#line 127 "grammar.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

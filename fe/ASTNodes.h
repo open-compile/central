@@ -149,6 +149,7 @@ public:
   std::string name;
   bool isType = false;
   bool isArray = false;
+  bool is_count = false;
 
   shared_ptr<ExpressionList> arraySize = make_shared<ExpressionList>();
 
@@ -185,6 +186,13 @@ public:
     }
   }
 
+  bool isConst() const {
+    return is_count;
+  }
+
+  void setIsConst(bool is_count) {
+    is_count = is_count;
+  }
 
 };
 

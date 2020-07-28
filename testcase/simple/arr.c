@@ -5,3 +5,9 @@ int main () {
   return 0;
 }
 
+int main(int p[]) {
+  int c = 10;
+  int g[15][c];
+  const int f;
+}
+

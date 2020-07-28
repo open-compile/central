@@ -25,7 +25,7 @@
 %token <token> TCEQ TCNE TCLT TCLE TCGT TCGE TEQUAL
 %token <token> TLPAREN TRPAREN TLBRACE TRBRACE TCOMMA TDOT TSEMICOLON TLBRACKET TRBRACKET TQUOTATION
 %token <token> TPLUS TMINUS TMUL TDIV TAND TOR TXOR TMOD TNEG TNOT TSHIFTL TSHIFTR
-%token <token> TIF TELSE TFOR TWHILE TRETURN TSTRUCT
+%token <token> TIF TELSE TFOR TWHILE TRETURN TSTRUCT TCONST
 
 %type <index> array_index
 %type <ident> ident primary_typename struct_typename typename
@@ -76,12 +76,23 @@ struct_typename : TSTRUCT ident {
 
 typename : primary_typename { $$ = $1; }
 	 | struct_typename { $$ = $1; }
+	 | TCONST typename { $$ = $2; $2->is_const = true; }
 
 basic_var_decl : typename ident { $$ = new NVariableDeclaration(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($2), nullptr); }
 	| basic_var_decl TLBRACKET TINTEGER TRBRACKET {
           		$1->type->arraySize->push_back(make_shared<NInteger>(atol($3->c_str())));
           		$1->type->isArray = true;
           		$$ = $1;
+        }
+        | basic_var_decl TLBRACKET TRBRACKET {
+			$1->type->arraySize->push_back(make_shared<NIdentifier>("no-val"));
+			$1->type->isArray = true;
+			$$ = $1;
+	}
+	| basic_var_decl TLBRACKET expr TRBRACKET {
+			$1->type->arraySize->push_back(shared_ptr<NExpression>($3));
+			$1->type->isArray = true;
+			$$ = $1;
         }
         ;
 
