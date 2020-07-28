@@ -90,7 +90,7 @@ var_decl : typename ident { $$ = new NVariableDeclaration(shared_ptr<NIdentifier
 				 | typename ident TEQUAL TLBRACKET call_args TRBRACKET {
 					 $$ = new NArrayInitialization(make_shared<NVariableDeclaration>(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($2), nullptr), shared_ptr<ExpressionList>($5));
 				 }
-				 | typename array_index { $$ = $2; }
+				 | typename array_index { $$ = $2;  }
 				 ;
 
 func_decl : typename ident TLPAREN func_decl_args TRPAREN block
