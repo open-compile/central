@@ -149,7 +149,7 @@ public:
   std::string name;
   bool isType = false;
   bool isArray = false;
-  bool is_count = false;
+  bool is_const = false;
 
   shared_ptr<ExpressionList> arraySize = make_shared<ExpressionList>();
 
@@ -187,11 +187,11 @@ public:
   }
 
   bool isConst() const {
-    return is_count;
+    return is_const;
   }
 
-  void setIsConst(bool is_count) {
-    is_count = is_count;
+  void setIsConst(bool is_const) {
+    is_const = is_const;
   }
 
 };
