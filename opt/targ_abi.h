@@ -52,8 +52,6 @@
  * ====================================================================
  */
 
-extern "C" {
-
 typedef signed int INT;
 typedef signed int INT32;
 typedef signed long long INT64;
@@ -83,18 +81,19 @@ typedef unsigned char mBOOL;
 #endif
 
 typedef struct {
-  mUINT8 reg_flags[9][16];
+  mUINT16 reg_flags[9][16];
   const char *reg_names[9][16];
 } ABI_PROPERTIES;
 
 #define ABI_PROPERTY_allocatable          0x01
 #define ABI_PROPERTY_callee               0x02
 #define ABI_PROPERTY_caller               0x04
-#define ABI_PROPERTY_func_arg             0x80
 #define ABI_PROPERTY_func_val             0x08
 #define ABI_PROPERTY_stack_ptr            0x10
 #define ABI_PROPERTY_frame_ptr            0x20
 #define ABI_PROPERTY_static_link          0x40
+#define ABI_PROPERTY_func_arg            0x200
+#define ABI_PROPERTY_return_addr         0x100
 
 typedef enum {
   ABI_PROPERTIES_ABI_n32,
@@ -189,6 +188,15 @@ inline BOOL ABI_PROPERTY_Is_static_link(
             & ABI_PROPERTY_static_link) != 0;
 }
 
+inline BOOL ABI_PROPERTY_Is_ret_addr(
+  ISA_REGISTER_CLASS rc,
+  INT reg)
+{
+  extern const ABI_PROPERTIES *ABI_PROPERTIES_target_props;
+  return (  ABI_PROPERTIES_target_props->reg_flags[rc][reg]
+            & ABI_PROPERTY_return_addr) != 0;
+}
+
 /* For properties that map to only one register,
  * create accessor routines for those registers.
  * If they map to multiple registers,
@@ -219,6 +227,6 @@ inline BOOL ABI_PROPERTY_Is_static_link(
 
 #define ABI_PROPERTY_integer_static_link_Register 10
 
-}
+void ABI_PROPERTIES_Initialize(void);
 
 #endif //OCC_TARG_ABI_H

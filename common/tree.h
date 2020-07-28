@@ -24,6 +24,7 @@
 #include "basic.h"
 #include "consts.h"
 #include "tree_util.h"
+#include <memory.h>
 
 enum OPERATOR {
   OPERATOR_UNKNOTREE = 0,
@@ -306,10 +307,19 @@ public:
       } up2;
     } pragma;
   } u3;
-  IRNODE() = default;
+  IRNODE() {
+    memset(this, 0, sizeof(IRNODE));
+  };
   IRNODE(OPCODE op) {
+    memset(this, 0, sizeof(IRNODE));
     opcode = op;
-    // nothing to do
+  }
+  // Move/Copy construction
+  IRNODE(const IRNODE &op) {
+    memcpy(this, &op, sizeof(IRNODE));
+  }
+  IRNODE(IRNODE &op) {
+    memcpy(this, &op, sizeof(IRNODE));
   }
   IRNODE_IDX &Opnd(UINT32 pos);
   void Print(FILE *f);
@@ -319,7 +329,7 @@ public:
   ST_IDX Get_symbol_idx() { return u1u2.uu.ub.st_idx; };
 
   void Set_load_offset(TREE_OFFSET ofst) { u1u2.uu.ua.load_offset = ofst; };
-  ST_IDX Get_load_offset() { return u1u2.uu.ua.load_offset; };
+  TREE_OFFSET Get_load_offset() { return u1u2.uu.ua.load_offset; };
 
   void Set_type_idx(TY_IDX sym) { u1u2.uu.ub.ty = sym; };
   TY_IDX Get_type_idx() { return u1u2.uu.ub.ty; };

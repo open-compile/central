@@ -2,7 +2,12 @@ int a;
 int b;
 int c;
 
-void plus () {
-  a = 4 + 4 + 5 + 6;
+int main () {
+  int j;
+  int v;
+  v = 8;
+  a = v;
+  v = 9;
+  return a;
 }
 

@@ -165,10 +165,10 @@ REGISTER_CLASS_info[ISA_REGISTER_CLASS_MAX + 1];
 				(REGISTER_CLASS_reg_bit_size(rclass)[reg])
 
 /* Macro to iterate over all members of a REGISTER_SET. */
-#define FOR_ALL_REGISTER_SET_members(set,reg)	\
-    for (reg = REGISTER_SET_Choose (set);	\
+#define FOR_ALL_REGISTER_SET_members(rset,reg)	\
+    for (reg = REGISTER_SET_Choose (rset);	\
 	 reg != REGISTER_UNDEFINED;		\
-	 reg = REGISTER_SET_Choose_Next(set,reg))
+	 reg = REGISTER_SET_Choose_Next(rset,reg))
 
 typedef struct {
   const char        *name;
@@ -177,6 +177,8 @@ typedef struct {
   ISA_REGISTER_CLASS rclass;
 } REGISTER_SUBCLASS_INFO;
 
+extern REGISTER
+REGISTER_SET_Choose(REGISTER_SET set);
 
 /* Cached information about each ISA_REGISTER_SUBCLASS:
  */
