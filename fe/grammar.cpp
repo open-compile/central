@@ -1557,7 +1557,7 @@ yyreduce:
 
   case 25:
 #line 79 "grammar.y"
-                           { (yyval.ident) = (yyvsp[0].ident); }
+                           { (yyval.ident) = (yyvsp[0].ident); (yyvsp[0].ident)->is_const = true; }
 #line 1562 "grammar.cpp"
     break;
 
