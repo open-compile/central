@@ -375,13 +375,16 @@ private:
   // CGIR_Table
   map<ST_IDX, CG_CFG *>        trees;
   map<ST_IDX, DATA_LAYOUT*>    layout;
+  map<TN_IDX, UINT32>         _tn_freq_map;
+  map<TN_IDX, vector<UINT32> >_tn_live_range;
   IR_TN_MAP                    ir_to_tn_map;
   TN_IR_MAP                    tn_to_ir_map;
   // Memory Layout
   CG_FRAME_SECT                sections[8];
   CG_CFG                     *_current;
   ST_IDX                      _current_sym;
-  TREE                       *tree;
+  DATA_LAYOUT                *_current_layout;
+  TREE                        *tree;
 public:
   CG_CFG    *Get_function(ST_IDX func_sym) {
     if(trees.find(func_sym) == trees.end()) {
@@ -405,11 +408,12 @@ public:
              (TFile, "TN not found in tn_to_ir, tn = 0x%016llx", (UINT64) tn));
     return 0;
   }
-  void          CG_Init(SCOPE *scope);        // Initialize the CG stuff
+  void          CG_Expand(SCOPE *scope);        // Initialize the CG stuff
   void          Data_layout(SCOPE *scope);    // Do data layout
   void          IR_to_CGIR(ST_IDX func_sym);
   void          Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb);
-  TN           *Handle_LDID(IR_ITER ldid, TN *result);
+  TN *Handle_LDID(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *pTn);
+  void          Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb);
   void          Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb);
   TN           *Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result);
   TN           *PREG_to_TN (TY_IDX preg_ty, PREG_NUM preg_num);
@@ -436,8 +440,9 @@ public:
 
   VARIANT Memop_Variant(IR_ITER iterator);
 
-  void Exp_Store(MTYPE_ID mtype, TN *src_tn, ST_IDX sym, INT64 ofst, CFG_BB_IDX ops,
-                 VARIANT variant);
+  void Exp_LDST(OPCODE opc,
+                MTYPE_ID mtype, TN *src_res_tn, ST_IDX sym, INT64 ofst_val, CFG_BB_IDX bb_idx,
+                VARIANT variant);
   void Exp_Ldst (
         OPCODE opcode,
         TN *tn,
@@ -453,8 +458,14 @@ public:
   void Emit_operand(CGOP *oper, CGOPR_KIND k, UINT32 ch_id, FILE*out);
   CGOPC_INFO *Get_cg_opc_info(CGOPC cgopc);
   LABEL_IDX Get_addr_label(ST_IDX sym);
-
   BOOL CGOPC_is_ldst(CGOPC cgopc);
+  void Set_current_layout(DATA_LAYOUT *pLayout) { _current_layout = pLayout; }
+  DATA_LAYOUT *Layout() {
+    AssertThat(_current_layout != NULL, ("layout is null"));
+    return _current_layout;
+  }
+
+  UINT32 Count_needed_register(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb, UINT8 opr_pos);
 };
 
 

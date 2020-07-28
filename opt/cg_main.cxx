@@ -23,7 +23,7 @@ CGIR *Cgir() {
 
 /**
  * CG processing of one function
- * CG_Init, Exapnsion,
+ * CG_Expand, Exapnsion,
  * @param file
  * @param config
  */
@@ -35,8 +35,15 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
     if (pu_info->proc_sym != 0) {
       Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_OPTIONS),
                (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
-      Cgir()->CG_Init(&pu_info->scope);
+      File()->Scopes()->Goto_function(pu_info->proc_sym);
+      Cgir()->CG_Expand(&pu_info->scope); // Expansion
+      Cgir()->Local_register_allocate(pu_info); // GRA/LRA
+      if(Tracing(COMPONENT_CG, TRACE_DATA)) {
+        // Printing the layout table.
+        Cgir()->Layout()->Print(TFile);
+      }
       if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
+        // Printing the cgir exapnsion result.
         Cgir()->Print(pu_info->proc_sym, TFile);
       }
     } else {
@@ -169,18 +176,18 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
 
     // function prologue
     // Get the flags, expat-adjust, function epilog
-    if (cgbb->Get_flags() & CGBB_FLAGS::CGBB_ENTRY) {
+    if (cgbb->Get_flags() & BB_FLAG_ENTRY) {
       Is_Trace(TR_EMIT(), (out, "#  ---  function prologue ---   \n"));
-//      fprintf(out, "\tstr\tfp, [sp, #-4]!\n");
-//      fprintf(out, "\tadd\tfp, sp, #0\n");
+      fprintf(out, "\tstr\tfp, [sp, #-4]!\n");
+      fprintf(out, "\tadd\tfp, sp, #0\n");
+      fprintf(out, "\tadd\tsp, sp, #%d\n", (-Layout()->Frame_final_size()));
     }
     // Get the flags, expat-adjust, function epilog
-    if (cgbb->Get_flags() & CGBB_FLAGS::CGBB_EXIT) {
+    if (cgbb->Get_flags() & BB_FLAG_EXIT) {
       // Finishing function
       Is_Trace(TR_EMIT(), (out, "#  ---  function epilog ---   \n"));
-//      fprintf(out, "\tadd\tsp, fp, #0\n");
-//      fprintf(out, "\tldr\tfp, [sp], #4\n");
-//      fprintf(out, "\tbx\tlr\n");
+      fprintf(out, "\tadd\tsp, fp, #0\n");
+      fprintf(out, "\tldr\tfp, [sp, #-4]\n");
     }
     Is_Trace(TR_EMIT(), (out, "#  -------- Begin Code ---------- \n"));
     // If there is a label to it, emit the label
@@ -227,8 +234,13 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
   SCOPE *scope = File()->Scopes()->Current();
   for (UINT32 i = 1; i < tbl->Length(scope); i++) {
     LABEL_IDX lbl_idx = (i << 8) + LOCAL_SYMTAB;
+    if (LABEL_label(lbl_idx)->Get_kind() != LKIND_RELOC) {
+      continue;
+    }
     const char *name = LABEL_name(lbl_idx);
     ST_IDX sym = LABEL_label(lbl_idx)->Get_temp_sym();
+    AssertThat(sym != 0, ("There should be a valid global var to points to"));
+    AssertThat(ST_sclass(sym) == SYMC_FILE_STATIC, ("This should be global-var"));
     fprintf(out, "%s:\t.word %s\n", name, ST_name(sym));
   }
 }
@@ -236,7 +248,7 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
 INT32 Emit_section_data(FILE *out, FILE_MANAGER *manager) {
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (TFile, "%sEmitting section: data\n%s", DBAR, DBAR));
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Debugging info enabled, writing file-level data section\n"));
-  fprintf(out, ".section data\n\n");
+  fprintf(out, ".data\n\n");
   for (UINT32 it = 1; it < manager->Tables()->Sym()->Length(); it++) {
     ST_IDX new_idx = (it << 8) + 1;
     if (ST_st(new_idx) != NULL && ST_st(new_idx)->sym_class == SYM_CLASS_VAR) {

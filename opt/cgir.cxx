@@ -4,15 +4,20 @@
 //
 #include "cgir.h"
 
-void CGIR::CG_Init(SCOPE *scope) {
+INLINE BOOL TR_LRA() {
+  return Tracing(COMPONENT_CG_LRA, TRACE_DATA);
+}
+
+void CGIR::CG_Expand(SCOPE *scope) {
   // Do data layout
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
-           (TFile, "CGIR::CG_Init\n"));
+           (TFile, "CGIR::CG_Expand\n"));
   ST_IDX func_sym = scope->getSt();
   AssertThat(func_sym != 0, ("Incorrect function symbol idx = 0x%08x", func_sym));
   Get_function(func_sym);
   Data_layout(scope);
   AssertThat(layout.find(func_sym) != layout.end(), ("Layout should have this function now. 0x%08x", func_sym));
+  Layout()->Calculate_stack_frame_size(); // Calc frame size
   // Do IR to CGIR conversion
   this->IR_to_CGIR(scope->getSt());
 }
@@ -22,10 +27,11 @@ void CGIR::Data_layout(SCOPE *scope) {
            (TFile, "Perform data layout in CGIR::Data_layout\n"));
   ST_IDX func_sym = scope->getSt();
   AssertThat(func_sym != 0, ("Incorrect function symbol idx = 0x%08x", func_sym));
-  layout.insert(std::make_pair(func_sym, new DATA_LAYOUT()));
+  DATA_LAYOUT *onelayout = new DATA_LAYOUT();
+  layout.insert(std::make_pair(func_sym, onelayout));
   AssertThat(layout.find(func_sym) != layout.end(), ("Layout should have this function now. 0x%08x", func_sym));
-  layout[func_sym]->Initialize_frame();
-  layout[func_sym]->Allocate_file_statics();
+  layout[func_sym]->Initialize_frame(scope, func_sym);
+  Set_current_layout(onelayout);
 }
 
 void CGIR::IR_to_CGIR(ST_IDX sym) {
@@ -35,12 +41,6 @@ void CGIR::IR_to_CGIR(ST_IDX sym) {
   CG_CFG    *function_cgir = Get_function(sym);
   Set_current_cgir(function_cgir, sym);
   Handle_Entry(tree->Get_root(), 0);
-}
-
-TN*
-Handle_LDID(IR_ITER ldid, TN *result) {
-  AssertThat(false, ("HandleLDID not impl."));
-  return nullptr;
 }
 
 void
@@ -63,16 +63,90 @@ CGIR::Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb) {
     TN *tn_res = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
     AssertThat(tn_res != NULL, ("Expand of expr should not return null."));
     res = TN_tn_idx(tn_res);
-    Exp_Store (OPCODE_desc(opcode),
-      tn_res,
-      tree->Get_node(stmt)->Get_symbol_idx(),
-      tree->Get_node(stmt)->Get_load_offset(),
-      cur_bb,
-      variant);
+    Exp_LDST(opcode,
+             OPCODE_desc(opcode),
+             tn_res,
+             tree->Get_node(stmt)->Get_symbol_idx(),
+             tree->Get_node(stmt)->Get_load_offset(),
+             cur_bb,
+             variant);
     // Add a map
     AssertThat(res < 4096 && res > 0, ("Result tn should be less than 4096 and greater than zero, but it is : %u", res));
   }
   return;
+}
+
+
+TN *
+CGIR::Handle_LDID(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
+  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
+           (TFile, "CGIR::Handle_LDID\n"));
+  AssertThat(OPCODE_operator(tree->Node(stmt)->Opcode()) == OPR_LDID,
+             ("Not a ldid to be passed to Handle_ldid"));
+  AssertThat(tree->Number_of_children(stmt) == 0,
+             ("Incorrect number of kid in LDID, 0 expected, got %d", tree->Number_of_children(
+               stmt)));
+
+  CG_OPRAND res       = 0;
+  OPCODE    opcode    = tree->Get_node(stmt)->Opcode();
+  if (target_res != nullptr) {
+    res = TN_tn_idx(target_res);
+  } else {
+    res = Gen_TN(MTYPE_I4);
+  }
+  if (false /* PREG */) {
+    TN *tn_res = PREG_to_ST_TN(tree->Get_node(stmt)->Get_symbol_idx(),
+                               tree->Get_node(stmt)->Get_preg_num());
+    res = TN_tn_idx(tn_res);
+    // TODO: Conversion may still be needed here.
+    return tn_res;
+  } else {
+    VARIANT variant = Memop_Variant(stmt);
+    TN *tn_res = TN_tn(res);
+    Exp_LDST(opcode,
+             OPCODE_desc(opcode),
+             tn_res,
+             tree->Get_node(stmt)->Get_symbol_idx(),
+             tree->Get_node(stmt)->Get_load_offset(),
+             cur_bb,
+             variant);
+    // Add a map
+    AssertThat(res < 4096 && res > 0,
+               ("Result tn should be less than 4096 and greater than zero, but it is : %u", res));
+    return tn_res;
+  }
+}
+
+
+void
+CGIR::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb) {
+  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
+           (TFile, "CGIR::Handle_ret_val\n"));
+  AssertThat(OPCODE_operator(tree->Node(stmt)->Opcode()) == OPR_RETURN_VAL,
+             ("Not correct opr to be passed to Handle_ret_val"));
+  AssertThat(tree->Number_of_children(stmt) == 1,
+             ("Incorrect number of kid in %s, 1 expected, got %d",
+               OPCODE_name(tree->Node(stmt)->Opcode()), tree->Number_of_children(
+               stmt)));
+
+  MTYPE_ID  ldid_type = OPCODE_desc(tree->Get_node(stmt)->Opcode());
+  CG_OPRAND res       = 0;
+  OPCODE    opcode    = tree->Get_node(stmt)->Opcode();
+
+  if (false /* PREG */) {
+    TN *tn_res = PREG_to_ST_TN(tree->Get_node(stmt)->Get_symbol_idx(),
+                               tree->Get_node(stmt)->Get_preg_num());
+    res = TN_tn_idx(tn_res);
+  } else {
+    TN      *tn_res   = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
+    TN      *func_val = Build_Dedicated_TN(REGISTER_CLASS_v0, REGISTER_v0, 4);
+    CGOP    *cgop     = new CGOP(CGOPC_ADD, cur_bb,
+                                 TN_tn_idx(func_val),
+                                 TN_tn_idx(tn_res),
+                                 TN_tn_idx(Gen_Literal_TN(0, 4)),
+                                 0);
+    Cfg()->BB(cur_bb)->Add_stmt(cgop);
+  }
 }
 
 void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
@@ -105,6 +179,10 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
       // What kind of opcode is allowed here.
       case OPR_STID: {
         Handle_STID(stmt, cur_bb);
+        break;
+      }
+      case OPR_RETURN_VAL: {
+        Handle_ret_val(stmt, cur_bb);
         break;
       }
       default: {
@@ -157,7 +235,7 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
   // TODO: LDID
   switch (OPCODE_operator(tree->Node(entry)->Opcode())) {
     case OPR_LDID: {
-      return TN_tn(Gen_TN(MTYPE_I4));
+      return Handle_LDID(entry, cur_bb, result);
     }
     case OPR_CONST: {
       UINT64 val = tree->Node(entry)->Get_const_val();
@@ -203,7 +281,77 @@ TN_IDX CGIR::Get_TN_by_ir_node(IR_ITER node, CFG_BB_IDX cur_bb) {
 
 void CGIR::Local_register_allocate(PU_INFO *info) {
   Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_INVOCATION),
-           (TFile, "CGIR::Local_register_allocate\n"));
+           (TFile, "CGIR::Local_register_allocate \n"));
+  CGIR *cgir = this;
+  // Count registers needed.
+  UINT32 i32_register_needed = 0;
+  UINT32 bb_cnt = cgir->Cfg()->Size();
+  for (UINT32 i = 0; i < bb_cnt; i++) {
+    CGBB *cgbb = Cfg()->BB(i);
+    // Tracings
+    if (TR_LRA()) {
+      fprintf(TFile, " --------- Processing BB : %d ---------  \n", i);
+    }
+    // If there is a label to it, emit the label
+    for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
+      CGOP *cgop = (*stmt_it);
+      fprintf(TFile, "\t%s\t", Get_cg_opc_info(cgop->getOpcode())->ins_token);
+      if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
+        i32_register_needed += Count_needed_register(cgop, CGOPR_R, i, 0);
+      }
+      if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
+        i32_register_needed += Count_needed_register(cgop, CGOPR_R, i, 1);
+      }
+      if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
+        i32_register_needed += Count_needed_register(cgop, CGOPR_R, i, 2);
+      }
+      fprintf(TFile, "\n");
+    }
+  }
+
+  REGISTER_SET used = 0;
+  REGISTER_SET_EmptyP(used);
+  UINT32 used_cnt = 1; // Use r0 for return value
+  for (auto tn_freq : _tn_freq_map) {
+    TN_IDX tid = tn_freq.first;
+    // Allocate one-by-one
+    Is_Trace(TR_LRA(), (TFile, "-LRA: Assigning reg %d to TN : %d\n", used_cnt, tid));
+    Set_TN_register(TN_tn(tid), used_cnt);
+    Set_TN_is_preallocated(TN_tn(tid));
+    Set_TN_register_class(TN_tn(tid), ISA_REGISTER_CLASS_integer);
+    if (used_cnt < 9) {
+      used_cnt ++;
+    } else {
+      AssertThat(used_cnt <= 10, ("No more registers to use.")); // 1-10, except 9.
+      // Will spill now.
+    }
+  }
+  // Re-add spilling etc.,
+  // Allocate all registers, mark spilling info.
+//
+//
+//  for (UINT32 i = 0; i < bb_cnt; i++) {
+//    CGBB *cgbb = Cfg()->BB(i);
+//    // Tracings
+//    if (TR_LRA()) {
+//      fprintf(TFile, " --------- Processing BB : %d ---------  \n", i);
+//    }
+//    // If there is a label to it, emit the label
+//    for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
+//      CGOP *cgop = (*stmt_it);
+//      fprintf(TFile, "\t%s\t", Get_cg_opc_info(cgop->getOpcode())->ins_token);
+//      if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
+//        Count_needed_register(cgop, CGOPR_R, 0);
+//      }
+//      if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
+//        i32_register_needed += Count_needed_register(cgop, CGOPR_R, 1);
+//      }
+//      if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
+//        i32_register_needed += Count_needed_register(cgop, CGOPR_R, 2);
+//      }
+//      fprintf(TFile, "\n");
+//    }
+//  }
 }
 
 void CGIR::Print(FILE *file) {
@@ -248,17 +396,19 @@ OPCODE OPCODE_make_op(OPERATOR opr, MTYPE_ID res, MTYPE_ID desc) {
 }
 
 void
-CGIR::Exp_Store (
+CGIR::Exp_LDST (
+  OPCODE opc,
   MTYPE_ID mtype,
-  TN *src_tn,
+  TN *src_res_tn,
   ST_IDX sym,
   INT64 ofst_val,
   CFG_BB_IDX bb_idx,
   VARIANT variant)
 {
-  TN *src  = src_tn;
+  TN *src_res  = src_res_tn;
   TN *base = nullptr;
-  UINT64 offset_from_base = ofst_val;
+  INT64 offset_from_base = ofst_val;
+  AssertThat(ofst_val == 0, ("There should be no existing ofst, yet = %d", ofst_val));
   if (ST_sclass(sym) != SYMC_AUTO) {
     // Create a LDR first
     base = TN_tn(Gen_TN(MTYPE_I4));
@@ -269,16 +419,25 @@ CGIR::Exp_Store (
     base = Build_Dedicated_TN(REGISTER_CLASS_sp,
                               REGISTER_sp,
                               MTYPE_size(MTYPE_I4));
+    offset_from_base = Layout()->Get_sym_sp_ofst(sym);
   }
-  TN *ofst = Gen_Literal_TN(ofst_val, 4);
+  TN *ofst = Gen_Literal_TN(offset_from_base, 4);
   CGOPC top = CGOPC_STR;
-  AssertThat(TN_is_constant(ofst), ("Expand_Store: Illegal offset TN"));
+  if (OPCODE_operator(opc) == OPR_STID) {
+    top = CGOPC_STR;
+  } else if (OPCODE_operator(opc) == OPR_LDID) {
+    top = CGOPC_LDR;
+  } else {
+    AssertThat(false, ("not impl ldst opcode = %s.", OPCODE_name(opc)));
+  }
+  AssertThat(TN_is_constant(ofst), ("Exp_LDST: Illegal offset TN"));
   if (!TN_has_value(ofst) || TN_value(ofst) < (1 << 16)) {
     Cfg()->BB(bb_idx)->Add_stmt(
-      new CGOP(top, bb_idx, TN_tn_idx(src), TN_tn_idx(base),
+      new CGOP(top, bb_idx, TN_tn_idx(src_res), TN_tn_idx(base),
                TN_tn_idx(ofst), 0));
   } else {
-    AssertThat(false, ("Not implmented Exp_store case"));
+    AssertThat(false, ("Offset too large, need other ways to do this. "
+                       "\nNot implmented Exp_LDST situation"));
   }
 }
 
@@ -340,6 +499,8 @@ void CGIR::Emit_operand(CGOP *oper, CGOPR_KIND kind, UINT32 ch_id, FILE* out) {
         fprintf(out, "sp");
       } else if (reg_id == REGISTER_fp) {
         fprintf(out, "fp");
+      } else if (reg_id == REGISTER_v0) {
+        fprintf(out, "r0");
       } else {
         AssertThat(false, ("not implemented"));
       }
@@ -421,7 +582,7 @@ LABEL_IDX CGIR::Get_addr_label(ST_IDX sym) {
   }
   STR_IDX     name    = File()->Save_string(targ);
   LABEL_IDX   lbl_idx = File()->Create_label(name, LABEL_ADDR_PASSED &
-                                             LABEL_ADDR_SAVED, LKIND_ASSIGNED);
+                                             LABEL_ADDR_SAVED, LKIND_RELOC);
   LABEL_label(lbl_idx)->Set_temp_sym(sym);
   free(targ);
   return lbl_idx;
@@ -429,6 +590,37 @@ LABEL_IDX CGIR::Get_addr_label(ST_IDX sym) {
 
 BOOL CGIR::CGOPC_is_ldst(CGOPC cgopc) {
   return (Get_cg_opc_info(cgopc)->opk == CGOPK_LDST);
+}
+
+UINT32 CGIR::Count_needed_register(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb, UINT8 opr_pos) {
+  if (kind != CGOPR_R) {
+    Is_Trace(TR_LRA(), (TFile, "Found kind != r, no need to allocate \n"));
+    return 0;
+  }
+  CG_OPRAND cgoper = oper->getResOpnd()[opr_pos];
+  AssertThat(cgoper.tn != 0, ("TN does not exist"));
+  TN *tn = TN_tn(cgoper.tn);
+  if (TN_is_symbol(tn) || TN_is_label(tn) ||
+      TN_is_constant(tn)  || TN_is_dedicated(tn)) {
+    Is_Trace(TR_LRA(), (TFile, "Found tn %d no need to allocate \n", cgoper.tn));
+    return 0;
+  } else {
+    // There is a need for R-A.
+    Is_Trace(TR_LRA(), (TFile, "Found tn %d to allocate \n", cgoper.tn));
+    AssertThat(TN_register(tn) == 0, ("Should not be allocated already."));
+    TN_IDX tid = TN_tn_idx(tn);
+    UINT32 old_freq = 0;
+    if (_tn_freq_map.find(tid) != _tn_freq_map.end()) {
+      old_freq = _tn_freq_map[tid];
+    } else {
+      _tn_freq_map.insert(std::make_pair(tid, 0));
+      _tn_live_range.insert(std::make_pair(tid, vector<UINT32>()));
+    }
+    _tn_freq_map[tid] = old_freq + 1;
+    _tn_live_range[tid].push_back(cur_bb);
+    return 1;
+  }
+  return 0;
 }
 
 UINT8 ISA_OPCODE_results(CGOPC cgopc) {

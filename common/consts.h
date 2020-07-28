@@ -37,10 +37,6 @@ typedef UINT64 IRNODE_IDX;
 
 
 // Code generation related.
-enum CGBB_FLAGS {
-  CGBB_EXIT = 0x1,
-  CGBB_ENTRY = 0x2,
-};
 
 enum CGOPR_KIND {
   CGOPR_IMM = 1,
@@ -51,6 +47,7 @@ enum CGOPR_KIND {
 // Symbol Table Frame Work
 enum SYM_ATTR {
   ST_CONST = 0,
+  ST_ALLOCATED = 1,
 };
 
 // Must be smaller than 64

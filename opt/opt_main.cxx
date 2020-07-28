@@ -91,11 +91,27 @@ void Opt_verify_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
     switch (OPCODE_operator(tree->Get_node(stmt)->Opcode())) {
       // What kind of opcode is allowed here.
       case OPR_STID: {
-        AssertThat(level <= LEVEL_CGIR, ("STID should not be present in level %d", level));
         AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in STID, 1 expected, got %d", tree->Number_of_children(stmt)));
         IR_ITER expr_val = tree->Get_operand(stmt, 0);
         MTYPE_ID stid_type = OPCODE_desc(tree->Get_node(stmt)->Opcode());
         AssertThat(OPCODE_rtype(tree->Get_node(expr_val)->Opcode()) == stid_type, ("The stid's operand should have same type"));
+        break;
+      }
+      case OPR_WHILE_DO: {
+        AssertThat(level <= LEVEL_MID, ("WHILE_DO should not be present in level %d", level));
+        AssertThat(tree->Number_of_children(stmt) == 2, ("Incorrect number of kid in WHILE_DO, 2 expected, got %d", tree->Number_of_children(stmt)));
+        // Previous one should be label, next should be label
+        break;
+      }
+      case OPR_RETURN_VAL: {
+        AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in RETURN_VAL, 1 expected, got %d", tree->Number_of_children(stmt)));
+        IR_ITER expr_val = tree->Get_operand(stmt, 0);
+        MTYPE_ID ret_type = OPCODE_rtype(tree->Get_node(expr_val)->Opcode());
+        AssertThat(MTYPE_I4 == ret_type, ("Should return mtype i4"));
+        break;
+      }
+      case OPR_RETURN: {
+        AssertThat(tree->Number_of_children(stmt) == 0, ("Incorrect number of kid in RETURN, 0 expected, got %d", tree->Number_of_children(stmt)));
         break;
       }
       default: {

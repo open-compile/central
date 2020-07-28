@@ -658,9 +658,7 @@ REGISTER_SET_Range(UINT low, UINT high)
  *
  * ====================================================================
  */
-inline REGISTER REGISTER_SET_Choose_Engine(
-  REGISTER_SET set
-)
+inline REGISTER REGISTER_SET_Choose_Engine(REGISTER_SET set)
 {
   INT i = 0;
   do {
@@ -683,10 +681,8 @@ inline REGISTER REGISTER_SET_Choose_Engine(
  *
  * ====================================================================
  */
-extern REGISTER
-REGISTER_SET_Choose(
-  REGISTER_SET set
-)
+REGISTER
+REGISTER_SET_Choose(REGISTER_SET set)
 {
   return REGISTER_SET_Choose_Engine(set);
 }

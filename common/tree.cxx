@@ -30,11 +30,12 @@ void IRNODE::Print(FILE *f) {
     case OPR_STID:
     case OPR_LDID: {
       if (this->Get_symbol_idx() != 0) {
-        fprintf(f, "  var<%s, idx = %0#x, level = %d, tabid = %d>",
+        fprintf(f, "  var<%s, idx = %0#x, level = %d, tabid = %d, ofst = %d>",
           ST_name(this->Get_symbol_idx()),
           this->Get_symbol_idx(),
           this->Get_symbol_idx() & 0xff,
-          this->Get_symbol_idx() >> 8);
+          this->Get_symbol_idx() >> 8,
+          this->Get_load_offset());
       } else {
         fprintf(f, "  var<%u>", this->Get_symbol_idx());
       }

@@ -99,7 +99,7 @@ void visitFunction(const shared_ptr<NFunctionDeclaration> &func) {
   TY_IDX basic_func_ty = File()->Create_func_ty(func_name, 0, MTYPE_V,
                                                 (TY_FLAG) 0, *param_ret_vec);
   ST_IDX func_sym = File()->Create_var(func_name, basic_func_ty,
-                                       GLOBAL_SYMTAB, SYMC_EXTERN,
+                                       GLOBAL_SYMTAB, SYMC_TEXT,
                                        SYME_PREEMPTIBLE,
                                        SYM_CLASS_FUNC);
   PU_INFO_IDX pu_info = File()->Create_function(func_sym, basic_func_ty);

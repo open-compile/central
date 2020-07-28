@@ -161,19 +161,19 @@ struct PU {
 class ST {
 public:
   STR_IDX name_idx; // index to the name string
-  SYM_ATTR attr: 4;
-  SYM_CLASS sym_class: 4;
-  SYM_SCLASS storage_class: 4; // storage info
-  SYM_ECLASS export_class: 4;
+  UINT32  attr: 4; // SYM_ATTR
+  SYM_CLASS    sym_class: 4;
+  SYM_SCLASS   storage_class: 4; // storage info
+  SYM_ECLASS   export_class: 4;
   ST_TLS_MODEL tls_model: 4; // Thread-Local-Storage(TLS) model
   union {
     TY_IDX type;   // idx to high-level type
     PU_IDX pu;   // idx to program unit
-  } u2;
-  UINT32 pad; // 4 pad bytes (initialize to zero)
-  UINT32 offset; // offset from base
-  INT32  fp_offset; // offset from base
-  ST_IDX base_idx; // base in the allocated block.
+  }            u2;
+  UINT32       pad; // 4 pad bytes (initialize to zero)
+  UINT32       offset; // offset from base
+  INT32        sp_offset; // offset from base
+  ST_IDX       base_idx; // base in the allocated block.
   // ST_IDX st_idx; // my own st_idx
   // operations
 
@@ -187,12 +187,16 @@ public:
   void Print_storage_class(FILE *f);
   PU_INFO_IDX Pu_info_idx();
 
-  SYM_ATTR getAttr() const {
+  UINT32 getAttr() const {
     return attr;
   }
 
-  void setAttr(SYM_ATTR attr) {
-    ST::attr = attr;
+  void Set_attr(UINT32 attr) {
+    ST::attr |= attr;
+  }
+
+  void Clear_attr(UINT32 attr) {
+    ST::attr &= (~attr);
   }
 
   SYM_CLASS getSymClass() const {
@@ -243,12 +247,12 @@ public:
     ST::offset = offset;
   }
 
-  INT32 getFpOffset() const {
-    return fp_offset;
+  INT32 getSpOffset() const {
+    return sp_offset;
   }
 
-  void setFpOffset(INT32 fpOffset) {
-    fp_offset = fpOffset;
+  void setSpOffset(INT32 fpOffset) {
+    sp_offset = fpOffset;
   }
 
   ST_IDX getBaseIdx() const {
@@ -370,7 +374,8 @@ enum LABEL_KIND {
   LKIND_END_EH_RANGE = 3,
   LKIND_BEGIN_HANDLER = 4,
   LKIND_END_HANDLER = 5,
-  LKIND_TAG = 6 // symbolic address, never branched to
+  LKIND_TAG = 6, // symbolic address, never branched to
+  LKIND_RELOC = 7,
 };
 
 enum LABEL_FLAGS {
