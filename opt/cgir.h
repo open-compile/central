@@ -84,6 +84,42 @@ typedef CFG_BB_BASE<CGOP> CGBB;
 typedef vector<CGBB *> CGBB_VECTOR;
 typedef typename vector<CGBB *>::iterator CGBB_ITER;
 
+template<typename NODE_TYPE>
+class CGTODO_ITEM {
+private:
+  NODE_TYPE *target;
+  NODE_TYPE *from;
+  BOOL       put_before;
+public:
+  CGTODO_ITEM(NODE_TYPE *targ, NODE_TYPE *org, BOOL before) {
+    target = targ;
+    from = org;
+    put_before = before;
+  }
+  NODE_TYPE *getTarget() const {
+    return target;
+  }
+
+  void setTarget(NODE_TYPE *tg) {
+    target = tg;
+  }
+
+  NODE_TYPE *getFrom() const {
+    return from;
+  }
+
+  void setFrom(NODE_TYPE *fr) {
+    from = fr;
+  }
+
+  BOOL getPutBefore() const {
+    return put_before;
+  }
+
+  void setPutBefore(BOOL putBefore) {
+    put_before = putBefore;
+  }
+};
 
 template<typename NODE_TYPE>
 class CFG_BB_BASE {
@@ -101,6 +137,7 @@ private:
   typedef typename std::vector<NODE_TYPE *>::const_iterator const_stmt_iterator;
 
   vector<NODE_TYPE *> _stmts;
+  vector< CGTODO_ITEM<NODE_TYPE> > _work_list;
   UINT32              _flags = 0;
   UINT32              _label_id = 0;
   BB_TYPE            *_idom  = nullptr;  // immediate dominator on CFG
@@ -365,6 +402,10 @@ public:
   UINT32 Get_flags() const { return _flags; }
   UINT32 Get_label_id() const { return _label_id; }
   void Set_label_id(UINT32 labelId) { _label_id = labelId; }
+  void Move_stmt_to_after(NODE_TYPE *position, NODE_TYPE *from);
+  void Move_stmt_to_before(NODE_TYPE *position, NODE_TYPE *from);
+  CGOP *Last_real_stmt();
+  vector<CGTODO_ITEM<NODE_TYPE>> &Get_work_list() { return _work_list; }
 };
 
 typedef CFG_BB_BASE<CGOP>    CGBB;
@@ -464,8 +505,9 @@ public:
     AssertThat(_current_layout != NULL, ("layout is null"));
     return _current_layout;
   }
-
   UINT32 Count_needed_register(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb, UINT8 opr_pos);
+  void Process_spill_op(CGOP *oper, CGOPR_KIND kind,
+                        UINT32 cur_bb, UINT32 opnd, BOOL is_write);
 };
 
 

@@ -198,6 +198,11 @@ REGISTER_SUBCLASS_info[ISA_REGISTER_SUBCLASS_MAX + 1];
 
 /* The various special purpose registers:
  */
+
+#define REGISTER_spill 8
+#define REGISTER_spill_2 10
+#define REG_SIZE_I 4
+
 extern CLASS_REG_PAIR		CLASS_REG_PAIR_zero;
 #define REGISTER_zero		CLASS_REG_PAIR_reg(CLASS_REG_PAIR_zero)
 #define REGISTER_CLASS_zero	CLASS_REG_PAIR_rclass(CLASS_REG_PAIR_zero)

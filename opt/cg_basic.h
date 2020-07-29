@@ -8,7 +8,7 @@
 #include "basic.h"
 
 enum CGOPC {
-#define CGOPDEF(enum_name, nres, nopr, opr1, opr2, opr3, ins_name, opk)   \
+#define CGOPDEF(enum_name, nres, nopr, is_w, opr1, opr2, opr3, ins_name, opk)   \
   enum_name,
 #include "cg_opc.h"
 #undef CGOPDEF
@@ -41,11 +41,20 @@ struct CGOPC_INFO {
   CGOPC opcode;
   UINT8 n_res;  // num of results
   UINT8 n_oprs; // num of operands
+  BOOL write_to_rd;
   CGOPR_KIND op1;
   CGOPR_KIND op2;
   CGOPR_KIND op3;
   const char *ins_token;
   CGOPC_KIND opk;
+
+  BOOL isWriteToRd() const {
+    return write_to_rd;
+  }
+
+  void isWriteToRd(BOOL isWriteToRd) {
+    write_to_rd = isWriteToRd;
+  }
 
   const char *getName() const {
     return name;
@@ -151,18 +160,24 @@ struct CG_OPRAND {
   }
 };
 
+// CGOP flags.
+enum CGOPF {
+  CGOPF_NONE  =  0x0000,
+  CGOPF_SPILL =  0x0001,
+};
+
 class CGOP {
 private:
   CGOPC        opcode;         // assign, ... ...
   UINT8        results;
   UINT8        operands;
-  TN_IDX       res_ops;   // operands
 
   // Other related info
   CFG_BB_IDX   bb;
-  UINT32       flags;         // flags related to the CGOP
+  UINT32       _flags;        // flags related to the CGOP
   UINT32       index_in_bb;   // index inside the BB, unique in BB
   UINT16       variant;
+  UINT16       spill_generated;
 
   // unroll related
   CFG_BB_IDX   unroll_bb;
@@ -179,6 +194,7 @@ public:
     operands = ISA_OPCODE_operands(opc);
     bb = bb_idx;
     index_in_bb = 0;
+    spill_generated = 0;
     res_opnd[0] = op1;
     res_opnd[1] = op2;
     res_opnd[2] = op3;
@@ -209,12 +225,8 @@ public:
     return res_opnd;
   }
 
-  void setResOps(TN_IDX resOps) {
-    res_ops = resOps;
-  }
-
   void setFlags(UINT32 flags) {
-    CGOP::flags = flags;
+    _flags |= flags;
   }
 
   void setIndexInBb(UINT32 indexInBb) {
@@ -237,6 +249,15 @@ public:
     which_unroll = whichUnroll;
   }
   void Print(FILE * file = stderr);
+  UINT32 getFlags() { return _flags; };
+
+  UINT16 getSpillGenerated() const {
+    return spill_generated;
+  }
+
+  void setSpillGenerated(UINT16 spillGenerated) {
+    spill_generated = spillGenerated;
+  }
 };
 
 

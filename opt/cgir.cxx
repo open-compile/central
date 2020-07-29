@@ -291,11 +291,12 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
     // Tracings
     if (TR_LRA()) {
       fprintf(TFile, " --------- Processing BB : %d ---------  \n", i);
+      _tn_freq_map.clear();
     }
     // If there is a label to it, emit the label
     for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
       CGOP *cgop = (*stmt_it);
-      fprintf(TFile, "\t%s\t", Get_cg_opc_info(cgop->getOpcode())->ins_token);
+      fprintf(TFile, "\t-LRA: Processing op = %s\n", Get_cg_opc_info(cgop->getOpcode())->ins_token);
       if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
         i32_register_needed += Count_needed_register(cgop, CGOPR_R, i, 0);
       }
@@ -305,53 +306,88 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
       if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
         i32_register_needed += Count_needed_register(cgop, CGOPR_R, i, 2);
       }
-      fprintf(TFile, "\n");
     }
-  }
 
-  REGISTER_SET used = 0;
-  REGISTER_SET_EmptyP(used);
-  UINT32 used_cnt = 1; // Use r0 for return value
-  for (auto tn_freq : _tn_freq_map) {
-    TN_IDX tid = tn_freq.first;
-    // Allocate one-by-one
-    Is_Trace(TR_LRA(), (TFile, "-LRA: Assigning reg %d to TN : %d\n", used_cnt, tid));
-    Set_TN_register(TN_tn(tid), used_cnt);
-    Set_TN_is_preallocated(TN_tn(tid));
-    Set_TN_register_class(TN_tn(tid), ISA_REGISTER_CLASS_integer);
-    if (used_cnt < 9) {
-      used_cnt ++;
-    } else {
-      AssertThat(used_cnt <= 10, ("No more registers to use.")); // 1-10, except 9.
-      // Will spill now.
+    /*** LRA ***/
+
+    Is_Trace(TR_LRA(),
+             (TFile, "Found %lu registers to allocate for \n", _tn_freq_map.size()));
+    // This is actually global register allocation.
+    REGISTER_SET used = 0;
+    REGISTER_SET_EmptyP(used);
+    UINT32 used_cnt = 0; // Use r0 for return value
+    for (auto tn_freq : _tn_freq_map) {
+      TN_IDX tid = tn_freq.first;
+      TN *tn = TN_tn(tid);
+      // Allocate one-by-one
+      Is_Trace(TR_LRA(), (TFile, "-LRA: Assigning reg %d to TN : %d\n", used_cnt, tid));
+      Set_TN_register(tn, used_cnt);
+      Set_TN_is_preallocated(tn);
+      Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
+      if (used_cnt < 7) {
+        used_cnt ++;
+      } else {
+        // We could put the spill on r8.
+        // Now we have at least the R9 to process
+        Is_Trace(TR_LRA(),
+                 (TFile, "Need to spill the TN %d \n", tid));
+        // Make TN = ... to Var(.spill) = ...
+        Set_TN_register(tn, 0); // not allocating right now, wait for second pass.
+        Set_TN_is_preallocated(tn);
+        // Allocate spill space.
+        // Create var, create object space.
+        ST_IDX sym = 0; //File()->Find_symbol_by_name(".spill");
+        char   name_str[100];
+        sprintf(name_str, ".spill_%d", tid);
+        STR_IDX name = File()->Save_string(name_str);
+        sym = File()->Create_var(name, MTYPE_to_ty(MTYPE_I4), LOCAL_SYMTAB,
+                                 SYMC_AUTO, SYME_INTERNAL, SYM_CLASS_VAR);
+        Layout()->Allocate_object(sym); // re-allocate this.
+        Set_TN_flags(tn, TN_SPILL);
+        Set_TN_spill(tn, sym);
+        Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
+      }
     }
   }
   // Re-add spilling etc.,
   // Allocate all registers, mark spilling info.
-//
-//
-//  for (UINT32 i = 0; i < bb_cnt; i++) {
-//    CGBB *cgbb = Cfg()->BB(i);
-//    // Tracings
-//    if (TR_LRA()) {
-//      fprintf(TFile, " --------- Processing BB : %d ---------  \n", i);
-//    }
-//    // If there is a label to it, emit the label
-//    for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
-//      CGOP *cgop = (*stmt_it);
-//      fprintf(TFile, "\t%s\t", Get_cg_opc_info(cgop->getOpcode())->ins_token);
-//      if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
-//        Count_needed_register(cgop, CGOPR_R, 0);
-//      }
-//      if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
-//        i32_register_needed += Count_needed_register(cgop, CGOPR_R, 1);
-//      }
-//      if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
-//        i32_register_needed += Count_needed_register(cgop, CGOPR_R, 2);
-//      }
-//      fprintf(TFile, "\n");
-//    }
-//  }
+  for (UINT32 i = 0; i < bb_cnt; i++) {
+    CGBB *cgbb = Cfg()->BB(i);
+    // Tracings
+    if (TR_LRA()) {
+      fprintf(TFile, " --------- Post-LRA-Spill BB : %d ---------  \n", i);
+    }
+    // If there is a label to it, emit the label
+    for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
+      CGOP *cgop = (*stmt_it);
+      fprintf(TFile, "\tProcessing : %s\t\n", Get_cg_opc_info(cgop->getOpcode())->ins_token);
+      if (cgop->getFlags() & CGOPF_SPILL) {
+        continue;
+      }
+      if (Get_cg_opc_info(cgop->getOpcode())->getNRes() >= 1) {
+        Process_spill_op(cgop, CGOPR_R, i, 0, Get_cg_opc_info(cgop->getOpcode())->isWriteToRd());
+      }
+      if (Get_cg_opc_info(cgop->getOpcode())->getNOprs() >= 1) {
+        Process_spill_op(cgop, CGOPR_R, i, 1, false);
+      }
+      if (Get_cg_opc_info(cgop->getOpcode())->getNOprs() >= 2) {
+        Process_spill_op(cgop, CGOPR_R, i, 2, false);
+      }
+      fprintf(TFile, "\n");
+    }
+  }
+
+  for (UINT32 i = 0; i < bb_cnt; i++) {
+    CGBB *cgbb = Cfg()->BB(i);
+    auto work_list = cgbb->Get_work_list();
+    for (auto work_item : work_list) {
+      if (work_item.getPutBefore()) {
+        cgbb->Move_stmt_to_before(work_item.getTarget(), work_item.getFrom());
+      } else {
+        cgbb->Move_stmt_to_after(work_item.getTarget(), work_item.getFrom());
+      }
+    }
+  }
 }
 
 void CGIR::Print(FILE *file) {
@@ -526,6 +562,66 @@ void CFG_BB_BASE<NODE_TYPE>::Print(FILE * file) {
   }
 }
 
+template<typename NODE_TYPE>
+CGOP *CFG_BB_BASE<NODE_TYPE>::Last_real_stmt() {
+  AssertThat(_stmts.size() > 0, ("No last exist"));
+  return _stmts.back();
+}
+
+template<typename NODE_TYPE>
+void CFG_BB_BASE<NODE_TYPE>::Move_stmt_to_after(NODE_TYPE *position, NODE_TYPE *from) {
+  BOOL flag = false;
+  for (typename vector<NODE_TYPE*>::iterator it = _stmts.begin(); it != _stmts.end(); it++) {
+    if (*it == position) {
+      it++;
+      AssertThat(it != _stmts.end(), ("This cannot be, otherwise we are moving [position] after [position]"));
+      _stmts.insert(it, from);
+      flag = true;
+      break;
+    }
+  }
+  AssertThat(flag, ("Cannot find the target stmt %p in stmts.", position));
+  flag = false;
+  for (typename vector<NODE_TYPE*>::iterator it = _stmts.begin(); it != _stmts.end(); it++) {
+    if (*it == from) {
+      if (!flag) {
+        flag = true; // skip the first one.
+        continue;
+      }
+      _stmts.erase(it);
+      flag = true;
+      break;
+    }
+  }
+  AssertThat(flag, ("Cannot find the old value to delete."));
+}
+
+template<typename NODE_TYPE>
+void CFG_BB_BASE<NODE_TYPE>::Move_stmt_to_before(NODE_TYPE *position, NODE_TYPE *from) {
+  BOOL flag = false;
+  for (typename vector<NODE_TYPE*>::iterator it = _stmts.begin(); it != _stmts.end(); it++) {
+    if (*it == position) {
+      _stmts.insert(it, from);
+      flag = true;
+      break;
+    }
+  }
+  AssertThat(flag, ("Cannot find the target stmt %p in stmts.", position));
+  flag = false;
+  for (typename vector<NODE_TYPE*>::iterator it = _stmts.begin(); it != _stmts.end(); it++) {
+    if (*it == from) {
+      if (!flag) {
+        flag = true; // skip the first one.
+        continue;
+      }
+      _stmts.erase(it);
+      flag = true;
+      break;
+    }
+  }
+  AssertThat(flag, ("Cannot find the old value to delete."));
+}
+
 
 template<typename NODE_TYPE>
 void CFG_BASE<NODE_TYPE>::Print(FILE * file) {
@@ -553,8 +649,8 @@ void CGOP::Print(FILE *file) {
 }
 
 CGOPC_INFO CGOPC_INFO_LIST[] = {
-#define CGOPDEF(enum_name, nres, nopr, opr1, opr2, opr3, ins_name, kind)   \
-  { #enum_name, enum_name, nres, nopr, opr1, opr2, opr3, ins_name, kind },
+#define CGOPDEF(enum_name, nres, nopr, is_w, opr1, opr2, opr3, ins_name, kind)   \
+  { #enum_name, enum_name, nres, nopr, is_w, opr1, opr2, opr3, ins_name, kind },
 #include "cg_opc.h"
 #undef CGOPDEF
 };
@@ -621,6 +717,49 @@ UINT32 CGIR::Count_needed_register(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb, U
     return 1;
   }
   return 0;
+}
+
+void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
+                            UINT32 opnd, BOOL is_write) {
+  // Process a possible write that may create spilling.
+  AssertThat(oper->getResOpnd()[opnd].tn != 0, ("incorrect tn found"));
+  TN_IDX tid = oper->getResOpnd()[opnd].tn;
+  TN *tn = TN_tn(tid);
+  if (TN_flags(tn) & TN_SPILL) {
+    // There is a spill.
+    TN *spill_tn = Gen_Register_TN(ISA_REGISTER_CLASS_integer, REG_SIZE_I);
+    if (is_write) {
+      Is_Trace(TR_LRA(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), REGISTER_spill));
+      // haven't allocated
+      Is_Trace(TR_LRA(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), REGISTER_spill));
+      Set_TN_register(tn,       REGISTER_spill);
+      Set_TN_register(spill_tn, REGISTER_spill);
+      Set_TN_is_preallocated(spill_tn);
+      Exp_LDST(OPC_I4STID, MTYPE_I4,
+               spill_tn,
+               TN_spill(tn), 0, cur_bb, V_BR_NONE);
+      CGOP *rs = *(Cfg()->BB(cur_bb)->Last_stmt() - 1);
+      rs->setFlags(CGOPF_SPILL);
+      AssertThat(rs->getOpcode() == CGOPC_STR, ("Incorrect generated result"));
+      Cfg()->BB(cur_bb)->Get_work_list().push_back(CGTODO_ITEM<CGOP> (oper, rs, false));
+    } else {
+      UINT8 register_num = (opnd <= 1) ? REGISTER_spill : REGISTER_spill_2;
+      Is_Trace(TR_LRA(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), register_num));
+      Is_Trace(TR_LRA(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), register_num));
+      Set_TN_register(tn,
+                      register_num); // Making sure the two register are the same.
+      Set_TN_register(spill_tn,
+                      register_num); // Making sure the two register are the same.
+      Set_TN_is_preallocated(tn);
+      Exp_LDST(OPC_I4LDID, MTYPE_I4,
+        spill_tn,
+        TN_spill(tn), 0, cur_bb, V_BR_NONE);
+      CGOP *rs = Cfg()->BB(cur_bb)->Last_real_stmt();
+      rs->setFlags(CGOPF_SPILL);
+      AssertThat(rs->getOpcode() == CGOPC_LDR, ("Incorrect generated result"));
+      Cfg()->BB(cur_bb)->Get_work_list().push_back(CGTODO_ITEM<CGOP> (oper, rs, true));
+    }
+  }
 }
 
 UINT8 ISA_OPCODE_results(CGOPC cgopc) {

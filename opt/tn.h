@@ -129,6 +129,7 @@ enum {
   TN_PREALLOCATED	    = 0x4000 ,  /* TN is pre-allocated in LRA */
   TN_THREAD_SEG_PTR   = 0x8000 ,  /* TN is pointer to thread-local storage */
   TN_NO_RENAME        = 0x10000,  /* TN does not get auto renamed */
+  TN_SPILL            = 0x20000,  /* TN does not get auto renamed */
 };
 
 #define CAN_USE_TN(t) (t)
