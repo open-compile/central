@@ -531,7 +531,7 @@ void CGIR::Exp_op(OPCODE opcode, CFG_BB_IDX cur_bb,
   AssertThat(result != NULL, ("Result should not be null."));
   AssertThat(op1 != NULL, ("OP1 should not be null."));
   AssertThat(op2 != NULL, ("OP2 should not be null."));
-  CGOP *stmt_ins = new CGOP(CGOPC_ADD, cur_bb, TN_tn_idx(result), TN_tn_idx(op1), TN_tn_idx(op2), 0);
+  CGOP *stmt_ins = new CGOP(cgop, cur_bb, TN_tn_idx(result), TN_tn_idx(op1), TN_tn_idx(op2), 0);
   Cfg()->BB(cur_bb)->Add_stmt(stmt_ins);
 }
 
@@ -780,6 +780,7 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
       Exp_LDST(OPC_I4STID, MTYPE_I4,
                spill_tn,
                TN_spill(tn), 0, cur_bb, V_BR_NONE);
+      oper->setResOpnd(opnd, TN_tn_idx(spill_tn));
       CGOP *rs = *(Cfg()->BB(cur_bb)->Last_stmt() - 1);
       rs->setFlags(CGOPF_SPILL);
       AssertThat(rs->getOpcode() == CGOPC_STR, ("Incorrect generated result"));
@@ -798,6 +799,7 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
         TN_spill(tn), 0, cur_bb, V_BR_NONE);
       CGOP *rs = Cfg()->BB(cur_bb)->Last_real_stmt();
       rs->setFlags(CGOPF_SPILL);
+      oper->setResOpnd(opnd, TN_tn_idx(spill_tn));
       AssertThat(rs->getOpcode() == CGOPC_LDR, ("Incorrect generated result"));
       Cfg()->BB(cur_bb)->Get_work_list().push_back(CGTODO_ITEM<CGOP> (oper, rs, true));
     }

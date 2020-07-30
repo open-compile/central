@@ -225,6 +225,10 @@ public:
     return res_opnd;
   }
 
+  void setResOpnd(UINT8 id, CG_OPRAND opr) {
+    res_opnd[id] = opr;
+  }
+
   void setFlags(UINT32 flags) {
     _flags |= flags;
   }
