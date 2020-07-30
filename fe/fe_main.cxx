@@ -9,6 +9,7 @@
 #include "stdarg.h"
 #include "ir.h"
 #include "fe_main.h"
+#include "cpp_pre.h"
 
 // Opcode
 BIN_OP_TO_OPR FEOPCODE_INFO[] = {

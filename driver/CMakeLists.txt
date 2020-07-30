@@ -6,7 +6,7 @@ cmake_policy(SET CMP0003 NEW)
 set(DRIVER_TARGET_NAME compiler)
 
 add_compile_options(-DDebug_Mode=1 -std=c++11)
-add_executable(${DRIVER_TARGET_NAME} main.cxx cpp.cxx mem.cxx)
+add_executable(${DRIVER_TARGET_NAME} main.cxx)
 target_include_directories(${DRIVER_TARGET_NAME} PRIVATE
         ${OCC_MAIN_DIR}/common
         ${OCC_MAIN_DIR}/lib/subprocess
