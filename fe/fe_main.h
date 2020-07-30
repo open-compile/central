@@ -60,6 +60,7 @@ typedef struct BIN_OP_TO_OPCODE_T {
   const char *_name;
   FEOPCODE    _fe_opcode;
   OPERATOR    _irnode_opcode;
+  MTYPE_ID    _rtype;
 } BIN_OP_TO_OPR;
 
 using std::shared_ptr;
@@ -106,5 +107,6 @@ IR_ITER visitArrayDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
                        const shared_ptr<NArrayIndex>& arraydecl);
 
 OPERATOR Get_op_by_token(FEOPCODE op);
+MTYPE_ID Get_rtype_by_token(FEOPCODE op);
 
 #endif //OCC_FE_MAIN_H

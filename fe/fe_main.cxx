@@ -12,12 +12,13 @@
 
 // Opcode
 BIN_OP_TO_OPR FEOPCODE_INFO[] = {
-  { "+", TPLUS,  OPR_ADD },
-  { "*", TMUL,   OPR_MPY },
-  { "-", TMINUS, OPR_SUB },
-  { "/", TDIV,   OPR_DIV },
-  { "<", TCLT,   OPR_LT  },
-  { ">", TCGT,   OPR_GT  },
+  // tok TOKEN   oper     rtype
+  { "+", TPLUS,  OPR_ADD, MTYPE_I4 },
+  { "*", TMUL,   OPR_MPY, MTYPE_I4 },
+  { "-", TMINUS, OPR_SUB, MTYPE_I4 },
+  { "/", TDIV,   OPR_DIV, MTYPE_I4 },
+  { "<", TCLT,   OPR_LT , MTYPE_B  },
+  { ">", TCGT,   OPR_GT , MTYPE_B  },
 };
 
 INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_name) {
@@ -397,7 +398,7 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     shared_ptr<NBinaryOperator> bin_op = reinterpret_cast<const shared_ptr<NBinaryOperator> &>(expr);
     OPERATOR opr = Get_op_by_token((FEOPCODE) bin_op->op);
     AssertThat(opr != OPERATOR_UNKNOTREE && opr >= OPERATOR_FIRST, ("Operator not implementeed"));
-    OPCODE opc = (OPCODE) (opr + RTYPE(MTYPE_B) + DESC(MTYPE_I4));
+    OPCODE opc = (OPCODE) (opr + RTYPE(Get_rtype_by_token((FEOPCODE) bin_op->op)) + DESC(MTYPE_I4));
     IRNODE_IDX opr_node = tree->Create_node(opc);
     IR_ITER cur_node = tree->Insert_temp_node(opr_node);
     IR_ITER lhs = visitExpression(tree, cur_node, level, bin_op->lhs);
@@ -458,6 +459,17 @@ OPERATOR Get_op_by_token(FEOPCODE op) {
   }
   AssertThat(false, ("Operator %d not implemented.", op));
   return OPERATOR_UNKNOTREE;
+}
+
+MTYPE_ID Get_rtype_by_token(FEOPCODE op) {
+  UINT32 total = sizeof(FEOPCODE_INFO) / sizeof(BIN_OP_TO_OPR);
+  for (UINT32 i = 0; i < total; i++) {
+    if (op == FEOPCODE_INFO[i]._fe_opcode) {
+      return FEOPCODE_INFO[i]._rtype;
+    }
+  }
+  AssertThat(false, ("Operator %d not implemented.", op));
+  return MTYPE_V;
 }
 
 IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL is_formal,
