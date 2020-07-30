@@ -71,19 +71,9 @@ void Opt_verify(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &conf) {
   }
 }
 
-void Opt_verify_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
-                         COMPILER_CONFIG &conf) {
+void Opt_verify_block(IR_ITER body, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
+                      COMPILER_CONFIG &conf) {
   TREE *tree = func->entry;
-  AssertThat(tree != nullptr, ("Tree should not be empty"));
-  IR_ITER root = tree->Get_root();
-  AssertThat(root != nullptr, ("root should not be empty"));
-  AssertThat(tree->Number_of_children(root) == 2, ("there should be exactly 2 nodes in the func_entry"));
-  IR_ITER body = tree->Get_operand(root, TREE_SEQ_BODY);
-  if (tree->Number_of_children(body) <= 0) {
-    Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
-             (TFile, "There is no statement in the body, skip verification\n"));
-    return;
-  }
   // Verifying each statement
   for (UINT32 stmt_idx = 0; stmt_idx < tree->Number_of_children(body); stmt_idx++) {
     IR_ITER stmt = tree->Get_operand(body, stmt_idx);
@@ -97,10 +87,35 @@ void Opt_verify_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
         AssertThat(OPCODE_rtype(tree->Get_node(expr_val)->Opcode()) == stid_type, ("The stid's operand should have same type"));
         break;
       }
+      case OPR_IF: {
+        AssertThat(level < LEVEL_MID, ("IF should not be present in level %d", level));
+        AssertThat(tree->Number_of_children(stmt) == 3, ("Incorrect number of kid in WHILE_DO, 2 expected, got %d", tree->Number_of_children(stmt)));
+
+        // The then block.
+        IR_ITER block_inside = tree->Get_operand(stmt, 1);
+        AssertThat(tree->Node(block_inside)->Opcode() == OPC_BLOCK, ("Should be a then block."));
+        Opt_verify_block(block_inside, func, file, level, conf);
+
+        // The else block
+        block_inside = tree->Get_operand(stmt, 2);
+        AssertThat(tree->Node(block_inside)->Opcode() == OPC_BLOCK, ("Should be an else block."));
+        Opt_verify_block(block_inside, func, file, level, conf);
+        break;
+      }
+      case OPR_FALSEBR:
+      case OPR_TRUEBR: {
+        AssertThat(level >= LEVEL_HIGH, ("TRUEBR/FALSEBR should not be present in level %d", level));
+        AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in WHILE_DO, 2 expected, got %d", tree->Number_of_children(stmt)));
+        AssertThat(tree->Node(stmt)->Get_label_num() != 0, ("There should be a valid label for truebr/falsebr."));
+        break;
+      }
       case OPR_WHILE_DO: {
         AssertThat(level <= LEVEL_MID, ("WHILE_DO should not be present in level %d", level));
         AssertThat(tree->Number_of_children(stmt) == 2, ("Incorrect number of kid in WHILE_DO, 2 expected, got %d", tree->Number_of_children(stmt)));
         // Previous one should be label, next should be label
+        IR_ITER block_inside = tree->Get_operand(stmt, 1);
+        AssertThat(tree->Node(block_inside)->Opcode() == OPC_BLOCK, ("Should be a block."));
+        Opt_verify_block(block_inside, func, file, level, conf);
         break;
       }
       case OPR_RETURN_VAL: {
@@ -114,11 +129,41 @@ void Opt_verify_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
         AssertThat(tree->Number_of_children(stmt) == 0, ("Incorrect number of kid in RETURN, 0 expected, got %d", tree->Number_of_children(stmt)));
         break;
       }
+      case OPR_CALL: {
+        AssertThat(tree->Node(stmt)->Get_symbol_idx() != 0, ("Incorrect call stmt target symbol"));
+        AssertThat(ST_sclass(tree->Node(stmt)->Get_symbol_idx()) == SYMC_TEXT ||
+                   ST_sclass(tree->Node(stmt)->Get_symbol_idx()) == SYMC_EXTERN, ("Either should this be extern or text"));
+        break;
+      }
+      case OPR_LABEL: {
+        AssertThat(tree->Node(stmt)->Get_label_num() != 0, ("Incorrect label idx"));
+        break;
+      }
+      case OPR_GOTO: {
+        AssertThat(tree->Node(stmt)->Get_label_num() != 0, ("Incorrect label idx"));
+        break;
+      }
       default: {
         AssertThat(false, ("Opcode: %s should not be in the body", OPCODE_name(tree->Get_node(stmt)->Opcode())));
       }
     }
   }
+}
+
+void Opt_verify_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
+                         COMPILER_CONFIG &conf) {
+  TREE *tree = func->entry;
+  AssertThat(tree != nullptr, ("Tree should not be empty"));
+  IR_ITER root = tree->Get_root();
+  AssertThat(root != nullptr, ("root should not be empty"));
+  AssertThat(tree->Number_of_children(root) == 2, ("there should be exactly 2 nodes in the func_entry"));
+  IR_ITER body = tree->Get_operand(root, TREE_SEQ_BODY);
+  if (tree->Number_of_children(body) <= 0) {
+    Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
+             (TFile, "There is no statement in the body, skip verification\n"));
+    return;
+  }
+  Opt_verify_block(body, func, file, level, conf);
 }
 
 void Opt_lower(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &config) {
@@ -204,12 +249,61 @@ IR_ITER Opt_lower_expr(IR_ITER expr, PU_INFO *func, FILE_MANAGER *file,
 IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
                        IR_LEVEL level, COMPILER_CONFIG &conf) {
   TREE *tree = func->entry;
-  if (OPCODE_operator(tree->Get_node(stmt)->Opcode()) == OPR_STID) {
-    // optmize the child
-    IR_ITER expr = tree->Get_operand(stmt, 0);
-    IR_ITER lower_result = Opt_lower_expr(expr, func, file, level, conf);
-    if (expr != lower_result) {
-      tree->Replace_recursive(expr, lower_result);
+  switch (OPCODE_operator(tree->Get_node(stmt)->Opcode())) {
+    case OPR_STID: {
+      // optmize the child
+      IR_ITER expr = tree->Get_operand(stmt, 0);
+      IR_ITER lower_result = Opt_lower_expr(expr, func, file, level, conf);
+      if (expr != lower_result) {
+        tree->Replace_recursive(expr, lower_result);
+      }
+      break;
+    }
+    case OPR_IF: {
+      if (level != LEVEL_MID) break;
+      //Move stmts to parent
+      char *name_buf = new char[1200];
+      IR_ITER par = tree->Get_parent_block(stmt);
+      IR_ITER then = tree->Get_operand(stmt, 1);
+      IR_ITER else_blk = tree->Get_operand(stmt, 2);
+
+      // Create the else label
+      sprintf(name_buf, ".L_%d_else_%llu", func->proc_sym, *stmt);
+      STR_IDX    lname      = File()->Save_string(name_buf);
+      LABEL_IDX  else_lidx  = File()->Create_label(lname, 0, LKIND_DEFAULT);
+      IRNODE_IDX lnode_idx  = tree->Create_node(OPC_LABEL);
+      tree->Node(lnode_idx)->Set_label_num(else_lidx);
+      IR_ITER else_label = tree->Insert_after(stmt, lnode_idx);
+
+      // Create end label
+      sprintf(name_buf, ".L_%d_end_%llu", func->proc_sym, *stmt);
+      lname                   = File()->Save_string(name_buf);
+      LABEL_IDX end_lidx      = File()->Create_label(lname, 0, LKIND_DEFAULT);
+      lnode_idx               = tree->Create_node(OPC_LABEL);
+      tree->Node(lnode_idx)->Set_label_num(end_lidx);
+      IR_ITER temp_end = tree->Insert_after(else_label, lnode_idx);
+
+      // Move the kids
+      for(UINT32 i = 0; i < tree->Number_of_children(then); i++) {
+        IR_ITER orig = tree->Get_operand(then, 0);
+        tree->Internal_tree().insert_subtree(else_label, orig);
+      }
+      IRNODE_IDX goto_ndoe = tree->Create_node(OPC_GOTO);
+      tree->Node(goto_ndoe)->Set_label_num(end_lidx);
+      tree->Internal_tree().insert(else_label, goto_ndoe);
+
+      for(UINT32 i = 0; i < tree->Number_of_children(else_blk); i++) {
+        IR_ITER orig = tree->Get_operand(else_blk, 0);
+        tree->Internal_tree().insert_subtree(temp_end, orig);
+      }
+      tree->Node(stmt)->Set_label_num(else_lidx);
+      tree->Node(stmt)->Set_opcode(OPC_FALSEBR);
+      tree->Remove_node_recursive(then);
+      tree->Remove_node_recursive(else_blk);
+      delete[] name_buf;
+    }
+    default: {
+      // do nothing about them.
     }
   }
   return stmt;

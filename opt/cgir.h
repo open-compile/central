@@ -512,6 +512,8 @@ public:
                         UINT32 cur_bb, UINT32 opnd, BOOL is_write);
 
   CFG_BB_IDX Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb);
+  void Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb);
+  CGOPC Get_branch_cond(IR_ITER cond, BOOL is_true_br);
 };
 
 

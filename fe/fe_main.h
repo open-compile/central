@@ -70,7 +70,7 @@ extern int yyparse();
 //
 //void createCoreFunctions(CodeGenContext& context);
 void Irgen_visit(NBlock *block); // Visiting the whole function
-IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
+IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL is_formal,
                      const shared_ptr<NVariableDeclaration> &vardecl); // Visiting a var decl
 
 void visitFunction(const shared_ptr<NFunctionDeclaration> &func);
@@ -92,6 +92,9 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
 
 IR_ITER visitReturnStmt(TREE *tree, IR_ITER parent, int level,
                         const shared_ptr<NReturnStatement> &stmt);
+
+IR_ITER visitMethodCall(TREE *tree, IR_ITER parent, int level,
+                        const shared_ptr<NMethodCall> &stmt);
 
 IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
                         shared_ptr<NExpression> expr);

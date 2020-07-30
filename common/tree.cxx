@@ -235,6 +235,37 @@ IR_ITER TREE::Remove_node_recursive(IR_ITER pos) {
     irtree.erase_children(pos);
   }
   return irtree.erase(pos);
+}
+
+IR_ITER TREE::Get_parent_block(IR_ITER stmt) {
+  IR_ITER par = irtree.parent(stmt);
+  AssertThat(Node(par)->Opcode() == OPC_BLOCK, ("not a block for elem = %d", *par));
+  return par;
+};
+
+IR_ITER TREE::Get_parent_region(IR_ITER stmt) {
+  IR_ITER par = irtree.parent(stmt);
+  // Walk along the parents and find the first if/while stmt.
+  // Stop if this is already a function_entry
+  while (par != nullptr) {
+    if (Node(par)->Opcode() == OPC_IF ||
+        Node(par)->Opcode() == OPC_WHILE_DO) {
+      return par;
+    }
+    if (Node(par)->Opcode() == OPC_FUNC_ENTRY ||
+        irtree.depth(par) <= 1) {
+      // error.
+      break;
+    }
+    // Continue on.
+    par = irtree.parent(par);
+  }
+  AssertThat(false, ("Cannot find parent region for node = %d", *stmt));
+  return nullptr;
+}
+
+IR_ITER TREE::Insert_after(IR_ITER position, IRNODE_IDX node) {
+  return irtree.insert_after(position, node);
 };
 
 ///**

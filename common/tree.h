@@ -324,6 +324,7 @@ public:
   IRNODE_IDX &Opnd(UINT32 pos);
   void Print(FILE *f);
   OPCODE &Opcode() { return opcode; }
+  void Set_opcode(OPCODE opc) { opcode = opc; }
 
   void Set_symbol_idx(ST_IDX sym) { u1u2.uu.ub.st_idx = sym; };
   ST_IDX Get_symbol_idx() { return u1u2.uu.ub.st_idx; };
@@ -392,6 +393,9 @@ public:
   UINT32 Index(IR_ITER node);
   IR_ITER Replace_recursive(IR_ITER pos, IR_ITER from);
   IR_ITER Remove_node_recursive(IR_ITER pos); // return incremented iter
+  IR_ITER Get_parent_block(IR_ITER stmt);
+  IR_ITER Get_parent_region(IR_ITER stmt);
+  IR_ITER Insert_after(IR_ITER position, IRNODE_IDX node);
 };
 
 TREE *Tree();

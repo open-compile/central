@@ -76,7 +76,7 @@ void Irgen_visit(NBlock *block) {
     } else if (name == "NVariableDeclaration") {
       // Add an assignment statement if rhs is not null
       shared_ptr<NVariableDeclaration> vardecl = reinterpret_cast<const shared_ptr<NVariableDeclaration> &>(*it);
-      IR_ITER var_decl_iter = visitVarDecl(NULL, NULL, 1, vardecl);
+      IR_ITER var_decl_iter = visitVarDecl(NULL, NULL, 1, false, vardecl);
     } else if (name == "NFunctionDeclaration") {
       visitFunction(reinterpret_cast<const shared_ptr<NFunctionDeclaration> &>(*it));
     } else {
@@ -125,6 +125,17 @@ void visitFunction(const shared_ptr<NFunctionDeclaration> &func) {
   TREE *tree = PU_INFO_pu_info(pu_info)->entry;
   IR_ITER root_entry = tree->Get_root();
   IR_ITER block_iter = tree->Get_operand(root_entry, TREE_SEQ_BODY);
+
+  // Before processing the body, create the formals.
+  for (UINT32 i = 0; i < func->arguments->size(); i++) {
+    if ((*(func->arguments))[i]->type->name == "int") {
+      visitVarDecl(tree, block_iter, LOCAL_SYMTAB, true, (*(func->arguments))[i]);
+    } else {
+      AssertThat(false, ("Not impl  : %s\n", func->type->name.c_str()))
+    }
+  }
+
+  // Visit the block contents
   visitBlock(tree, block_iter, 2, func->block);
   File()->Finish_creating_function(func_sym);
 }
@@ -142,7 +153,7 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
   Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
            (TFile, "Visit Stmt\n"));
   if (stmt->getTypeName() == "NVariableDeclaration") {
-    visitVarDecl(tree, parent, level,
+    visitVarDecl(tree, parent, level, false,
                  reinterpret_cast<const shared_ptr<NVariableDeclaration> &> (stmt));
   } else if (stmt->getTypeName() == "NExpressionStatement") {
     shared_ptr<NExpressionStatement> expr = reinterpret_cast<const shared_ptr<NExpressionStatement> &> (stmt);
@@ -157,8 +168,11 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
       visitForStmt(tree, parent, level,
                           reinterpret_cast<const shared_ptr<NForStatement> &> (stmt));
   } else if (stmt->getTypeName() == "NIdentifier") {
-      visitIdentifierStmt(tree, parent, level,
-                          reinterpret_cast<const shared_ptr<NIdentifier> &> (stmt));
+    visitIdentifierStmt(tree, parent, level,
+                        reinterpret_cast<const shared_ptr<NIdentifier> &> (stmt));
+  } else if (stmt->getTypeName() == "NMethodCall") {
+    visitMethodCall(tree, parent, level,
+                    reinterpret_cast<const shared_ptr<NMethodCall> &> (stmt));
   } else if (stmt->getTypeName() == "NReturnStatement") {
     visitReturnStmt(tree, parent, level,
                     reinterpret_cast<const shared_ptr<NReturnStatement> &> (stmt));
@@ -174,7 +188,8 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
 IR_ITER visitReturnStmt(TREE *tree, IR_ITER parent, int level,
                         const shared_ptr<NReturnStatement> &stmt) {
   shared_ptr<NExpression> return_val = stmt->expression;
-
+  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
+           (TFile, "Visit Return Stmt\n"));
   // 无返回值
   if (return_val == nullptr) {
     IR_ITER return_stmt;
@@ -195,37 +210,87 @@ IR_ITER visitReturnStmt(TREE *tree, IR_ITER parent, int level,
   return parent;
 }
 
+
+IR_ITER visitMethodCall(TREE *tree, IR_ITER parent, int level,
+                        const shared_ptr<NMethodCall> &stmt) {
+  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
+           (TFile, "Visit Call Stmt\n"));
+  shared_ptr<NIdentifier> callee_name = stmt->id;
+  shared_ptr<ExpressionList> args = stmt->arguments;
+  AssertThat(callee_name != nullptr,
+             ("Invalid callee name"));
+
+  ST_IDX func_sym = File()->Find_symbol_by_name(callee_name->name.c_str());
+  // If func_sym does not exist, this should be a compile-time error.
+  if (func_sym == 0) {
+    Comp_Failure("Cannot find function declaration for name = %s", callee_name->name.c_str());
+  }
+  AssertThat(ST_sclass(func_sym) == SYMC_TEXT ||
+             ST_sclass(func_sym) == SYMC_EXTERN,
+             ("Must be internal or imported function. %s",
+              ST_name(func_sym)));
+  TY_IDX func_ty = ST_ty(func_sym);
+  TYLIST_IDX tyl_idx = TY_tylist_id(func_ty);
+
+  IRNODE_IDX call_node = 0;
+  if (TY_kind(TYLIST_tylist(tyl_idx)->ty_id) == TY_KIND::KIND_SCALAR) {
+    // Assume I4
+    call_node = tree->Create_node(OPC_I4CALL);
+  } else {
+    call_node = tree->Create_node(OPC_VCALL);
+  }
+  // TODO check whether the arguments are matching ....
+  IR_ITER call_stmt    = tree->Insert_stmt_to_block(parent, call_node);
+  tree->Node(call_stmt)->Set_symbol_idx(func_sym);
+  for (UINT32 i = 0; i < args->size(); i++) {
+    IR_ITER call_opnd = visitExpression(tree, call_stmt, level, (*args)[i]);
+    AssertThat(call_opnd != parent && call_opnd != nullptr, ("Invalid expr conversion result"));
+    tree->Set_operand(call_stmt, 0, call_opnd);
+  }
+  return parent;
+}
+
 IR_ITER visitIfStmt(TREE *tree, IR_ITER parent, int level,
                     const shared_ptr<NIfStatement> &stmt) {
-    shared_ptr<NExpression> condition = stmt->condition;
-    shared_ptr<NBlock> true_block = stmt->trueBlock;
-    shared_ptr<NBlock> false_block = stmt->falseBlock;
-    AssertThat(condition != nullptr, ("condition should not be null"));
-    AssertThat(true_block != nullptr, ("trueBlock should not be null"));
+  shared_ptr<NExpression> condition = stmt->condition;
+  shared_ptr<NBlock> true_block = stmt->trueBlock;
+  shared_ptr<NBlock> false_block = stmt->falseBlock;
+  AssertThat(condition != nullptr, ("condition should not be null"));
+  AssertThat(true_block != nullptr, ("trueBlock should not be null"));
 
-    IR_ITER if_stmt;
-    IRNODE_IDX if_node = tree->Create_node(OPC_IF);
-    if_stmt = tree->Insert_stmt_to_block(parent, if_node);
+  IR_ITER if_stmt;
+  IRNODE_IDX if_node = tree->Create_node(OPC_IF);
+  if_stmt = tree->Insert_stmt_to_block(parent, if_node);
 
-    // 处理条件
-    IR_ITER condition_expr = visitExpression(tree, if_stmt, level, condition);
-    AssertThat(condition_expr != parent && condition_expr != if_stmt && condition_expr != nullptr, ("Invalid expr conversion result"));
+  // 处理条件
+  IR_ITER condition_expr = visitExpression(tree, if_stmt, level, condition);
+  AssertThat(condition_expr != parent && condition_expr != if_stmt && condition_expr != nullptr, ("Invalid expr conversion result"));
+  if (OPCODE_rtype(tree->Get_node(condition_expr)->Opcode()) != MTYPE_B) {
+    // Add a NE as a condition
+    IRNODE_IDX cond = tree->Create_node(OPC_I4I4NE);
+    IRNODE_IDX const_zero = tree->Create_node(OPC_I4CONST);
+    IR_ITER cond_node = tree->Set_operand(if_stmt, 0, cond);
+    tree->Node(const_zero)->Set_const_val(0);
+    tree->Set_operand(cond_node, 0, condition_expr);
+    tree->Set_operand(cond_node, 1, const_zero);
+  } else {
     tree->Set_operand(if_stmt, 0, condition_expr);
+  }
 
-    // 处理then块
-    IR_ITER then_stmt;
-    IRNODE_IDX then_node = tree->Create_node(OPC_BLOCK);
-    then_stmt = tree->Set_operand(if_stmt, 1, then_node);
-    visitBlock(tree, then_stmt, level, true_block);
+  // 处理then块
+  IR_ITER then_stmt;
+  IRNODE_IDX then_node = tree->Create_node(OPC_BLOCK);
+  then_stmt = tree->Set_operand(if_stmt, 1, then_node);
+  visitBlock(tree, then_stmt, level, true_block);
 
-    // 处理else块，有可能不存在
-    if(false_block != nullptr) {
-        IR_ITER else_stmt;
-        IRNODE_IDX else_node = tree->Create_node(OPC_BLOCK);
-        else_stmt = tree->Set_operand(if_stmt, 2, else_node);
-        visitBlock(tree, else_stmt, level, false_block);
-    }
-    return parent;
+  // 处理else块，有可能不存在
+  IR_ITER else_stmt;
+  IRNODE_IDX else_node = tree->Create_node(OPC_BLOCK);
+  else_stmt = tree->Set_operand(if_stmt, 2, else_node);
+  if(false_block != nullptr) {
+      visitBlock(tree, else_stmt, level, false_block);
+  }
+  return parent;
 }
 
 IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
@@ -332,7 +397,7 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     shared_ptr<NBinaryOperator> bin_op = reinterpret_cast<const shared_ptr<NBinaryOperator> &>(expr);
     OPERATOR opr = Get_op_by_token((FEOPCODE) bin_op->op);
     AssertThat(opr != OPERATOR_UNKNOTREE && opr >= OPERATOR_FIRST, ("Operator not implementeed"));
-    OPCODE opc = (OPCODE) (opr + RTYPE(MTYPE_I4) + DESC(MTYPE_I4));
+    OPCODE opc = (OPCODE) (opr + RTYPE(MTYPE_B) + DESC(MTYPE_I4));
     IRNODE_IDX opr_node = tree->Create_node(opc);
     IR_ITER cur_node = tree->Insert_temp_node(opr_node);
     IR_ITER lhs = visitExpression(tree, cur_node, level, bin_op->lhs);
@@ -395,8 +460,8 @@ OPERATOR Get_op_by_token(FEOPCODE op) {
   return OPERATOR_UNKNOTREE;
 }
 
-IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
-                  const shared_ptr<NVariableDeclaration>& vardecl) {
+IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL is_formal,
+                     const shared_ptr<NVariableDeclaration>& vardecl) {
   Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
            (TFile, "Visit Var Decl\n"));
   std::shared_ptr<NIdentifier> varname = vardecl->id;
@@ -419,7 +484,11 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
   } else {
     AssertThat(level == 2, ("Invalid level = %d", level));
     AssertThat(tree != NULL && block_iter != NULL, ("Null visit context in visitVarDecl"));
-    sym_idx = File()->Create_var(var_name_saved, i4_idx, level, SYMC_AUTO,
+    SYM_SCLASS sclass = SYMC_AUTO;
+    if (is_formal) {
+      sclass = SYMC_FORMAL;
+    }
+    sym_idx = File()->Create_var(var_name_saved, i4_idx, level, sclass,
                                         SYME_INTERNAL, SYM_CLASS_VAR);
     // Parsing the vartype and save to ST table
     if (rhs != nullptr) {

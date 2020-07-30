@@ -187,23 +187,42 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
         Handle_ret_val(stmt, cur_bb);
         break;
       }
+      case OPR_FALSEBR:
+      case OPR_TRUEBR:
       case OPR_GOTO: {
         CFG_BB_IDX next_bb = 0;
         next_bb = Handle_goto(stmt, cur_bb);
         Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
                  (TFile, "Finishing a BB = %d, starting next bb = %d\n",
                   cur_bb, next_bb));
-        cur_bb = Cfg()->Add_bb();
-        // Jump to that BB label
+        cur_bb = next_bb;
+        cur_bb_stmt_processed = 0;
+        break;
       }
       case OPR_LABEL: {
-        // Add a label to cur_bb;
+        // Add a label to cur_bb or next_bb;
+        LABEL_IDX lbl = tree->Node(stmt)->Get_label_num();
+        AssertThat(lbl != 0, ("Label idx cannot be zero"));
         if (cur_bb_stmt_processed == 0) {
           // First stmt, ok
           // Add a bb-label
+          Cfg()->BB(cur_bb)->Set_label_id(lbl);
         } else {
           // Create new bb including this as a start
+          CFG_BB_IDX next_bb = Cfg()->Add_bb(cur_bb); // fall-thru
+          Cfg()->BB(next_bb)->Set_label_id(lbl);
+          cur_bb = next_bb;
+          cur_bb_stmt_processed = 0;
         }
+        break;
+      }
+      case OPR_CALL: {
+        // Create new bb including this as a start
+        CFG_BB_IDX next_bb = Cfg()->Add_bb(cur_bb); // fall-thru
+        Handle_call(stmt, cur_bb, next_bb);
+        cur_bb = next_bb;
+        cur_bb_stmt_processed = 0;
+        break;
       }
       default: {
         AssertThat(false, ("Opcode: %s should not be in the body", OPCODE_name(tree->Get_node(stmt)->Opcode())));
@@ -808,13 +827,101 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
 
 CFG_BB_IDX CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   CFG_BB_IDX newbb = Cfg()->Add_bb(cur_bb);
-  AssertThat(tree->Node(stmt)->Opcode() == OPC_GOTO, ("Not a goto stmt"));
+  CGOPC out_code = CGOPC_B;
+  switch(OPCODE_operator(tree->Node(stmt)->Opcode())) {
+    case OPR_GOTO: {
+      out_code = CGOPC_B;
+      break;
+    }
+    case OPR_FALSEBR:
+    case OPR_TRUEBR: {
+      IR_ITER cond = tree->Get_operand(stmt, 0);
+      out_code = Get_branch_cond(cond, OPR_TRUEBR == OPCODE_operator(tree->Node(stmt)->Opcode()));
+      // Create cmp / tst instructions.
+      TN *rh1_res = TN_tn(Gen_TN(MTYPE_I4));
+      TN *rh2_res = nullptr;
+      Expand_Expr(tree->Get_operand(cond, 0), stmt, cur_bb, rh1_res);
+      if (tree->Node(tree->Get_operand(cond, 1))->Opcode() == OPC_I4CONST &&
+          tree->Node(tree->Get_operand(cond, 1))->Get_const_val() < 255) {
+        rh2_res = Gen_Literal_TN(tree->Node(tree->Get_operand(cond, 1))->Get_const_val(), REG_SIZE_I);
+      } else {
+        rh2_res = TN_tn(Gen_TN(MTYPE_I4));
+        Expand_Expr(tree->Get_operand(cond, 1), stmt, cur_bb, rh2_res);
+      }
+      CGOP *cmpins = new CGOP(CGOPC_CMP, cur_bb, 0, TN_tn_idx(rh1_res), TN_tn_idx(rh2_res), 0);
+      Cfg()->BB(cur_bb)->Add_stmt(cmpins);
+      break;
+    }
+    default: {
+      AssertThat(false, ("Cannot convert %s", OPCODE_name(tree->Node(stmt)->Opcode())));
+    }
+  }
   LABEL_IDX lbl = tree->Node(stmt)->Get_label_num();
   AssertThat(lbl != 0, ("Invalid label num = %d", lbl));
   TN *label_tn = Gen_Label_TN(lbl, 0);
-  CGOP *jmp = new CGOP(CGOPC_B, cur_bb, TN_tn_idx(label_tn), 0, 0, 0);
+  CGOP *jmp = new CGOP(out_code, cur_bb, 0, TN_tn_idx(label_tn), 0, 0);
   Cfg()->BB(cur_bb)->Add_stmt(jmp);
   return newbb;
+}
+
+void CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb) {
+  ST_IDX func_sym = tree->Node(stmt)->Get_symbol_idx();
+  LABEL_IDX lbl_idx = File()->Create_label(ST_st(func_sym)->getNameIdx(), 0, LKIND_DEFAULT);
+  TN *callee_name_tn = Gen_Label_TN(lbl_idx, 0);
+  CGOP *jmp = new CGOP(CGOPC_BL, cur_bb, 0, TN_tn_idx(callee_name_tn), 0, 0);
+  Cfg()->BB(cur_bb)->Add_stmt(jmp);
+}
+
+CGOPC CGIR::Get_branch_cond(IR_ITER cond, BOOL is_true_br) {
+  OPERATOR org = OPCODE_operator(tree->Node(cond)->Opcode());
+  if (is_true_br) {
+    switch (org) {
+      case OPR_LT:
+        org = OPR_GE;
+        break;
+      case OPR_LE:
+        org = OPR_GT;
+        break;
+      case OPR_GE:
+        org = OPR_LT;
+        break;
+      case OPR_GT:
+        org = OPR_LE;
+        break;
+      case OPR_EQ:
+        org = OPR_NE;
+        break;
+      case OPR_NE:
+        org = OPR_EQ;
+        break;
+      default:
+        AssertThat(false, ("unknown reverse condition met: %s", OPCODE_name(tree->Node(cond)->Opcode())));
+    }
+  }
+  CGOPC end = CGOPC_B;
+  switch (org) {
+    case OPR_LT:
+      end = CGOPC_BLT;
+      break;
+    case OPR_LE:
+      end = CGOPC_BLE;
+      break;
+    case OPR_GE:
+      end = CGOPC_BGE;
+      break;
+    case OPR_GT:
+      end = CGOPC_BGT;
+      break;
+    case OPR_EQ:
+      end = CGOPC_BEQ;
+      break;
+    case OPR_NE:
+      end = CGOPC_BNE;
+      break;
+    default:
+      AssertThat(false, ("unknown condition met: %s", OPCODE_name(tree->Node(cond)->Opcode())));
+  }
+  return end;
 }
 
 UINT8 ISA_OPCODE_results(CGOPC cgopc) {

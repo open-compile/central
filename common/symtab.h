@@ -263,6 +263,14 @@ public:
   void setBaseIdx(ST_IDX baseIdx) {
     base_idx = baseIdx;
   }
+
+  STR_IDX getNameIdx() const {
+    return name_idx;
+  }
+
+  void setNameIdx(STR_IDX nameIdx) {
+    name_idx = nameIdx;
+  }
 }; // ST
 
 // Give information about a dimension of an array.  The TY of the array type
