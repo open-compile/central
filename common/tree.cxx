@@ -98,7 +98,7 @@ void TREE::Print_recursive(FILE *f) {
   fprintf(f, "Printing the table size = %lu, tree of size = %zu ... \n", _ir_elem_tab.size(), irtree.size());
   IR_ITER it = irtree.begin();
   for (; it != irtree.end(); it++) {
-    fprintf(f, "IDX[%llu] ", *it);
+    fprintf(f, "IDX[%-8llu] ", *it);
     for(UINT32 i = 0; i < irtree.depth(it); i++) {
       fprintf(f, "-");
     }
@@ -265,6 +265,10 @@ IR_ITER TREE::Get_parent_region(IR_ITER stmt) {
 
 IR_ITER TREE::Insert_after(IR_ITER position, IRNODE_IDX node) {
   return irtree.insert_after(position, node);
+}
+
+IR_ITER TREE::Insert_before(IR_ITER position, IRNODE_IDX node) {
+  return irtree.insert(position, node);
 };
 
 ///**

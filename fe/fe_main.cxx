@@ -302,15 +302,6 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
     shared_ptr<NBlock> true_block = stmt->block;
     AssertThat(condition != nullptr, ("condition should not be null"));
 
-    IR_ITER label1_stmt;
-    STR_IDX str = File()->Save_string("while_start");
-    IRNODE_IDX label1_node = tree->Create_node(OPC_LABEL);
-    LABEL_IDX label_id = File()->Create_label(str,
-                                              LABEL_ADDR_SAVED,
-                                              LKIND_DEFAULT);
-    label1_stmt = tree->Insert_stmt_to_block(parent, label1_node);
-    tree->Get_node(label1_stmt)->Set_label_num(label_id);
-
     IR_ITER while_stmt;
     IRNODE_IDX while_node = tree->Create_node(OPC_WHILE_DO  );
     while_stmt = tree->Insert_stmt_to_block(parent, while_node);
@@ -320,39 +311,26 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
     AssertThat(condition_expr != parent && condition_expr != while_stmt && condition_expr != nullptr, ("Invalid expr conversion result"));
     tree->Set_operand(while_stmt, 0, condition_expr);
 
-    IR_ITER label2_stmt;
-    STR_IDX str2 = File()->Save_string("while_do");
-    IRNODE_IDX label2_node = tree->Create_node(OPC_LABEL);
-    LABEL_IDX label2_id = File()->Create_label(str2,
-                                              LABEL_ADDR_SAVED,
-                                              LKIND_DEFAULT);
-
     //处理循环体
     IR_ITER do_stmt;
     IRNODE_IDX then_node = tree->Create_node(OPC_BLOCK);
     do_stmt = tree->Set_operand(while_stmt, 1, then_node);
     visitBlock(tree, do_stmt, level, true_block);
-    label2_stmt = tree->Insert_stmt_to_block(parent, label2_node);
-    tree->Get_node(label2_stmt)->Set_label_num(label2_id);
-
-    IR_ITER label3_stmt;
-    STR_IDX str3 = File()->Save_string("while_end");
-    IRNODE_IDX label3_node = tree->Create_node(OPC_LABEL);
-    LABEL_IDX label3_id = File()->Create_label(str3,
-                                               LABEL_ADDR_SAVED,
-                                               LKIND_DEFAULT);
-    label3_stmt = tree->Insert_stmt_to_block(parent, label3_node);
-    tree->Get_node(label3_stmt)->Set_label_num(label3_id);
-
     return parent;
 }
 
 IR_ITER visitIdentifierStmt(TREE *tree, IR_ITER parent, int level,
-                     const shared_ptr<NIdentifier> &stmt){
-    IR_ITER Identifier_stmt;
-    IRNODE_IDX Identifier_node = tree->Create_node(OPC_GOTO);
-    Identifier_stmt = tree->Insert_stmt_to_block(parent, Identifier_node);
-    return parent;
+                            const shared_ptr<NIdentifier> &stmt) {
+  if (stmt->name == "break") {
+    IRNODE_IDX identifier_node = tree->Create_node(OPC_GOTO_OUT);
+    tree->Node(identifier_node)->Set_label_num(GOTO_OUT_BREAK);
+    IR_ITER id_stmt = tree->Insert_stmt_to_block(parent, identifier_node);
+  } else /* continue */ {
+    IRNODE_IDX identifier_node = tree->Create_node(OPC_GOTO_OUT);
+    //TODO:
+    IR_ITER id_stmt = tree->Insert_stmt_to_block(parent, identifier_node);
+  }
+  return parent;
 }
 
 IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
