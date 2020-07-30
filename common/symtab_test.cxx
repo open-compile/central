@@ -53,9 +53,6 @@ INT32 main() {
                                                   array_arr_ty, arb_idx);
 
   ARB_IDX one_arb = TY_arb(basic_array_ty);
-  TY_IDX ty = File()->Find_symbol_by_name("_my_int_array");
-  ARB_IDX one_arb1 = TY_arb(ty);
-  AssertThat(one_arb == one_arb1, ("Not equal one_arb"));
   AssertThat(one_arb == arb_idx, ("Incorrect saving"));
   AssertThat(ARB_flags(one_arb) & ARB_CONST_UBND, ("Incorrect arb flag, not const upper bound"));
 
