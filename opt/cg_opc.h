@@ -27,3 +27,4 @@ CGOPDEF( CGOPC_BLE   , 1,   1,  false,  CGOPR_R,  CGOPR_R,  CGOPR_R,   "ble"  , 
 CGOPDEF( CGOPC_ADD   , 1,   2,  true,   CGOPR_R,  CGOPR_R,  CGOPR_R,   "add"  , CGOPK_NONE  ) // Arithmetic ... TODO: to be addeed
 CGOPDEF( CGOPC_MUL   , 1,   2,  true,   CGOPR_R,  CGOPR_R,  CGOPR_R,   "mul"  , CGOPK_NONE  )
 CGOPDEF( CGOPC_SUBS  , 1,   2,  true,   CGOPR_R,  CGOPR_R,  CGOPR_R,   "subs" , CGOPK_NONE  )
+CGOPDEF( CGOPC_NOP   , 0,   0,  false,  CGOPR_N,  CGOPR_N,  CGOPR_N,   "nop" ,  CGOPK_NONE  )

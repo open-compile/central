@@ -171,10 +171,12 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
              (TFile, "There is no statement in the body, skip conversion to CGIR\n"));
     return;
   }
+  UINT32 cur_bb_stmt_processed = 0;
   // Verifying each statement
   for (UINT32 stmt_idx = 0; stmt_idx < tree->Number_of_children(body); stmt_idx++) {
     IR_ITER stmt = tree->Get_operand(body, stmt_idx);
     AssertThat(*stmt != 0, ("Incorrect child, node 0 should not be a statement, 0 is only allowed in root position"));
+
     switch (OPCODE_operator(tree->Get_node(stmt)->Opcode())) {
       // What kind of opcode is allowed here.
       case OPR_STID: {
@@ -185,10 +187,29 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
         Handle_ret_val(stmt, cur_bb);
         break;
       }
+      case OPR_GOTO: {
+        CFG_BB_IDX next_bb = 0;
+        next_bb = Handle_goto(stmt, cur_bb);
+        Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
+                 (TFile, "Finishing a BB = %d, starting next bb = %d\n",
+                  cur_bb, next_bb));
+        cur_bb = Cfg()->Add_bb();
+        // Jump to that BB label
+      }
+      case OPR_LABEL: {
+        // Add a label to cur_bb;
+        if (cur_bb_stmt_processed == 0) {
+          // First stmt, ok
+          // Add a bb-label
+        } else {
+          // Create new bb including this as a start
+        }
+      }
       default: {
         AssertThat(false, ("Opcode: %s should not be in the body", OPCODE_name(tree->Get_node(stmt)->Opcode())));
       }
     }
+    cur_bb_stmt_processed ++;
   }
   // Adding function epilog (exit BB)
   cur_bb = Cfg()->Add_bb(cur_bb);
@@ -232,7 +253,6 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
   if (result == NULL) {
     result = TN_tn(Gen_TN(MTYPE_I4));
   }
-  // TODO: LDID
   switch (OPCODE_operator(tree->Node(entry)->Opcode())) {
     case OPR_LDID: {
       return Handle_LDID(entry, cur_bb, result);
@@ -248,6 +268,22 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
           new CGOP(CGOPC_MOVT, cur_bb, TN_tn_idx(result),
                    TN_tn_idx(Gen_Literal_TN((val >> 16) & 0xFFFF, 2)), 0, 0));
       }
+      return result;
+    }
+    case OPR_ADD:
+    case OPR_SUB:
+    case OPR_MPY:
+    case OPR_DIV: {
+      CGOP *exp_res = nullptr;
+      TN *rh1_res = TN_tn(Gen_TN(MTYPE_I4));
+      Expand_Expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
+      // TODO: If rh2 is a constant, maybe we could do a BIN_OP r1, r2, #const kind of transform.
+      TN *rh2_res = TN_tn(Gen_TN(MTYPE_I4));
+      Expand_Expr(tree->Get_operand(entry, 1), entry, cur_bb, rh2_res);
+      if (result == NULL) {
+        result = TN_tn(Gen_TN(MTYPE_I4)); // rh1_res; // A trick to reduce # of register
+      }
+      Exp_op2(tree->Node(entry)->Opcode(), cur_bb, result, rh1_res, rh2_res, &exp_res);
       return result;
     }
     default:
@@ -358,8 +394,10 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
       fprintf(TFile, " --------- Post-LRA-Spill BB : %d ---------  \n", i);
     }
     // If there is a label to it, emit the label
-    for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
-      CGOP *cgop = (*stmt_it);
+    UINT32 stmt_cnt = cgbb->Get_stmt_count();
+    UINT32 stmt_id = 0;
+    for (auto stmt_it = cgbb->First_stmt(); stmt_id  < stmt_cnt; stmt_id++) {
+      CGOP *cgop = (*(cgbb->First_stmt() + stmt_id));
       fprintf(TFile, "\tProcessing : %s\t\n", Get_cg_opc_info(cgop->getOpcode())->ins_token);
       if (cgop->getFlags() & CGOPF_SPILL) {
         continue;
@@ -410,22 +448,6 @@ void CGIR::Print(ST_IDX sym, FILE *file) {
   Get_function(sym)->Print(file);
 }
 
-
-//void
-//CGIR::Exp_Load (
-//  TYPE_ID rtype,
-//  TYPE_ID desc,
-//  TN *tgt_tn,
-//  ST *sym,
-//  INT64 ofst,
-//  OPS *ops,
-//  VARIANT variant)
-//{
-//  OPCODE opcode = OPCODE_make_op (OPR_LDID, rtype, desc);
-//  Exp_Ldst (opcode, tgt_tn, sym, ofst, FALSE, FALSE, TRUE, ops, variant);
-//  if (TN_register_class(tgt_tn) == ISA_REGISTER_CLASS_mmx)
-//    Build_OP(TOP_emms, ops); // bug 11800
-//}
 
 OPCODE OPCODE_make_op(OPERATOR opr, MTYPE_ID res, MTYPE_ID desc) {
   return (OPCODE) (opr + RTYPE(res) + DESC(desc));
@@ -492,10 +514,25 @@ CGIR::Exp_Ldst (
 
 }
 
-void CGIR::Exp_op(OPCODE opcode, TN *result, TN *op1, TN *op2, TN *op3,
-                  VARIANT variant, CGOP *ops) {
-  // ...
-  AssertThat(false, ("Exp_op not impl."));
+void CGIR::Exp_op(OPCODE opcode, CFG_BB_IDX cur_bb,
+                  TN *result, TN *op1, TN *op2, TN *op3,
+                  VARIANT variant, CGOP **ops) {
+  AssertThat(ops != NULL, ("Nowhere to put results"));
+  CGOPC cgop = CGOPC_NOP;
+  switch (OPCODE_operator(opcode)) {
+    case OPR_ADD: { cgop = CGOPC_ADD; break; }
+    case OPR_MPY: { cgop = CGOPC_MUL; break; }
+    case OPR_DIV: { cgop = CGOPC_ADD; break; }
+    case OPR_SUB: { cgop = CGOPC_SUBS; break; }
+    default: {
+      AssertThat(false, ("Exp_op some opcode = %s not impl.", OPCODE_name(opcode)));
+    }
+  }
+  AssertThat(result != NULL, ("Result should not be null."));
+  AssertThat(op1 != NULL, ("OP1 should not be null."));
+  AssertThat(op2 != NULL, ("OP2 should not be null."));
+  CGOP *stmt_ins = new CGOP(CGOPC_ADD, cur_bb, TN_tn_idx(result), TN_tn_idx(op1), TN_tn_idx(op2), 0);
+  Cfg()->BB(cur_bb)->Add_stmt(stmt_ins);
 }
 
 VARIANT CGIR::Memop_Variant(IR_ITER iterator) {
@@ -566,6 +603,11 @@ template<typename NODE_TYPE>
 CGOP *CFG_BB_BASE<NODE_TYPE>::Last_real_stmt() {
   AssertThat(_stmts.size() > 0, ("No last exist"));
   return _stmts.back();
+}
+
+template<typename NODE_TYPE>
+UINT32 CFG_BB_BASE<NODE_TYPE>::Get_stmt_count() {
+  return _stmts.size();
 }
 
 template<typename NODE_TYPE>
@@ -760,6 +802,17 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
       Cfg()->BB(cur_bb)->Get_work_list().push_back(CGTODO_ITEM<CGOP> (oper, rs, true));
     }
   }
+}
+
+CFG_BB_IDX CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb) {
+  CFG_BB_IDX newbb = Cfg()->Add_bb(cur_bb);
+  AssertThat(tree->Node(stmt)->Opcode() == OPC_GOTO, ("Not a goto stmt"));
+  LABEL_IDX lbl = tree->Node(stmt)->Get_label_num();
+  AssertThat(lbl != 0, ("Invalid label num = %d", lbl));
+  TN *label_tn = Gen_Label_TN(lbl, 0);
+  CGOP *jmp = new CGOP(CGOPC_B, cur_bb, TN_tn_idx(label_tn), 0, 0, 0);
+  Cfg()->BB(cur_bb)->Add_stmt(jmp);
+  return newbb;
 }
 
 UINT8 ISA_OPCODE_results(CGOPC cgopc) {

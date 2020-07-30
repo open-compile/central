@@ -38,6 +38,7 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
       File()->Scopes()->Goto_function(pu_info->proc_sym);
       Cgir()->CG_Expand(&pu_info->scope); // Expansion
       Cgir()->Local_register_allocate(pu_info); // GRA/LRA
+      Cgir()->Layout()->Calculate_stack_frame_size();
       if(Tracing(COMPONENT_CG, TRACE_DATA)) {
         // Printing the layout table.
         Cgir()->Layout()->Print(TFile);

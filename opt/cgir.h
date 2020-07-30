@@ -406,6 +406,8 @@ public:
   void Move_stmt_to_before(NODE_TYPE *position, NODE_TYPE *from);
   CGOP *Last_real_stmt();
   vector<CGTODO_ITEM<NODE_TYPE>> &Get_work_list() { return _work_list; }
+
+  UINT32 Get_stmt_count();
 };
 
 typedef CFG_BB_BASE<CGOP>    CGBB;
@@ -460,8 +462,8 @@ public:
   TN           *PREG_to_TN (TY_IDX preg_ty, PREG_NUM preg_num);
   TN           *PREG_to_ST_TN(ST_IDX sym_idx, PREG_NUM preg_num);
 
-  void          Exp_op(OPCODE opcode, TN *result, TN *op1, TN *op2, TN *op3,
-                       VARIANT variant, CGOP *ops);
+  void          Exp_op(OPCODE opcode, CFG_BB_IDX cur_bb, TN *result, TN *op1, TN *op2, TN *op3,
+                       VARIANT variant, CGOP **ops);
   void          Set_current_cgir(CG_CFG *cgir, ST_IDX sym);
   CG_CFG       *Cfg() { return _current; }
   TN_IDX        Get_TN_from_symbol(ST_IDX sym);
@@ -469,13 +471,13 @@ public:
   void          Local_register_allocate(PU_INFO *info);
   void          Print(FILE *file = stderr);
   void          Print(ST_IDX sym, FILE *file = stderr);
-  inline  void  Exp_op0(OPCODE c, TN *r, CGOP *ops)              {  Exp_op(c,r,NULL,NULL,NULL,V_NONE,ops); }
-  inline  void  Exp_op1(OPCODE c, TN *r, TN *o1, CGOP *ops)           {  Exp_op(c,r,o1,NULL,NULL,V_NONE,ops); }
-  inline  void  Exp_op1v(OPCODE c, TN *r, TN *o1, VARIANT v, CGOP *ops)        {  Exp_op(c,r,o1,NULL,NULL,v,ops); }
-  inline  void  Exp_op2(OPCODE c, TN *r, TN *o1, TN *o2, CGOP *ops)        {  Exp_op(c,r,o1,o2,NULL,V_NONE,ops); }
-  inline  void  Exp_op2v(OPCODE c, TN *r, TN *o1, TN *o2,VARIANT v, CGOP *ops)     {  Exp_op(c,r,o1,o2,NULL,v,ops); }
-  inline  void  Exp_op3(OPCODE c, TN *r, TN *o1, TN *o2, TN *o3, CGOP *ops)     {  Exp_op(c,r,o1,o2,o3,V_NONE,ops); }
-  inline  void  Exp_op3v(OPCODE c, TN *r, TN *o1, TN *o2, TN *o3, VARIANT v, CGOP *ops)  {  Exp_op(c,r,o1,o2,o3,v,ops); }
+  inline  void  Exp_op0(OPCODE c,  CFG_BB_IDX bb, TN *r, CGOP **ops)              {  Exp_op(c,bb,r,NULL,NULL,NULL,V_NONE,ops); }
+  inline  void  Exp_op1(OPCODE c,  CFG_BB_IDX bb, TN *r, TN *o1, CGOP **ops)           {  Exp_op(c,bb,r,o1,NULL,NULL,V_NONE,ops); }
+  inline  void  Exp_op1v(OPCODE c, CFG_BB_IDX bb, TN *r, TN *o1, VARIANT v, CGOP **ops)        {  Exp_op(c,bb,r,o1,NULL,NULL,v,ops); }
+  inline  void  Exp_op2(OPCODE c,  CFG_BB_IDX bb, TN *r, TN *o1, TN *o2, CGOP **ops)        {  Exp_op(c,bb,r,o1,o2,NULL,V_NONE,ops); }
+  inline  void  Exp_op2v(OPCODE c, CFG_BB_IDX bb, TN *r, TN *o1, TN *o2,VARIANT v, CGOP **ops)     {  Exp_op(c,bb,r,o1,o2,NULL,v,ops); }
+  inline  void  Exp_op3(OPCODE c,  CFG_BB_IDX bb, TN *r, TN *o1, TN *o2, TN *o3, CGOP **ops)     {  Exp_op(c,bb,r,o1,o2,o3,V_NONE,ops); }
+  inline  void  Exp_op3v(OPCODE c, CFG_BB_IDX bb, TN *r, TN *o1, TN *o2, TN *o3, VARIANT v, CGOP **ops)  {  Exp_op(c,bb,r,o1,o2,o3,v,ops); }
 
   void          Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file);
 
@@ -508,6 +510,8 @@ public:
   UINT32 Count_needed_register(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb, UINT8 opr_pos);
   void Process_spill_op(CGOP *oper, CGOPR_KIND kind,
                         UINT32 cur_bb, UINT32 opnd, BOOL is_write);
+
+  CFG_BB_IDX Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb);
 };
 
 
