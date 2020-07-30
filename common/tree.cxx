@@ -248,8 +248,7 @@ IR_ITER TREE::Get_parent_region(IR_ITER stmt) {
   // Walk along the parents and find the first if/while stmt.
   // Stop if this is already a function_entry
   while (par != nullptr) {
-    if (Node(par)->Opcode() == OPC_IF ||
-        Node(par)->Opcode() == OPC_WHILE_DO) {
+    if (Node(par)->Opcode() == OPC_WHILE_DO) {
       return par;
     }
     if (Node(par)->Opcode() == OPC_FUNC_ENTRY ||
