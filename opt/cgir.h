@@ -521,6 +521,8 @@ public:
   TN *Handle_ISTORE(IR_ITER stmt, CFG_BB_IDX cur_bb);
 
   TN *Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res);
+
+  void Handle_ret(CFG_BB_IDX cur_bb);
 };
 
 

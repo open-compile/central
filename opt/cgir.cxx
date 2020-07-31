@@ -258,8 +258,12 @@ CGIR::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb) {
                                  0);
     Cfg()->BB(cur_bb)->Add_stmt(cgop);
   }
-  LABEL_IDX lbl = File()->Get_func_exit_label();
-  CGOP    *cgop     = new CGOP(CGOPC_B, cur_bb,
+  Handle_ret(cur_bb);
+}
+
+void CGIR::Handle_ret(CFG_BB_IDX cur_bb) {
+  LABEL_IDX lbl   = File()->Get_func_exit_label();
+  CGOP      *cgop = new CGOP(CGOPC_B, cur_bb,
                                0, TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0);
   Cfg()->BB(cur_bb)->Add_stmt(cgop);
 }
@@ -300,6 +304,13 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
       }
       case OPR_ISTORE: {
         Handle_ISTORE(stmt, cur_bb);
+        break;
+      }
+      case OPR_RETURN: {
+        CFG_BB_IDX next_bb = Cfg()->Add_bb();
+        Handle_ret(cur_bb);
+        cur_bb = next_bb;
+        cur_bb_stmt_processed = 0;
         break;
       }
       case OPR_RETURN_VAL: {

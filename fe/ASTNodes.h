@@ -594,15 +594,16 @@ public:
   Json::Value jsonGen() const override {
     Json::Value root;
     root["name"] = getTypeName();
-    root["children"].append(expression->jsonGen());
+    if (expression)
+      root["children"].append(expression->jsonGen());
     return root;
   }
 
   void print(string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
     cout << prefix << getTypeName() << this->m_DELIM << endl;
-
-    expression->print(nextPrefix);
+    if (expression)
+      expression->print(nextPrefix);
   }
 
 
