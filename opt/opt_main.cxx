@@ -431,6 +431,8 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
             GOTO LABEL 3
        LABEL 4
        */
+      AssertThat(false, ("OPR_GOTO_OUT not implemented."));
+      break;
     }
     case OPR_WHILE_DO: {
       IR_ITER expr = tree->Get_operand(stmt, 0);
