@@ -22,6 +22,12 @@ BIN_OP_TO_OPR FEOPCODE_INFO[] = {
   { "/", TDIV,   OPR_DIV, MTYPE_I4 },
   { "<", TCLT,   OPR_LT , MTYPE_B  },
   { ">", TCGT,   OPR_GT , MTYPE_B  },
+  { "&", TAND,   OPR_BAND , MTYPE_I4  },
+//  { "|", TOR,   OPR_BAND , MTYPE_I4  },
+  { "<=", TCLE,   OPR_LE , MTYPE_B  },
+  { ">=", TCGE,   OPR_GE , MTYPE_B  },
+  { "!=", TCNE,   OPR_NE , MTYPE_B  },
+  { "==", TCEQ,   OPR_EQ , MTYPE_B  },
 };
 
 INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_name) {
