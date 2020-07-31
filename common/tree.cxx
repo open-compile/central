@@ -271,10 +271,17 @@ IR_ITER TREE::Remove_node_recursive(IR_ITER pos) {
   return irtree.erase(pos);
 }
 
-IR_ITER TREE::Get_parent_block(IR_ITER stmt) {
+IR_ITER TREE::Get_parent_in_block(IR_ITER stmt) {
   IR_ITER par = irtree.parent(stmt);
-  AssertThat(Node(par)->Opcode() == OPC_BLOCK, ("not a block for elem = %d", *par));
-  return par;
+  IR_ITER elem = stmt;
+  while (Node(par)->Opcode() != OPC_BLOCK &&
+         Node(par)->Opcode() != OPC_FUNC_ENTRY) {
+    elem = par;
+    par = irtree.parent(par);
+  }
+  AssertThat(Node(par)->Opcode() == OPC_BLOCK,
+             ("couldn't find a block (grand)parent for elem = %d", *par));
+  return elem;
 };
 
 IR_ITER TREE::Get_parent(IR_ITER expr) {

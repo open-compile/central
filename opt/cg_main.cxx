@@ -219,9 +219,6 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
           }
           fprintf(out, "\n");
           break;
-//          AssertThat(false,
-//                     ("CG opcode = %d emission not implemented.",
-//                       cgop->getOpcode()));
         }
       }
     }
@@ -251,11 +248,18 @@ INT32 Emit_section_data(FILE *out, FILE_MANAGER *manager) {
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Debugging info enabled, writing file-level data section\n"));
   fprintf(out, ".data\n\n");
   for (UINT32 it = 1; it < manager->Tables()->Sym()->Length(); it++) {
-    ST_IDX new_idx = (it << 8) + 1;
+    ST_IDX new_idx = (it << 8) + GLOBAL_SYMTAB;
     if (ST_st(new_idx) != NULL && ST_st(new_idx)->sym_class == SYM_CLASS_VAR) {
+      AssertThat(ST_sclass(new_idx) == SYMC_FILE_STATIC, ("These globals should be file-static. while %s isn't.", ST_name(new_idx)));
       Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# # Variable ST_IDX = 0x%08x, name = %s \n",  new_idx, ST_name(new_idx)));
       fprintf(out, "%s: \n", ST_name(new_idx));
-      fprintf(out, ".word 0\n");
+      TY_IDX ty = ST_ty(new_idx);
+      AssertThat(ty != 0, ("Cannot find type of the symbol %s", ST_name(new_idx)));
+      AssertThat(TY_size(ty) != 0,
+        ("Cannot initialize a symbol that has "
+         "incomplete type, sym = <%s, or 0x%08x>", ST_name(new_idx), new_idx));
+      // Find INITO matching this.
+      fprintf(out, ".zero %lld\n", TY_size(ty));
     }
   }
   return 0;

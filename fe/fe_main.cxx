@@ -172,7 +172,7 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
     visitIdentifierStmt(tree, parent, level,
                         reinterpret_cast<const shared_ptr<NIdentifier> &> (stmt));
   } else if (stmt->getTypeName() == "NMethodCall") {
-    visitMethodCall(tree, parent, level,
+    visitMethodCall(tree, parent, level, false,
                     reinterpret_cast<const shared_ptr<NMethodCall> &> (stmt));
   } else if (stmt->getTypeName() == "NReturnStatement") {
     visitReturnStmt(tree, parent, level,
@@ -209,7 +209,7 @@ IR_ITER visitReturnStmt(TREE *tree, IR_ITER parent, int level,
 }
 
 
-IR_ITER visitMethodCall(TREE *tree, IR_ITER parent, int level,
+IR_ITER visitMethodCall(TREE *tree, IR_ITER parent, int level, BOOL is_expr,
                         const shared_ptr<NMethodCall> &stmt) {
   Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
            (TFile, "Visit Call Stmt\n"));
@@ -237,15 +237,31 @@ IR_ITER visitMethodCall(TREE *tree, IR_ITER parent, int level,
   } else {
     call_node = tree->Create_node(OPC_VCALL);
   }
-  // TODO check whether the arguments are matching ....
-  IR_ITER call_stmt    = tree->Insert_stmt_to_block(parent, call_node);
+  // Add to tree.
+  IR_ITER call_stmt;
+  IR_ITER ret_stmt;
+  if (is_expr) {
+    // Create a COMMA + block
+    IRNODE_IDX comma_idx = tree->Create_node(OPC_COMMA);
+    IRNODE_IDX block_idx = tree->Create_node(OPC_BLOCK);
+    IRNODE_IDX ldid_idx = tree->Create_node(OPC_I4LDID);
+    ret_stmt = tree->Insert_temp_node(comma_idx);
+    IR_ITER block_expr = tree->Set_operand(ret_stmt, 0, block_idx);
+    call_stmt = tree->Insert_stmt_to_block(block_expr, call_node);
+    IR_ITER ldid_expr = tree->Set_operand(ret_stmt, 1, ldid_idx);
+    PREG_IDX preg = File()->Create_preg(File()->Save_string(".return_preg"), 0);
+    tree->Node(ldid_expr)->Set_symbol_idx(File()->Get_preg_sym(MTYPE_I4, preg));
+  } else {
+    call_stmt = tree->Insert_stmt_to_block(parent, call_node);
+    ret_stmt = call_stmt;
+  }
   tree->Node(call_stmt)->Set_symbol_idx(func_sym);
   for (UINT32 i = 0; i < args->size(); i++) {
     IR_ITER call_opnd = visitExpression(tree, call_stmt, level, (*args)[i]);
     AssertThat(call_opnd != parent && call_opnd != nullptr, ("Invalid expr conversion result"));
     tree->Set_operand(call_stmt, 0, call_opnd);
   }
-  return parent;
+  return ret_stmt;
 }
 
 IR_ITER visitIfStmt(TREE *tree, IR_ITER parent, int level,
@@ -383,6 +399,9 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     return cur_node;
   } else if (expr->getTypeName() == "NDouble") {
     AssertThat(false, ("double not implemented."));
+  } else if (expr->getTypeName() == "NMethodCall") {
+    return visitMethodCall(tree, parent, level, true,
+                    reinterpret_cast<const shared_ptr<NMethodCall> &> (expr));
   } else if (expr->getTypeName() == "NInteger") {
     auto val = reinterpret_cast<shared_ptr<NInteger> &>(expr);
     IRNODE_IDX int_const_node = tree->Create_node(OPC_I4CONST);
@@ -440,6 +459,13 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     }
 
     return cur_node;
+  } else if (expr->getTypeName() == "NInitializeExpr") {
+    // Initialize expr with { {...}, ... i, j, } kind of format
+
+    AssertThat(false,
+               ("Initialization expr not implemented : %s",
+                 expr->getTypeName().c_str()));
+    // INITO Generation needed.
   } else if (expr->getTypeName() == "NInitializeExpr") {
     // Initialize expr with { {...}, ... i, j, } kind of format
     AssertThat(false,

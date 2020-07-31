@@ -226,6 +226,7 @@ CGIR::Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res) {
                TN_tn_idx(sp_tn),
                TN_tn_idx(Gen_Literal_TN(offset_from_base, 4)), 0));
   }
+  return target_res;
 }
 
 void
@@ -302,7 +303,10 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
         break;
       }
       case OPR_RETURN_VAL: {
+        CFG_BB_IDX next_bb = Cfg()->Add_bb();
         Handle_ret_val(stmt, cur_bb);
+        cur_bb = next_bb;
+        cur_bb_stmt_processed = 0;
         break;
       }
       case OPR_FALSEBR:
@@ -627,6 +631,11 @@ CGIR::Exp_LDST (
   if (base != nullptr) {
     // ISTORE or ILOAD case, where base and offset are known.
     // nothing to do.
+  } else if (ST_symclass(sym) == SYM_CLASS_PREG) {
+    base = Gen_Register_TN(REGISTER_CLASS_sp, MTYPE_size(MTYPE_I4));
+    PREG_IDX pgid = ST_st(sym)->offset;
+    Set_TN_is_preallocated(base);
+    Set_TN_register(base, PREG_preg(pgid)->desire_reg_num);
   } else if (ST_sclass(sym) != SYMC_AUTO) {
     // Create a LDR first
     base = TN_tn(Gen_TN(MTYPE_I4));

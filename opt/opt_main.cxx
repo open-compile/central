@@ -12,6 +12,15 @@
 #include "cgir.h"
 #include "cg_main.h"
 
+IR_ITER &Opt_lower_if_stmt(IR_ITER &stmt, const PU_INFO *func, TREE *tree,
+                           char *name_buf);
+
+IR_ITER &
+Opt_lower_while_do(IR_ITER &stmt, const PU_INFO *func, TREE *tree,
+                   char *name_buf);
+
+IR_ITER Opt_lower_array_expr(IR_ITER &expr, TREE *tree);
+
 using std::vector;
 using std::map;
 
@@ -338,85 +347,116 @@ IR_ITER Opt_lower_expr(IR_ITER expr, PU_INFO *func, FILE_MANAGER *file,
   }
   if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_ARRAY &&
       level == LEVEL_MID) {
-    /*
-     * Lowering ARRAY opr
-     *
-     * EXPR is usually CONST.
-     *
-     * ARRAY
-     *   LDA
-     *   EXPR size_dim1
-     *   EXPR size_dim2
-     *   ..
-     *   EXPR size_dimn
-     *   EXPR ofst_dim1
-     *   EXPR ofst_dim2
-     *   ..
-     *   EXPR ofst_dimn
-     * ->
-     * ADD
-     *  MUL
-     *    EXPR size_dim1
-     *    EXPR ofst_dim1
-     *  ADD
-     *    MUL
-     *    ADD
-     *      MUL
-     *      ADD
-     *        MUL
-     *
-     * */
-    AssertThat((tree->Number_of_children(expr) - 1) % 2 == 0,
-               ("not an even number of exprs for dimension/ofst in ARRAY."));
-    AssertThat((tree->Number_of_children(expr) - 1) / 2 > 0,
-               ("There should be at least one dimension in ARRAY."));
-    UINT32      dims           = (tree->Number_of_children(expr) - 1) / 2;
-    IRNODE_IDX  final_add      = tree->Create_node(OPC_I4I4ADD);
-    IR_ITER     temp           = tree->Insert_temp_node(final_add);
-    IRNODE_IDX  offst_calc_add = tree->Create_node(OPC_I4I4ADD);
-    IR_ITER     last_add       = tree->Set_operand(temp, 0, offst_calc_add);
-    IR_ITER     dim_size       = tree->Internal_tree().
-      insert_subtree(last_add,
-                     tree->Get_operand(
-                       expr,
-                       0)); // move the LDA of first address.
-    for (UINT32 cur_dim        = 0; cur_dim < dims; cur_dim++) {
-      IRNODE_IDX mul      = tree->Create_node(OPC_I4I4MPY);
-      IR_ITER    temp_mul = tree->Set_operand(last_add, 0, mul);
-      IR_ITER    dim_temp = tree->Set_operand(temp_mul, 0, 0);
-      IR_ITER    dim_size = tree->Internal_tree().
-        insert_subtree_after(dim_temp,
-                             tree->Get_operand(
-                               expr,
-                               1 +
-                               cur_dim)); // move the size expr
-      IR_ITER    dim_ofst = tree->Internal_tree().
-        insert_subtree_after(dim_size,
-                             tree->Get_operand(
-                               expr,
-                               1 +
-                               dims +
-                               cur_dim)); // move the ofst expr
-      tree->Remove_node_recursive(dim_temp);
-      IRNODE_IDX next_add = tree->Create_node(OPC_I4I4ADD);
-      last_add = tree->Set_operand(last_add, 1, next_add);
-    }
-
-    // Move the last MPY to its parent, which used to be an ADD.
-    tree->Node(last_add)->Set_opcode(OPC_I4CONST);
-    tree->Node(last_add)->Set_const_val(0);
-
-    Is_Trace(Tracing(COMPONENT_GOPT, TRACE_DATA),
-             (TFile, "%sLowering ARRAY\n%s", DBAR, DBAR));
-    if(Tracing(COMPONENT_GOPT, TRACE_DATA)) {
-      tree->Print_recursive(TFile);
-    }
-    Is_Trace(Tracing(COMPONENT_GOPT, TRACE_DATA),
-             (TFile, "%sEnd of lowering ARRAY\n%s", DBAR, DBAR));
+    IR_ITER temp = Opt_lower_array_expr(expr, tree);
     return temp;
+  }
+  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_COMMA &&
+      level == LEVEL_HIGH) {
+    IR_ITER comma_blk = tree->Get_operand(expr, 0);
+    IR_ITER comma_ldid = tree->Get_operand(expr, 1);
+    AssertThat(tree->Node(comma_ldid)->Opcode() == OPC_I4LDID,
+               ("Must be a LDID or preg retval"));
+    IR_ITER use_stmt = tree->Get_parent_in_block(expr);
+    IR_ITER block = tree->Get_parent(use_stmt);
+    AssertThat(tree->Number_of_children(comma_blk) == 1,
+               ("Should have only one call. node = %d", *comma_blk));
+    IR_ITER call_stmt = tree->Get_operand(comma_blk, 0);
+    AssertThat(tree->Node(call_stmt)->Opcode() == OPC_I4CALL,
+               ("Should be a I4 call. node = %d", *call_stmt));
+    if (tree->Node(use_stmt)->Opcode() == OPC_IF ||
+        tree->Node(use_stmt)->Opcode() == OPC_WHILE_DO) {
+      // a conditional evaluation ...
+      Is_Trace(Tracing(COMPONENT_FE, TRACE_WARN),
+               (TFile, "WARNING: The generated code ignores "
+                       "conditional evaluation. on %lld", *use_stmt));
+    }
+    tree->Internal_tree().insert_subtree(use_stmt, call_stmt);
+    IRNODE_IDX new_node = tree->Create_node(OPC_I4LDID);
+    tree->Node(new_node)->Set_symbol_idx(tree->Node(comma_ldid)->Get_symbol_idx());
+    tree->Node(new_node)->Set_preg_num(tree->Node(comma_ldid)->Get_preg_num());
+    return tree->Insert_temp_node(new_node);
   }
   // Nothing to do.
   return expr;
+}
+
+IR_ITER Opt_lower_array_expr(IR_ITER &expr, TREE *tree) {
+/*
+ * Lowering ARRAY opr
+ *
+ * EXPR is usually CONST.
+ *
+ * ARRAY
+ *   LDA
+ *   EXPR size_dim1
+ *   EXPR size_dim2
+ *   ..
+ *   EXPR size_dimn
+ *   EXPR ofst_dim1
+ *   EXPR ofst_dim2
+ *   ..
+ *   EXPR ofst_dimn
+ * ->
+ * ADD
+ *  MUL
+ *    EXPR size_dim1
+ *    EXPR ofst_dim1
+ *  ADD
+ *    MUL
+ *    ADD
+ *      MUL
+ *      ADD
+ *        MUL
+ *
+ * */
+  AssertThat((tree->Number_of_children(expr) - 1) % 2 == 0,
+   ("not an even number of exprs for dimension/ofst in ARRAY."));
+  AssertThat((tree->Number_of_children(expr) - 1) / 2 > 0,
+   ("There should be at least one dimension in ARRAY."));
+  UINT32      dims           = (tree->Number_of_children(expr) - 1) / 2;
+  IRNODE_IDX  final_add      = tree->Create_node(OPC_I4I4ADD);
+  IR_ITER     temp           = tree->Insert_temp_node(final_add);
+  IRNODE_IDX  offst_calc_add = tree->Create_node(OPC_I4I4ADD);
+  IR_ITER     last_add       = tree->Set_operand(temp, 0, offst_calc_add);
+  IR_ITER     dim_size       = tree->Internal_tree().
+    insert_subtree(last_add,
+                   tree->Get_operand(
+                     expr,
+                     0)); // move the LDA of first address.
+  for (UINT32 cur_dim        = 0; cur_dim < dims; cur_dim++) {
+    IRNODE_IDX mul      = tree->Create_node(OPC_I4I4MPY);
+    IR_ITER    temp_mul = tree->Set_operand(last_add, 0, mul);
+    IR_ITER    dim_temp = tree->Set_operand(temp_mul, 0, 0);
+    IR_ITER    dim_size = tree->Internal_tree().
+      insert_subtree_after(dim_temp,
+                           tree->Get_operand(
+                             expr,
+                             1 +
+                             cur_dim)); // move the size expr
+    IR_ITER    dim_ofst = tree->Internal_tree().
+      insert_subtree_after(dim_size,
+                           tree->Get_operand(
+                             expr,
+                             1 +
+                             dims +
+                             cur_dim)); // move the ofst expr
+    tree->Remove_node_recursive(dim_temp);
+    IRNODE_IDX next_add = tree->Create_node(OPC_I4I4ADD);
+    last_add = tree->Set_operand(last_add, 1, next_add);
+  }
+
+  // Move the last MPY to its parent, which used to be an ADD.
+  tree->Node(last_add)->Set_opcode(OPC_I4CONST);
+  tree->Node(last_add)->Set_const_val(0);
+
+  Is_Trace(Tracing(COMPONENT_GOPT, TRACE_DATA),
+           (TFile, "%sLowering ARRAY\n%s", DBAR, DBAR));
+  if(Tracing(COMPONENT_GOPT, TRACE_DATA)) {
+    tree->Print_recursive(TFile);
+  }
+  Is_Trace(Tracing(COMPONENT_GOPT, TRACE_DATA),
+           (TFile, "%sEnd of lowering ARRAY\n%s", DBAR, DBAR));
+  return temp;
 }
 
 IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
@@ -460,150 +500,13 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
       break;
     }
     case OPR_WHILE_DO: {
-      IR_ITER expr = tree->Get_operand(stmt, 0);
-      IR_ITER lower_result = Opt_lower_expr(expr, func, file, level, conf);
-      if (expr != lower_result) {
-        tree->Replace_recursive(expr, lower_result);
-      }
-      IR_ITER block_content = tree->Get_operand(stmt, 1);
-      for (UINT32 i = 0; i < block_content.number_of_children(); i++) {
-        IR_ITER child_stmt = tree->Get_operand(block_content, i);
-        Opt_lower_stmt(child_stmt, func, file, level, conf);
-      }
-      // Only go through the following if in a MIDDLE IR.
-      if (level != LEVEL_MID) {
-        break;
-      }
-      /*
-      // WHILE_DO
-      //  EQ
-      //  BLOCK
-      //   ...stmts...
-
-       transform to :
-
-       LABEL 1
-       FALSEBR LABEL 2
-        EQ
-       ... stmts ...
-       GOTO LABEL 1
-       LABEL 2
-      */
-      IR_ITER label1_stmt;
-      sprintf(name_buf, ".L_%d_1_%llu", func->proc_sym, *stmt);
-      STR_IDX    lname       = File()->Save_string(name_buf);
-      IRNODE_IDX label1_node = tree->Create_node(OPC_LABEL);
-      LABEL_IDX  label_id    = File()->Create_label(lname,
-                                                LABEL_ADDR_SAVED,
-                                                LKIND_DEFAULT);
-
-      label1_stmt = tree->Insert_before(stmt, label1_node);
-      tree->Get_node(label1_stmt)->Set_label_num(label_id);
-
-      IRNODE_IDX identifier_node = tree->Create_node(OPC_GOTO);
-      tree->Node(identifier_node)->Set_label_num(label_id);
-      IR_ITER goto_stmt = tree->Insert_after(stmt, identifier_node);
-
-      IR_ITER label2_stmt;
-      sprintf(name_buf, ".L_%d_2_%llu", func->proc_sym, *stmt);
-      STR_IDX    lname2      = File()->Save_string(name_buf);
-      IRNODE_IDX label2_node = tree->Create_node(OPC_LABEL);
-      LABEL_IDX label2_id = File()->Create_label(lname2,
-                                                 LABEL_ADDR_SAVED,
-                                                 LKIND_DEFAULT);
-
-      label2_stmt = tree->Insert_after(goto_stmt, label2_node);
-      tree->Get_node(label2_stmt)->Set_label_num(label2_id);
-
-      /*
-       * WHILE_DO
-       *  EQ
-       *  BLOCK
-       *   STMT1
-       *   STMT2
-       *   ...
-       *   STMTn
-       * GOTO
-       *
-       * ->
-       *
-       * WHILE_DO
-       *   EQ
-       *   BLOCK
-       *    STMT1
-       *    ...
-       *    STMTn
-       * STMT1
-       * STMT2
-       * ...
-       * STMTn
-       * GOTO
-       *
-       */
-      // Move the contents the in while block to before the GOTO stmt.
-      IR_ITER while_block = tree->Get_operand(stmt, 1);
-      UINT32 n_stmts = tree->Number_of_children(while_block);
-      for(UINT32 i = 0; i < n_stmts; i++) {
-        IR_ITER orig = tree->Get_operand(while_block, i);
-        tree->Internal_tree().insert_subtree(goto_stmt, orig);
-      }
-      tree->Remove_node_recursive(while_block);
-      tree->Node(stmt)->Set_opcode(OPC_FALSEBR);
-      tree->Node(stmt)->Set_label_num(label2_id);
+      if (level != LEVEL_MID) break;
+      stmt = Opt_lower_while_do(stmt, func, tree, name_buf);
       break;
     }
     case OPR_IF: {
-      IR_ITER block_content = tree->Get_operand(stmt, 1);
-      for (UINT32 i = 0; i < block_content.number_of_children(); i++) {
-        IR_ITER child_stmt = tree->Get_operand(block_content, i);
-        Opt_lower_stmt(child_stmt, func, file, level, conf);
-      }
-      block_content = tree->Get_operand(stmt, 2);
-      for (UINT32 i = 0; i < block_content.number_of_children(); i++) {
-        IR_ITER child_stmt = tree->Get_operand(block_content, i);
-        Opt_lower_stmt(child_stmt, func, file, level, conf);
-      }
       if (level != LEVEL_MID) break;
-      //Move stmts to parent
-      IR_ITER par = tree->Get_parent_block(stmt);
-      IR_ITER then = tree->Get_operand(stmt, 1);
-      IR_ITER else_blk = tree->Get_operand(stmt, 2);
-
-      // Create the else label
-      sprintf(name_buf, ".L_%d_else_%llu", func->proc_sym, *stmt);
-      STR_IDX    lname      = File()->Save_string(name_buf);
-      LABEL_IDX  else_lidx  = File()->Create_label(lname, 0, LKIND_DEFAULT);
-      IRNODE_IDX lnode_idx  = tree->Create_node(OPC_LABEL);
-      tree->Node(lnode_idx)->Set_label_num(else_lidx);
-      IR_ITER else_label = tree->Insert_after(stmt, lnode_idx);
-
-      // Create end label
-      sprintf(name_buf, ".L_%d_end_%llu", func->proc_sym, *stmt);
-      lname                   = File()->Save_string(name_buf);
-      LABEL_IDX end_lidx      = File()->Create_label(lname, 0, LKIND_DEFAULT);
-      lnode_idx               = tree->Create_node(OPC_LABEL);
-      tree->Node(lnode_idx)->Set_label_num(end_lidx);
-      IR_ITER temp_end = tree->Insert_after(else_label, lnode_idx);
-
-      // Move the kids
-      UINT32 n_then = tree->Number_of_children(then);
-      for(UINT32 i = 0; i < n_then; i++) {
-        IR_ITER orig = tree->Get_operand(then, i);
-        tree->Internal_tree().insert_subtree(else_label, orig);
-      }
-      IRNODE_IDX goto_ndoe = tree->Create_node(OPC_GOTO);
-      tree->Node(goto_ndoe)->Set_label_num(end_lidx);
-      tree->Internal_tree().insert(else_label, goto_ndoe);
-
-      UINT32 n_else = tree->Number_of_children(else_blk);
-      for(UINT32 i = 0; i < n_else; i++) {
-        IR_ITER orig = tree->Get_operand(else_blk, i);
-        tree->Internal_tree().insert_subtree(temp_end, orig);
-      }
-      tree->Node(stmt)->Set_label_num(else_lidx);
-      tree->Node(stmt)->Set_opcode(OPC_FALSEBR);
-      tree->Remove_node_recursive(then);
-      tree->Remove_node_recursive(else_blk);
+      stmt = Opt_lower_if_stmt(stmt, func, tree, name_buf);
       break;
     }
     default: {
@@ -613,6 +516,133 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
   delete[] name_buf;
   return stmt;
   // Replace expr if necessary
+}
+
+IR_ITER &
+Opt_lower_while_do(IR_ITER &stmt, const PU_INFO *func, TREE *tree,
+                   char *name_buf) {
+  /*
+   // WHILE_DO
+   //  EQ
+   //  BLOCK
+   //   ...stmts...
+
+    transform to :
+
+    LABEL 1
+    FALSEBR LABEL 2
+     EQ
+    ... stmts ...
+    GOTO LABEL 1
+    LABEL 2
+   */
+  IR_ITER label1_stmt;
+  sprintf(name_buf, ".L_%d_1_%llu", func->proc_sym, *stmt);
+  STR_IDX    lname       = File()->Save_string(name_buf);
+  IRNODE_IDX label1_node = tree->Create_node(OPC_LABEL);
+  LABEL_IDX  label_id    = File()->Create_label(lname,
+                                            LABEL_ADDR_SAVED,
+                                            LKIND_DEFAULT);
+
+  label1_stmt = tree->Insert_before(stmt, label1_node);
+  tree->Get_node(label1_stmt)->Set_label_num(label_id);
+
+  IRNODE_IDX identifier_node = tree->Create_node(OPC_GOTO);
+  tree->Node(identifier_node)->Set_label_num(label_id);
+  IR_ITER goto_stmt = tree->Insert_after(stmt, identifier_node);
+
+  IR_ITER label2_stmt;
+  sprintf(name_buf, ".L_%d_2_%llu", func->proc_sym, *stmt);
+  STR_IDX    lname2      = File()->Save_string(name_buf);
+  IRNODE_IDX label2_node = tree->Create_node(OPC_LABEL);
+  LABEL_IDX label2_id = File()->Create_label(lname2,
+                                             LABEL_ADDR_SAVED,
+                                             LKIND_DEFAULT);
+
+  label2_stmt = tree->Insert_after(goto_stmt, label2_node);
+  tree->Get_node(label2_stmt)->Set_label_num(label2_id);
+
+  /*
+* WHILE_DO
+*  EQ
+*  BLOCK
+*   STMT1
+*   STMT2
+*   ...
+*   STMTn
+* GOTO
+*
+* ->
+*
+* WHILE_DO
+*   EQ
+*   BLOCK
+*    STMT1
+*    ...
+*    STMTn
+* STMT1
+* STMT2
+* ...
+* STMTn
+* GOTO
+*
+*/
+  // Move the contents the in while block to before the GOTO stmt.
+  IR_ITER while_block = tree->Get_operand(stmt, 1);
+  UINT32 n_stmts = tree->Number_of_children(while_block);
+  for(UINT32 i = 0; i < n_stmts; i++) {
+    IR_ITER orig = tree->Get_operand(while_block, i);
+    tree->Internal_tree().insert_subtree(goto_stmt, orig);
+  }
+  tree->Remove_node_recursive(while_block);
+  tree->Node(stmt)->Set_opcode(OPC_FALSEBR);
+  tree->Node(stmt)->Set_label_num(label2_id);
+  return stmt;
+}
+
+IR_ITER &Opt_lower_if_stmt(IR_ITER &stmt, const PU_INFO *func, TREE *tree,
+                           char *name_buf) {//Move stmts to parent
+  IR_ITER par = tree->Get_parent(stmt);
+  AssertThat(tree->Node(par)->Opcode() == OPC_BLOCK, ("Must be a block node containing if stmt."));
+  IR_ITER then = tree->Get_operand(stmt, 1);
+  IR_ITER else_blk = tree->Get_operand(stmt, 2);
+
+  // Create the else label
+  sprintf(name_buf, ".L_%d_else_%llu", func->proc_sym, *stmt);
+  STR_IDX    lname      = File()->Save_string(name_buf);
+  LABEL_IDX  else_lidx  = File()->Create_label(lname, 0, LKIND_DEFAULT);
+  IRNODE_IDX lnode_idx  = tree->Create_node(OPC_LABEL);
+  tree->Node(lnode_idx)->Set_label_num(else_lidx);
+  IR_ITER else_label = tree->Insert_after(stmt, lnode_idx);
+
+  // Create end label
+  sprintf(name_buf, ".L_%d_end_%llu", func->proc_sym, *stmt);
+  lname                   = File()->Save_string(name_buf);
+  LABEL_IDX end_lidx      = File()->Create_label(lname, 0, LKIND_DEFAULT);
+  lnode_idx               = tree->Create_node(OPC_LABEL);
+  tree->Node(lnode_idx)->Set_label_num(end_lidx);
+  IR_ITER temp_end = tree->Insert_after(else_label, lnode_idx);
+
+  // Move the kids
+  UINT32 n_then = tree->Number_of_children(then);
+  for(UINT32 i = 0; i < n_then; i++) {
+    IR_ITER orig = tree->Get_operand(then, i);
+    tree->Internal_tree().insert_subtree(else_label, orig);
+  }
+  IRNODE_IDX goto_ndoe = tree->Create_node(OPC_GOTO);
+  tree->Node(goto_ndoe)->Set_label_num(end_lidx);
+  tree->Internal_tree().insert(else_label, goto_ndoe);
+
+  UINT32 n_else = tree->Number_of_children(else_blk);
+  for(UINT32 i = 0; i < n_else; i++) {
+    IR_ITER orig = tree->Get_operand(else_blk, i);
+    tree->Internal_tree().insert_subtree(temp_end, orig);
+  }
+  tree->Node(stmt)->Set_label_num(else_lidx);
+  tree->Node(stmt)->Set_opcode(OPC_FALSEBR);
+  tree->Remove_node_recursive(then);
+  tree->Remove_node_recursive(else_blk);
+  return stmt;
 }
 
 void Opr_lower_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,

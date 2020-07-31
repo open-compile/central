@@ -81,7 +81,7 @@ void FILE_SYMTAB::Print(FILE *f) {
 }
 
 PU_INFO_IDX FILE_SYMTAB::Get_pu_info_by_st_idx(ST_IDX func) {
-  return Sym()->Get(func)->u2.pu;
+  return Sym()->Get(func)->Pu_info_idx();
 }
 
 void FILE_SYMTAB::Initialize() {
@@ -358,7 +358,7 @@ PU_INFO_IDX FILE_MANAGER::Create_function(ST_IDX func, TY_IDX prototype) {
   pu_info->pu_idx = pu_idx;
   // Init st_pu
   ST *st = ST_st(func);
-  st->u2.pu = pu_idx;
+  st->pu = pu_idx;
   // Init tree
   pu_info->entry = new TREE();
   pu_info->entry->Initialize();
@@ -394,7 +394,7 @@ ST_IDX FILE_MANAGER::Create_var(STR_IDX str, TY_IDX idx, UINT8 level,
   AssertThat(sym > 0 && (sym & 0xff) == level, ("Incorrect var symidx generated = %u", sym));
   ST *st = ST_st(sym);
   st->name_idx = str;
-  st->u2.type = idx;
+  st->type = idx;
   st->export_class = eclass;
   st->sym_class = symclass;
   st->storage_class = sclass;
@@ -439,7 +439,6 @@ TY_IDX FILE_MANAGER::Create_func_ty(STR_IDX string, UINT64 size, MTYPE_ID mtype,
     tylist->ty_id = *it;
     tylist_idx = File()->Tables()->Tylist()->Add();
   }
-  tylist_idx = File()->Tables()->Tylist()->Add();
   tylist = TYLIST_tylist(tylist_idx);
   tylist->ty_id = 0;
 
@@ -536,6 +535,20 @@ LABEL_IDX FILE_MANAGER::Get_func_exit_label() {
                       LABEL_FLAGS::LABEL_ADDR_SAVED, LKIND_EXIT);
 }
 
+ST_IDX FILE_MANAGER::Get_preg_sym(MTYPE_ID mt, PREG_IDX regid) {
+  ST_IDX sym = Tables()->Sym()->Add(GLOBAL_SYMTAB);
+  AssertThat(sym > 0 && (sym & 0xff) == GLOBAL_SYMTAB, ("Incorrect var symidx generated = %u", sym));
+  ST *st = ST_st(sym);
+  st->name_idx = Save_string(".predef_preg");
+  st->type = MTYPE_to_ty(mt);
+  st->export_class = SYME_INTERNAL;
+  st->sym_class = SYM_CLASS_PREG;
+  st->storage_class = SYMC_UNKNOWN;
+  st->offset = regid;
+  st->attr = (SYM_ATTR) 0;
+  return sym;
+}
+
 void SCOPE::Print(FILE *f) {
   if (st_idx <= 0) {
     fprintf(f, "[Scope] sym = %d, (dummy function)", st_idx);
@@ -584,7 +597,7 @@ void ST::Print_storage_class(FILE *f) {
 void ST::Print_details(FILE *f) {
   switch (sym_class) {
     case SYM_CLASS_FUNC:
-      fprintf(f, "  --> function = pu_id = [%d], prototype = [%d] \n", u2.pu, PU_pu(u2.pu)->prototype);
+      fprintf(f, "  --> function = pu_id = [%d], prototype = [%d] \n", pu, PU_pu(pu)->prototype);
       break;
     case SYM_CLASS_BLOCK:
       fprintf(f, "  --> block \n");
@@ -599,7 +612,7 @@ void ST::Print_details(FILE *f) {
       fprintf(f, "  --> preg, preg_idx = %d \n", this->offset);
       break;
     case SYM_CLASS_VAR:
-      fprintf(f, "  --> var, of type [%d] \n", this->u2.type);
+      fprintf(f, "  --> var, of type [%d] \n", this->type);
       break;
     case SYM_CLASS_COUNT:
       fprintf(f, "  --> count \n");
@@ -616,8 +629,8 @@ void ST::Print_details(FILE *f) {
 PU_INFO_IDX ST::Pu_info_idx() {
   AssertThat(this != NULL, ("Invalid this pointer"));
   AssertThat(this->sym_class == SYM_CLASS_FUNC, ("Trying to get pu_info_idx from non-func symbol = %s", STR_str(this->name_idx)));
-  AssertThat(this->u2.pu > 0, ("Invalid pu_idx in symbol = %d", u2.pu));
-  return PU_pu(this->u2.pu)->pu_info_idx;
+  AssertThat(this->pu > 0, ("Invalid pu_idx in symbol = %d", pu));
+  return PU_pu(this->pu)->pu_info_idx;
 }
 
 void TYLIST::Print(FILE *f) {

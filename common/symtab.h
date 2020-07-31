@@ -167,10 +167,8 @@ public:
   SYM_SCLASS   storage_class: 4; // storage info
   SYM_ECLASS   export_class: 4;
   ST_TLS_MODEL tls_model: 4; // Thread-Local-Storage(TLS) model
-  union {
-    TY_IDX type;   // idx to high-level type
-    PU_IDX pu;   // idx to program unit
-  }            u2;
+  TY_IDX       type;   // idx to high-level type
+  PU_IDX       pu;   // idx to program unit
   UINT32       pad; // 4 pad bytes (initialize to zero)
   UINT32       offset; // offset from base
   INT32        sp_offset; // offset from base
@@ -993,6 +991,8 @@ public:
   LABEL_IDX Create_preg(STR_IDX preg_name, UINT32 desire_num);
 
   LABEL_IDX Get_func_exit_label();
+
+  ST_IDX Get_preg_sym(MTYPE_ID mt, PREG_IDX regid);
 };
 const char *STR_str(STR_IDX idx);
 

@@ -99,8 +99,9 @@ extern template BOOL Symtab_is_flags_set<ARB_IDX, ARB, ARB_TABLE> (ARB_IDX idx, 
 
 DEF_MEMBER_ACCESS_FUNC(SYM_ECLASS, ST_eclass, ST, ST_IDX, export_class, ST_st);
 DEF_MEMBER_ACCESS_FUNC(SYM_SCLASS, ST_sclass, ST, ST_IDX, storage_class, ST_st);
-DEF_MEMBER_ACCESS_FUNC(TY_IDX, ST_ty, ST, ST_IDX, u2.type, ST_st);
-DEF_MEMBER_ACCESS_FUNC(PU_IDX, ST_pu, ST, ST_IDX, u2.type, ST_st);
+DEF_MEMBER_ACCESS_FUNC(SYM_CLASS, ST_symclass, ST, ST_IDX, sym_class, ST_st);
+DEF_MEMBER_ACCESS_FUNC(TY_IDX, ST_ty, ST, ST_IDX, type, ST_st);
+DEF_MEMBER_ACCESS_FUNC(PU_IDX, ST_pu, ST, ST_IDX, pu, ST_st);
 
 DEF_MEMBER_ACCESS_FUNC(TY_FLAG, TY_flags, TY, TY_IDX, flags, TY_ty);
 DEF_MEMBER_ACCESS_FUNC(UINT64, TY_size, TY, TY_IDX, size, TY_ty);

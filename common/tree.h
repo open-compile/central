@@ -373,7 +373,7 @@ public:
   UINT32 Index(IR_ITER node);
   IR_ITER Replace_recursive(IR_ITER pos, IR_ITER from);
   IR_ITER Remove_node_recursive(IR_ITER pos); // return incremented iter
-  IR_ITER Get_parent_block(IR_ITER stmt);
+  IR_ITER Get_parent_in_block(IR_ITER stmt);
   IR_ITER Get_parent_region(IR_ITER stmt);
   IR_ITER Insert_after(IR_ITER position, IRNODE_IDX node);
   IR_ITER Insert_before(IR_ITER position, IRNODE_IDX node);

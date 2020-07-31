@@ -94,7 +94,7 @@ IR_ITER visitForStmt(TREE *tree, IR_ITER parent, int level,
 IR_ITER visitReturnStmt(TREE *tree, IR_ITER parent, int level,
                         const shared_ptr<NReturnStatement> &stmt);
 
-IR_ITER visitMethodCall(TREE *tree, IR_ITER parent, int level,
+IR_ITER visitMethodCall(TREE *tree, IR_ITER parent, int level, BOOL is_expr,
                         const shared_ptr<NMethodCall> &stmt);
 
 IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
