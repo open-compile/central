@@ -351,7 +351,9 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
     // If there is a label to it, emit the label
     for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
       CGOP *cgop = (*stmt_it);
-      fprintf(TFile, "\t-LRA: Processing op = %s\n", Get_cg_opc_info(cgop->getOpcode())->ins_token);
+      Is_Trace(TR_LRA(),
+               (TFile, "LRA: Processing op = %s\n",
+                Get_cg_opc_info(cgop->getOpcode())->ins_token));
       if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
         i32_register_needed += Count_needed_register(cgop, CGOPR_R, i, 0);
       }
@@ -375,7 +377,7 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
       TN_IDX tid = tn_freq.first;
       TN *tn = TN_tn(tid);
       // Allocate one-by-one
-      Is_Trace(TR_LRA(), (TFile, "-LRA: Assigning reg %d to TN : %d\n", used_cnt, tid));
+      Is_Trace(TR_LRA(), (TFile, "LRA: Assigning reg %d to TN : %d\n", used_cnt, tid));
       Set_TN_register(tn, used_cnt);
       Set_TN_is_preallocated(tn);
       Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
@@ -417,7 +419,8 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
     UINT32 stmt_id = 0;
     for (auto stmt_it = cgbb->First_stmt(); stmt_id  < stmt_cnt; stmt_id++) {
       CGOP *cgop = (*(cgbb->First_stmt() + stmt_id));
-      fprintf(TFile, "\tProcessing : %s\t\n", Get_cg_opc_info(cgop->getOpcode())->ins_token);
+      Is_Trace(TR_LRA(),
+               (TFile, "Processing : %s\n", Get_cg_opc_info(cgop->getOpcode())->ins_token));
       if (cgop->getFlags() & CGOPF_SPILL) {
         continue;
       }
@@ -430,7 +433,6 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
       if (Get_cg_opc_info(cgop->getOpcode())->getNOprs() >= 2) {
         Process_spill_op(cgop, CGOPR_R, i, 2, false);
       }
-      fprintf(TFile, "\n");
     }
   }
 

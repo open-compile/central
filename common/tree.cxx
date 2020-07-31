@@ -47,6 +47,21 @@ void IRNODE::Print(FILE *f) {
               (INT32) this->Get_const_val());
       break;
     }
+    case OPR_TRUEBR:
+    case OPR_FALSEBR:
+    case OPR_LABEL:
+    case OPR_GOTO: {
+      fprintf(f, " <label id = 0x%06x, or %u> ", (UINT32) this->Get_label_num(), (UINT32) this->Get_label_num());
+      break;
+    }
+    case OPR_GOTO_OUT: {
+      fprintf(f, " <%s> ", Get_label_num() == GOTO_OUT_BREAK ? "break" : "continue");
+      break;
+    }
+    case OPR_CALL: {
+      fprintf(f, " <callee = %d, name = %s> ", Get_symbol_idx(), ST_name(Get_symbol_idx()));
+      break;
+    }
     default: {
       // ... nothing to do
     }

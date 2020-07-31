@@ -429,7 +429,7 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
 
       UINT32 n_else = tree->Number_of_children(else_blk);
       for(UINT32 i = 0; i < n_else; i++) {
-        IR_ITER orig = tree->Get_operand(then, i);
+        IR_ITER orig = tree->Get_operand(else_blk, i);
         tree->Internal_tree().insert_subtree(temp_end, orig);
       }
       tree->Node(stmt)->Set_label_num(else_lidx);

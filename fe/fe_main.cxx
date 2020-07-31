@@ -11,6 +11,8 @@
 #include "fe_main.h"
 #include "cpp_pre.h"
 
+extern int yylineno;
+
 // Opcode
 BIN_OP_TO_OPR FEOPCODE_INFO[] = {
   // tok TOKEN   oper     rtype
@@ -31,7 +33,7 @@ INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_nam
   yyparse();
 
   if (!programBlock) {
-    Comp_Failure("Syntax check failed for file : %s", file_name);
+    Comp_Failure("Syntax check failed for file : %s:%d", file_name, yylineno);
   }
   
   // std::cout << programBlock << std::endl;
@@ -553,12 +555,11 @@ IR_ITER visitArrayDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
 
 void yyerror(char *s, ...)
 {
-  extern int yylineno;
 
   va_list ap;
   va_start(ap, s);
 
-  fprintf(stderr, "[Grammar.y] %d: error: ", yylineno);
+  fprintf(stderr, "Grammar checking failed at line %d: error: ", yylineno);
   vfprintf(stderr, s, ap);
   fprintf(stderr, "\n");
 }
