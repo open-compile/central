@@ -109,7 +109,7 @@ const char *OPCODE_name(OPCODE opcode) {
 
 IRNODE_IDX &IRNODE::Opnd(UINT32 pos) {
   AssertThat(pos == 0 || pos == 1, ("Operand must be zero or one"));
-  return this->u3.kids[pos];
+  return this->extra3.kids[pos];
 }
 
 static TREE *current_tree = NULL;

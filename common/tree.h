@@ -213,106 +213,77 @@ public:
   union {
     struct {
       union {
-        TREE_OFFSET	    load_offset; // load offset or preg num.
-        TREE_OFFSET	    lda_offset;
-        TREE_OFFSET	    store_offset;
-        TREE_OFFSET	    idname_offset;
-        INT32   	    num_entries; /* used by computed goto statements; may be used by regions */
-        TY_IDX	      loadx_addr_ty; /* for OPR_ILOADX */
-        INT16	        cvtl_bits;
-        INT32	        label_number;
-        UINT32	      call_flag;
-        UINT32	      if_flag;
-        UINT32	      io_flag;
-        UINT32	      asm_flag;
-        UINT32        asm_operand_num;
+        TREE_OFFSET load_offset; // load offset or preg num.
+        TREE_OFFSET lda_offset;
+        TREE_OFFSET store_offset;
+        TREE_OFFSET idname_offset;
+        INT32       num_entries; /* used by computed goto statements; may be used by regions */
+        INT32       label_number;
+        UINT32      call_flag;
+        UINT32      if_flag;
         struct {
-          UINT16	    trip_est;
-          UINT16	    loop_depth;
-        } li;
+          UINT16 trip_est;
+          UINT16 loop_depth;
+        }           li;
         struct {
-          UINT16     pragma_flags;
-          UINT16     pragma_id;
-        } pragma;
-        TY_IDX	    io_item_ty;  /* for IO_ITEM */
+          UINT16 pragma_extra_flag;
+          UINT16 pragma_extra_id;
+        }           pragma;
         struct {
-          REGION_KIND region_kind: 4;
-          UINT32     region_id  :28;
-        } region;
-      } ua;
+          REGION_KIND rg_kind: 4;
+          UINT32      rg_id: 28;
+        }           region;
+      } c1;
       union {
-        ST_IDX	    st_idx;	/* for ldid/stid/lda */
-        TY_IDX          ty;		/* for all types except lda,ldid,stid */
-        /*  and io_item */
-        INT32  	    id;
-        INTRINSIC	    intrinsic;
-//        IOSTATEMENT	    iostatement;
-//        IOITEM	    ioitem;
-        UINT32	    prefetch_flag;
-        UINT32	    loop_flag;
-        INT32	      last_label;	/* end of switch */
-        INITO_IDX	  ereg_supp;  // for region
-        UINT32      label_level; /* nest level for target of goto_outer_block */
-      } ub;
-    } uu;
+        ST_IDX    st_idx;  /* for ldid/stid/lda  */
+        TY_IDX    ty;    /* for all types except lda,ldid,stid */
+        INTRINSIC intrinsic; // For intrinsic operations, not used right now.
+        UINT32    prefetching_extra_flag; // For prefetching.
+        UINT32    loop_extra_flag;
+        INT32     the_last_label;  /* end of switch */
+        INITO_IDX region_filter_table;  // for region
+        UINT32    label_level; /* nest level for target of goto_outer_block */
+      } c2;
+    } combined;
     TREE_ESIZE	    element_size;
-  } u1u2;
-
-  // the following layout was used to minimize aliasing as
-  // kid_count is not used in most of the WHIRL nodes.
-  // this permits loading of wn_operator, rtype and desc as bytes
-  struct {
-    OPERATOR          wn_operator : 8;  /* 8 bits of operator       */
-    MTYPE_ID          rtype       : 6;  /* result */
-    UINT32            kid_count   :14; /* gives kid_count for free */
-    INT64             map_id      :30;
-    MTYPE_ID          desc        : 6;  /* descriptor type */
-    UINT32            wn_id;            /* unique id for the whirl node */
-  } common;
-
+  } extra1;
   union {
     struct {
-      IRNODE_IDX       dummy1;
-      TY_IDX       ty;		/* ty used for lda,ldid,stid,iload */
-    } ty_fields;
-    IRNODE_IDX	       kids[2];
-    INT64	    const_val;
+      TY_IDX ty;    /* ty used for lda,ldid,stid,iload */
+    }          ty_fields;
+    IRNODE_IDX kids[2];
+    INT64      const_val;
     struct {
-      UINT32	    num_inputs;
-      UINT32       num_clobbers;
-    } asm_fields;
+      UINT32 num_inputs;
+      UINT32 num_clobbers;
+    }          asm_fields;
     struct {
-      IRNODE_IDX       dummy2;
-      UINT32       label_flag;
-    } label_flag_fields;
-    struct {
-      IRNODE_IDX       first;
-      IRNODE_IDX       last;
-    } block;
-
+      IRNODE_IDX dummy2;
+      UINT32     label_flag;
+    }          label_flag_fields;
     union {
-      INT64       pragma_arg64;
+      INT64 pragma_info64;
       struct {
-        union{
-          IRNODE_IDX  dummy3;
-          INT32    pragma_arg1;
+        union {
+          IRNODE_IDX dummy3;
+          INT32      pragma_arg1;
         };
         union {
-          INT32    pragma_arg2;
+          INT32 pragma_arg2;
           struct {
-            UINT32  pragma_asm_opnd_num : 8;
+            UINT32 pragma_asm_opnd_num: 8;
 //            PREG_NUM pragma_asm_copyout_preg : 24;
-          } asm_pragma;
+          }     asm_pragma;
         };
-      } up1;
+      }     up1;
       struct {
-        INT16   pragma_pad1;
-        INT8    pragma_distr_type;
-        INT8    pragma_index;
-        INT32    pragma_preg;
-      } up2;
-    } pragma;
-  } u3;
+        INT16 pragma_pad1;
+        INT8  pragma_distr_type;
+        INT8  pragma_index;
+        INT32 pragma_preg;
+      }     up2;
+    }          pragma;
+  } extra3;
   IRNODE() {
     memset(this, 0, sizeof(IRNODE));
   };
@@ -332,26 +303,26 @@ public:
   OPCODE &Opcode() { return opcode; }
   void Set_opcode(OPCODE opc) { opcode = opc; }
 
-  void Set_symbol_idx(ST_IDX sym) { u1u2.uu.ub.st_idx = sym; };
-  ST_IDX Get_symbol_idx() { return u1u2.uu.ub.st_idx; };
+  void Set_symbol_idx(ST_IDX sym) { extra1.combined.c2.st_idx = sym; };
+  ST_IDX Get_symbol_idx() { return extra1.combined.c2.st_idx; };
 
-  void Set_load_offset(TREE_OFFSET ofst) { u1u2.uu.ua.load_offset = ofst; };
-  TREE_OFFSET Get_load_offset() { return u1u2.uu.ua.load_offset; };
+  void Set_load_offset(TREE_OFFSET ofst) { extra1.combined.c1.load_offset = ofst; };
+  TREE_OFFSET Get_load_offset() { return extra1.combined.c1.load_offset; };
 
-  void Set_type_idx(TY_IDX sym) { u1u2.uu.ub.ty = sym; };
-  TY_IDX Get_type_idx() { return u1u2.uu.ub.ty; };
+  void Set_type_idx(TY_IDX sym) { extra1.combined.c2.ty = sym; };
+  TY_IDX Get_type_idx() { return extra1.combined.c2.ty; };
 
-  UINT16 Get_field_id() { return common.kid_count; }
-  void Set_field_id(UINT16 field_id) { common.kid_count = field_id; };
+  void Set_const_val(UINT64 i) { extra3.const_val = i; }
+  UINT64 Get_const_val() { return extra3.const_val; }
 
-  void Set_const_val(UINT64 i) { u3.const_val = i; }
-  UINT64 Get_const_val() { return u3.const_val; }
+  UINT32 Get_preg_num()  { return extra1.combined.c1.load_offset; }
+  void Set_preg_num(PREG_IDX preg_num)  { extra1.combined.c1.load_offset = preg_num; }
 
-  UINT32 Get_preg_num()  { return u1u2.uu.ua.load_offset; }
-  void Set_preg_num(PREG_IDX preg_num)  { u1u2.uu.ua.load_offset = preg_num; }
+  UINT32 Get_label_num()  { return extra1.combined.c1.label_number; }
+  void Set_label_num(LABEL_IDX label_n)  { extra1.combined.c1.label_number = label_n; }
 
-  UINT32 Get_label_num()  { return u1u2.uu.ua.label_number; }
-  void Set_label_num(LABEL_IDX label_n)  { u1u2.uu.ua.label_number = label_n; }
+  UINT32 Get_goto_out_level() { return extra1.combined.c2.label_level; }
+  void Set_goto_out_level(UINT32 lvl) {  extra1.combined.c2.label_level = lvl; }
 };
 
 typedef IRNODE_IDX IR_TREE_ELEM;

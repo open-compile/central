@@ -76,10 +76,36 @@ void Opt_verify_expr(IR_ITER expr, IR_ITER stmt, PU_INFO *func, FILE_MANAGER *fi
   TREE *tree = func->entry;
   // Verifying each statement
   switch (OPCODE_operator(tree->Get_node(expr)->Opcode())) {
+    case OPR_ARRAY: {
+      AssertThat(level < LEVEL_MID, ("%s not allowed after MIDDLE level", OPCODE_name(tree->Get_node(expr)->Opcode())));
+    }
+    case OPR_RETURN:
+    case OPR_GOTO:
+    case OPR_LDA:
+    case OPR_LABEL:
     case OPR_LDID: {
+      AssertThat(tree->Number_of_children(expr) == 0, ("%s should have zero operand", OPCODE_name(tree->Get_node(expr)->Opcode())));
       break;
     }
+    case OPR_RETURN_VAL:
+    case OPR_FALSEBR:
+    case OPR_TRUEBR:
+    case OPR_STID:
     case OPR_ILOAD: {
+      AssertThat(tree->Number_of_children(expr) == 1, ("%s should have exactly 1 operand", OPCODE_name(tree->Get_node(expr)->Opcode())));
+      break;
+    }
+    case OPR_NE:
+    case OPR_EQ:
+    case OPR_LT:
+    case OPR_GT:
+    case OPR_LE:
+    case OPR_GE:
+    case OPR_ISTORE:
+    case OPR_ADD:
+    case OPR_MPY:
+    case OPR_REM: {
+      AssertThat(tree->Number_of_children(expr) == 2, ("BINOP %s not 2 operands", OPCODE_name(tree->Get_node(expr)->Opcode())));
       break;
     }
     case OPR_DIV: {
@@ -88,6 +114,9 @@ void Opt_verify_expr(IR_ITER expr, IR_ITER stmt, PU_INFO *func, FILE_MANAGER *fi
       AssertThat(tree->Node(divisor)->Opcode() != OPC_I4CONST ||
                  tree->Node(divisor)->Get_const_val() != 0, ("cannot divide by zero."));
       break;
+    }
+    default: {
+      // Do nothing.
     }
   }
 }
