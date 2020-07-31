@@ -32,8 +32,8 @@
 %type <expr> numeric expr assign init_expr
 %type <varvec> func_decl_args struct_members
 %type <exprvec> call_args
-%type <block> program stmts block
-%type <stmt> stmt var_decl func_decl struct_decl if_stmt for_stmt while_stmt
+%type <block> program stmts block block_or_single_stmt
+%type <stmt> stmt var_decl func_decl basic_stmt struct_decl if_stmt for_stmt while_stmt
 %type <token> comparison
 %type <var_decl> basic_var_decl
 
@@ -48,9 +48,13 @@ program : stmts { programBlock = $1; }
 stmts : stmt { $$ = new NBlock(); $$->child->push_back(shared_ptr<NStatement>($1)); }
 			| stmts stmt { $1->child->push_back(shared_ptr<NStatement>($2)); }
 			;
-stmt : var_decl TSEMICOLON | func_decl | struct_decl TSEMICOLON
-		 | expr TSEMICOLON { $$ = new NExpressionStatement(shared_ptr<NExpression>($1)); } 
-		 | TRETURN expr TSEMICOLON { $$ = new NReturnStatement(shared_ptr<NExpression>($2)); } 
+basic_stmt : var_decl TSEMICOLON { $$ = $1; }
+             | expr TSEMICOLON { $$ = new NExpressionStatement(shared_ptr<NExpression>($1)); }
+             | TRETURN expr TSEMICOLON { $$ = new NReturnStatement(shared_ptr<NExpression>($2)); }
+             | TRETURN TSEMICOLON { $$ = new NReturnStatement(); }
+             ;
+
+stmt :  basic_stmt | func_decl | struct_decl TSEMICOLON
 		 | if_stmt
 		 | for_stmt
 		 | while_stmt
@@ -180,9 +184,16 @@ call_args : /* blank */ { $$ = new ExpressionList(); }
 comparison : TCEQ | TCNE | TCLT | TCLE | TCGT | TCGE
 				 | TAND | TOR | TXOR | TSHIFTL | TSHIFTR
 					 ;
-if_stmt : TIF expr block { $$ = new NIfStatement(shared_ptr<NExpression>($2), shared_ptr<NBlock>($3)); }
-		| TIF expr block TELSE block { $$ = new NIfStatement(shared_ptr<NExpression>($2), shared_ptr<NBlock>($3), shared_ptr<NBlock>($5)); }
-		| TIF expr block TELSE if_stmt { 
+block_or_single_stmt : block { $$ = $1; }
+		     | basic_stmt {
+		       $$ = new NBlock();
+		       $$->child->push_back(shared_ptr<NStatement>($1));
+		     }
+		     ;
+
+if_stmt : TIF expr block_or_single_stmt { $$ = new NIfStatement(shared_ptr<NExpression>($2), shared_ptr<NBlock>($3)); }
+		| TIF expr block_or_single_stmt TELSE block_or_single_stmt { $$ = new NIfStatement(shared_ptr<NExpression>($2), shared_ptr<NBlock>($3), shared_ptr<NBlock>($5)); }
+		| TIF expr block_or_single_stmt TELSE if_stmt {
 			auto blk = new NBlock(); 
 			blk->child->push_back(shared_ptr<NStatement>($5));
 			$$ = new NIfStatement(shared_ptr<NExpression>($2), shared_ptr<NBlock>($3), shared_ptr<NBlock>(blk)); 
