@@ -68,6 +68,7 @@ extern template PU_INFO *   Symtab_get<PU_INFO_IDX, PU_INFO, PU_INFO_TABLE> (PU_
 extern template TYLIST *    Symtab_get<TYLIST_IDX, TYLIST, TYLIST_TABLE> (TYLIST_IDX idx);
 extern template LABEL *     Symtab_get<LABEL_IDX, LABEL, LABEL_TABLE> (LABEL_IDX idx);
 extern template PREG *      Symtab_get<PREG_IDX, PREG, PREG_TABLE> (PREG_IDX idx);
+extern template INITO *     Symtab_get<INITO_IDX, INITO, INITO_TABLE> (INITO_IDX idx);
 
 #define ST_st(st_idx) Symtab_get<ST_IDX, ST, ST_TABLE>(st_idx)
 #define TY_ty(idx) Symtab_get<TY_IDX, TY, TY_TABLE>(idx)
@@ -77,6 +78,7 @@ extern template PREG *      Symtab_get<PREG_IDX, PREG, PREG_TABLE> (PREG_IDX idx
 #define TYLIST_tylist(idx) Symtab_get<TYLIST_IDX, TYLIST, TYLIST_TABLE>(idx)
 #define LABEL_label(idx) Symtab_get<LABEL_IDX, LABEL, LABEL_TABLE>(idx)
 #define PREG_preg(idx) Symtab_get<PREG_IDX, PREG, PREG_TABLE>(idx)
+#define INITO_inito(idx) Symtab_get<INITO_IDX, INITO, INITO_TABLE>(idx)
 
 //================================================================================
 // Defining IDX -> const char * functions, using STR Table, and a STR_IDX

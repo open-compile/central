@@ -36,10 +36,12 @@ void DATA_LAYOUT::Allocate_formal(ST_IDX obj_sym) {
 }
 
 UINT32 DATA_LAYOUT::Get_sym_stack_size(ST_IDX obj_sym) const {
-  AssertThat(ST_ty(obj_sym) == MTYPE_to_ty(MTYPE_I4),
-             ("only i4 is processed right now"));
-  AssertThat(TY_size(ST_ty(obj_sym)) == 4,
-             ("only i4 should be 4-bytes long"));
+  AssertThat(ST_ty(obj_sym) == MTYPE_to_ty(MTYPE_I4) ||
+             TY_kind(ST_ty(obj_sym)) == KIND_ARRAY ||
+             TY_kind(ST_ty(obj_sym)) == KIND_POINTER,
+             ("only i4/array/pointer is processed right now"));
+  AssertThat(TY_size(ST_ty(obj_sym)) != 0,
+             ("the type %d should be of valid size (>0)", ST_ty(obj_sym)));
   return TY_size(ST_ty(obj_sym));
 }
 

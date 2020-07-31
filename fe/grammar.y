@@ -29,7 +29,7 @@
 
 %type <index> array_index
 %type <ident> ident primary_typename struct_typename typename
-%type <expr> numeric expr assign
+%type <expr> numeric expr assign init_expr
 %type <varvec> func_decl_args struct_members
 %type <exprvec> call_args
 %type <block> program stmts block
@@ -104,6 +104,10 @@ var_decl : basic_var_decl { $$ = $1; }
 	 | basic_var_decl TEQUAL TLBRACKET call_args TRBRACKET {
 		 $$ = new NArrayInitialization(shared_ptr<NVariableDeclaration>($1), shared_ptr<ExpressionList>($4));
 	 }
+	 | basic_var_decl TEQUAL TLBRACE init_expr TRBRACE {
+	 	$1->assignmentExpr = shared_ptr<NExpression>($4);
+                $$ = $1;
+	 }
 	 ;
 
 func_decl : typename ident TLPAREN func_decl_args TRPAREN block
@@ -119,8 +123,8 @@ ident : TIDENTIFIER { $$ = new NIdentifier(*$1); delete $1; }
 			;
 
 numeric : TINTEGER { $$ = new NInteger(atol($1->c_str())); }
-				| TDOUBLE { $$ = new NDouble(atof($1->c_str())); }
-				;
+	 | TDOUBLE { $$ = new NDouble(atof($1->c_str())); }
+	 ;
 expr : 	assign { $$ = $1; }
 		 | ident TLPAREN call_args TRPAREN { $$ = new NMethodCall(shared_ptr<NIdentifier>($1), shared_ptr<ExpressionList>($3)); }
 		 | ident { $<ident>$ = $1; }
@@ -137,6 +141,21 @@ expr : 	assign { $$ = $1; }
 		 | array_index { $$ = $1; }
 		 | TLITERAL { $$ = new NLiteral(*$1); delete $1; }
 		 ;
+init_expr :
+	expr {
+		$$ = new NInitializeExpr() ;
+           	((NInitializeExpr *)$$)->Append(shared_ptr<NExpression>($1));
+	}
+	| init_expr TCOMMA init_expr {
+		$$ = $1;
+		((NInitializeExpr *)$$)->Append(shared_ptr<NExpression>($3));
+	}
+	| TLBRACE init_expr TRBRACE {
+		$$ = new NInitializeExpr() ;
+        	((NInitializeExpr *)$$)->Add_child(shared_ptr<NExpression>($2));
+	}
+	;
+
 
 array_index : ident TLBRACKET expr TRBRACKET 
 				{ $$ = new NArrayIndex(shared_ptr<NIdentifier>($1), shared_ptr<NExpression>($3)); }

@@ -440,7 +440,7 @@ struct LABEL {
 
   LABEL(STR_IDX idx, LABEL_KIND k) : name_idx(idx), kind(k) {}
   void Verify(UINT level) const {};
-  void Print(FILE *f) const {};
+  void Print(FILE *f) const;
 }; // LABEL
 
 struct PREG {
@@ -451,7 +451,7 @@ struct PREG {
     memset(this, 0,sizeof(PREG));
   }
   void Print(FILE *file) {
-    fprintf(file, "[PREG] [name_idx: %d], desire = %d\n", name_idx, desire_reg_num);
+    fprintf(file, "[PREG] name_idx: %d, desired_reg = %d\n", name_idx, desire_reg_num);
   }
 
   STR_IDX getNameIdx() const {
@@ -512,17 +512,6 @@ public:
   }
 };
 
-// initialized objects
-struct INITO {
-  ST_IDX st_idx;      // item being initialized
-  INITV_IDX val;      // initial value
-  // void Verify (UINT level) const;
-  void Print  (FILE* f)    const {};
-  INITO() {
-      memset(this, 0,sizeof(INITO));
-  }
-};
-
 
 // initial value
 enum INITVKIND {
@@ -537,7 +526,7 @@ enum INITVKIND {
 };
 
 struct INITV {
-  INITV_IDX next;      // next value for non-scalar member
+  // INITV_IDX next;      // next value for non-scalar member
   INITVKIND kind: 16;    // kind of value
   UINT16 repeat1;      // repeat factor (repeat2 used for
   // INITVKIND_VAL
@@ -575,6 +564,9 @@ struct INITV {
       INT32 pad;      // amount of padding in bytes
       INT32 unused;    // filler, must be zero
     } pad;
+    struct {
+      INT64 c_val;
+    };
   } u;
 
   ST_IDX St() const { return u.sto.st; }
@@ -602,7 +594,33 @@ struct INITV {
   INT32 Pad() const { return u.pad.pad; }
 
   void Verify(UINT level) const { };
+  void Print(FILE *file) const;
+  INT64 Val() const { return u.c_val; }
+  void Set_val(INT64 cval) { u.c_val = cval; }
 }; // INITV
+
+// initialized objects
+class INITO {
+  ST_IDX st_idx;      // item being initialized
+  std::vector<INITV> val;      // initial value
+  // void Verify (UINT level) const;
+public:
+  void Print  (FILE* f)  const;
+  INITO() {
+      memset(this, 0,sizeof(INITO));
+  }
+  UINT32 Size() {
+    return val.size();
+  }
+  INITV *Value(UINT32 i) {
+    return &(val[i]);
+  }
+  INITV_IDX Add_value() {
+    val.push_back(INITV());
+    return val.size() - 1;
+  }
+};
+
 
 class SCOPE {
 public:
@@ -780,6 +798,7 @@ typedef GLOBAL_SYMTAB_ACCESS<PU_INFO_IDX , PU_INFO> PU_INFO_TABLE;
 typedef RELATED_SYMTAB_ACCESS<ST_IDX, ST, TABLE_KIND_ST> ST_TABLE;
 typedef RELATED_SYMTAB_ACCESS<PREG_IDX, PREG, TABLE_KIND_PREG> PREG_TABLE;
 typedef RELATED_SYMTAB_ACCESS<LABEL_IDX, LABEL, TABLE_KIND_LABEL> LABEL_TABLE;
+typedef RELATED_SYMTAB_ACCESS<INITO_IDX, INITO, TABLE_KIND_INITO> INITO_TABLE;
 
 /**
  * File-level symbol tables
@@ -795,6 +814,7 @@ private:
   ARB_TABLE     * _arb_tab;
   LABEL_TABLE   * _label_tab;
   PREG_TABLE    * _preg_tab;
+  INITO_TABLE   * _inito_tab;
 
   // STRING TABLE SPECIFIC
   char * internal_str_tab_buffer;
@@ -819,7 +839,9 @@ public:
     _label_tab       = new LABEL_TABLE(this);
     _label_tab->Add(0);
     _preg_tab       = new PREG_TABLE(this);
-    _label_tab->Add(0);
+    _preg_tab->Add(0);
+    _inito_tab      = new INITO_TABLE(this);
+    _inito_tab->Add(0);
     internal_str_tab_buffer = NULL;
     allocated_size_of_buffer = 0;
     used_size_of_buffer = 1;
@@ -834,6 +856,7 @@ public:
   PU_INFO_TABLE *Pu_info() { return _pu_info_tab; };
   LABEL_TABLE *Label()     { return _label_tab;   };
   PREG_TABLE *Preg()       { return _preg_tab;    };
+  INITO_TABLE *Inito()     { return _inito_tab;   };
 
   /**
    * Utilities
@@ -870,6 +893,9 @@ public:
   }
   PREG_TABLE *Get_table(PREG *base) {
     return _preg_tab;
+  }
+  INITO_TABLE *Get_table(INITO *base) {
+    return _inito_tab;
   }
   const char *Get_string(STR_IDX idx);
 

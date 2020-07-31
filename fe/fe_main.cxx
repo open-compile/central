@@ -41,21 +41,12 @@ INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_nam
   auto root = programBlock->jsonGen();
   Irgen_visit(programBlock);
 
-//    cout << root;
-
-////    cout << root << endl;
-//    CodeGenContext context;
-////    createCoreFunctions(context);
-//    context.generateCode(*programBlock);
-//    ObjGen(context);
-
-  string jsonFile = "visualization/A_tree.json";
-  std::ofstream astJson(jsonFile);
-  if( astJson.is_open() ){
-    astJson << root;
-    astJson.close();
-    cout << "writing json to " << jsonFile << endl;
-  }
+//  string jsonFile = "visualization/A_tree.json";
+//  std::ofstream astJson(jsonFile);
+//  if( astJson.is_open() ){
+//    astJson << root;
+//    astJson.close();
+//  }
 
   Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO), (TFile, "Front end finishing, dump file info %d\n", (File()->Print(TFile), 1)));
   return 0;
@@ -406,13 +397,13 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     return cur_node;
   } else if (expr->getTypeName() == "NArrayIndex") {
     // use of variable.
-    auto val = reinterpret_cast<shared_ptr<NArrayIndex> &>(expr);
+    auto       val        = reinterpret_cast<shared_ptr<NArrayIndex> &>(expr);
     IRNODE_IDX iload_node = tree->Create_node(OPC_I4I4ILOAD);
     IRNODE_IDX array_node = tree->Create_node(OPC_ARRAY);
-    IRNODE_IDX lda_node = tree->Create_node(OPC_LDA);
+    IRNODE_IDX lda_node   = tree->Create_node(OPC_LDA);
 
-    ST_IDX sym = File()->Find_symbol_by_name(val->arrayName->name.c_str());
-    TY_IDX ty = ST_ty(sym);
+    ST_IDX  sym     = File()->Find_symbol_by_name(val->arrayName->name.c_str());
+    TY_IDX  ty      = ST_ty(sym);
     ARB_IDX one_arb = TY_arb(ty);
 
     IR_ITER cur_node = tree->Insert_temp_node(iload_node);
@@ -428,20 +419,28 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     int i;
     for (i = 1; i <= ARB_dimension(one_arb); ++i) {
       IRNODE_IDX int_const_node = tree->Create_node(OPC_I4CONST);
-      tree->Get_node(int_const_node)->Set_const_val(ARB_ubnd_val(one_arb + i - 1));
+      tree->Get_node(int_const_node)->Set_const_val(
+        ARB_ubnd_val(one_arb + i - 1));
       tree->Set_operand(temp_array_node, i, int_const_node);
     }
 
     // 插入加载的各维度结点
-    for (auto it = val->expressions->begin(); it != val->expressions->end(); it++, i++) {
-      auto temp = it->get();
+    for (auto it = val->expressions->begin();
+         it != val->expressions->end(); it++, i++) {
+      auto    temp      = it->get();
       IR_ITER dimension = visitExpression(tree, temp_array_node, level,
                                           static_cast<shared_ptr<struct NExpression>>(temp));
       tree->Set_operand(temp_array_node, i, dimension);
     }
 
     return cur_node;
-  }else {
+  } else if (expr->getTypeName() == "NInitializeExpr") {
+    // Initialize expr with { {...}, ... i, j, } kind of format
+    AssertThat(false,
+               ("Initialization expr not implemented : %s",
+                 expr->getTypeName().c_str()));
+    // INITO Generation needed.
+  } else {
       AssertThat(false,
         ("Expression type not implemented : %s",
           expr->getTypeName().c_str()));
@@ -499,12 +498,12 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
       for (auto it = vartype.get()->arraySize->begin(); it != vartype.get()->arraySize->end(); it++, i++) {
         if (it->get()->getTypeName() == "NInteger") {
           auto expr = it->get();
-          auto val = reinterpret_cast<shared_ptr<NInteger> &>(expr);
+          const shared_ptr<NInteger> & val = reinterpret_cast<const shared_ptr<NInteger> &>(expr);
           arb_idx[i] = File()->Create_array_bound_const(val->value, MTYPE_size(MTYPE_I4), j--,
                                                         i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
         } else if (it->get()->getTypeName() == "NIdentifier") {
           auto expr = it->get();
-          auto val = reinterpret_cast<shared_ptr<NIdentifier> &>(expr);
+          const shared_ptr<NIdentifier> & val = reinterpret_cast<const shared_ptr<NIdentifier> &>(expr);
           ST_IDX sym = File()->Find_symbol_by_name(val->name.c_str());
           arb_idx[i] = File()->Create_array_bound_var(sym, MTYPE_size(MTYPE_I4), j--,
                                                       i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
@@ -532,41 +531,56 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
     // 数组声明
     if (vartype->isArray) {
       STR_IDX anon_array = File()->Save_string(varname->name.c_str());//数组名
-      ARB_IDX arb_idx[vartype.get()->arraySize->size()];
+      ARB_IDX arb_idx[vartype->arraySize->size()];
       int i = 0;
-      int j = vartype.get()->arraySize->size();//维数
-      for (auto it = vartype.get()->arraySize->begin(); it != vartype.get()->arraySize->end(); it++, i++) {
-        if (it->get()->getTypeName() == "NInteger") {
-          auto expr = it->get();
-          auto val = reinterpret_cast<shared_ptr<NInteger> &>(expr);
+      int j = vartype->arraySize->size();//维数
+      for (ExpressionList::const_iterator it = vartype->arraySize->cbegin(); it != vartype->arraySize->cend(); it++, i++) {
+        if ((*it)->getTypeName() == "NInteger") {
+          auto val = reinterpret_cast<const shared_ptr<NInteger> &> (*it);
           arb_idx[i] = File()->Create_array_bound_const(val->value, MTYPE_size(MTYPE_I4), j--,
-                                                        i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
+                                                        i == 0 ? ARB_FIRST_DIMEN : (i == vartype->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
         } else if (it->get()->getTypeName() == "NIdentifier") {
 
         }
       }
-      TY_IDX array_ty[vartype.get()->arraySize->size()];
-      for (int k = 0; k < vartype.get()->arraySize->size(); ++k) {
+      TY_IDX array_ty[vartype->arraySize->size()];
+      for (int k = 0; k < vartype->arraySize->size(); ++k) {
         array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
                                               k == 0 ? i4_idx : array_ty[k-1], arb_idx[--i]);
       }
-      sym_idx = File()->Create_var(anon_array, array_ty[vartype.get()->arraySize->size() - 1], level, SYMC_AUTO,
+      sym_idx = File()->Create_var(anon_array, array_ty[vartype->arraySize->size() - 1], level, SYMC_AUTO,
                                    SYME_INTERNAL, SYM_CLASS_VAR);
     } else {
       sym_idx = File()->Create_var(var_name_saved, i4_idx, level, SYMC_AUTO,
                                    SYME_INTERNAL, SYM_CLASS_VAR);
     }
-    // Parsing the vartype and save to ST table
-    if (rhs != nullptr) {
-      // assignment is present
-      IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
-      tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
-      tree->Get_node(assignment_node)->Set_load_offset(0);
-      IR_ITER stid_stmt = tree->Insert_stmt_to_block(block_iter, assignment_node);
-      IR_ITER rhs_expr = visitExpression(tree, stid_stmt, level, rhs);
-      AssertThat(rhs_expr != block_iter && rhs_expr != stid_stmt && rhs_expr != nullptr, ("Invalid expr conversion result"));
-      tree->Set_operand(stid_stmt, 0, rhs_expr);
+  }
+  // Parsing the vartype and save to ST table
+  if (rhs != nullptr) {
+    if (level <= GLOBAL_SYMTAB) {
+      // we need an INITO initialization process.
+      Is_Trace(Tracing(COMPONENT_FE, TRACE_DATA),
+               (TFile, "INITO creation not implemented."));
+      return block_iter;
     }
+    if (rhs->getTypeName() == "NInitializeExpr") {
+      // NInitializeExpr, inito creation
+      Is_Trace(Tracing(COMPONENT_FE, TRACE_DATA),
+               (TFile, "INITO creation not implemented."));
+      return block_iter;
+    } else if (rhs->getTypeName() == "NInteger") {
+      Is_Trace(Tracing(COMPONENT_FE, TRACE_DATA),
+               (TFile, "INITO creation not implemented now, continue to use assignment expr"));
+    }
+    AssertThat(level == LOCAL_SYMTAB, ("Incorrect level"));
+    // assignment is present, create stmts to do this.
+    IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
+    tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
+    tree->Get_node(assignment_node)->Set_load_offset(0);
+    IR_ITER stid_stmt = tree->Insert_stmt_to_block(block_iter, assignment_node);
+    IR_ITER rhs_expr = visitExpression(tree, stid_stmt, level, rhs);
+    AssertThat(rhs_expr != block_iter && rhs_expr != stid_stmt && rhs_expr != nullptr, ("Invalid expr conversion result"));
+    tree->Set_operand(stid_stmt, 0, rhs_expr);
   }
   return block_iter;
 }

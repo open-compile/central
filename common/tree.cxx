@@ -277,6 +277,11 @@ IR_ITER TREE::Get_parent_block(IR_ITER stmt) {
   return par;
 };
 
+IR_ITER TREE::Get_parent(IR_ITER expr) {
+  IR_ITER par = irtree.parent(expr);
+  return par;
+};
+
 IR_ITER TREE::Get_parent_region(IR_ITER stmt) {
   IR_ITER par = irtree.parent(stmt);
   // Walk along the parents and find the first if/while stmt.

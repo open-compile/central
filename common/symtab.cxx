@@ -148,6 +148,18 @@ void FILE_SYMTAB::Print_functions(FILE *f) {
     if (pu_info->scope.st_tab != NULL) {
       Sym()->Print(f, &(pu_info->scope));
     }
+    fprintf(f, "%s+ [%-4d] Labels for function %s \n%s", DBAR, cursor, func_name, DBAR);
+    if (pu_info->scope.label_tab != NULL) {
+      Label()->Print(f, &(pu_info->scope));
+    }
+    fprintf(f, "%s+ [%-4d] Preg for function %s \n%s", DBAR, cursor, func_name, DBAR);
+    if (pu_info->scope.preg_tab != NULL) {
+      Preg()->Print(f, &(pu_info->scope));
+    }
+    fprintf(f, "%s+ [%-4d] INITO for function %s \n%s", DBAR, cursor, func_name, DBAR);
+    if (pu_info->scope.inito_tab != NULL) {
+      Inito()->Print(f, &(pu_info->scope));
+    }
     fprintf(f, "%s+ [%-4d] End of function %s \n%s", DBAR, cursor, func_name, DBAR);
   }
 }
@@ -594,4 +606,27 @@ PU_INFO_IDX ST::Pu_info_idx() {
 
 void TYLIST::Print(FILE *f) {
   fprintf(f, "(type = %d)\n", this->ty_id);
+}
+
+void LABEL::Print(FILE *f) const {
+  fprintf(f, " Label name = %s, kind = %d, temp_sym = %d, flags = 0x%08x \n",
+          name_idx > 0 ? STR_str(name_idx) : "(null)", kind, temp_sym, flags);
+}
+
+void INITO::Print(FILE *f) const {
+  fprintf(f, " Inito for sym name = %s, init-values: %lu\n",
+          st_idx > 0 ? ST_name(st_idx) : "(null)", val.size());
+  for (UINT32 i = 0; i < val.size(); i++) {
+    val[i].Print(f);
+  }
+}
+
+void INITV::Print(FILE *file) const {
+  if (kind == INITVKIND_VAL) {
+    fprintf(file, " [IV] VAL(%d), value: %lld \n",
+            kind, this->Val());
+  } else if (kind == INITVKIND_PAD) {
+    fprintf(file, " [IV] PADDING(%d), pad-length = %d \n",
+            kind, this->Pad());
+  }
 }

@@ -66,12 +66,11 @@ CGIR::Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb) {
     Exp_LDST(opcode,
              OPCODE_desc(opcode),
              tn_res,
+             nullptr,
              tree->Get_node(stmt)->Get_symbol_idx(),
              tree->Get_node(stmt)->Get_load_offset(),
              cur_bb,
              variant);
-    // Add a map
-    AssertThat(res < 4096 && res > 0, ("Result tn should be less than 4096 and greater than zero, but it is : %u", res));
   }
   return;
 }
@@ -106,17 +105,128 @@ CGIR::Handle_LDID(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
     Exp_LDST(opcode,
              OPCODE_desc(opcode),
              tn_res,
+             nullptr,
              tree->Get_node(stmt)->Get_symbol_idx(),
              tree->Get_node(stmt)->Get_load_offset(),
              cur_bb,
              variant);
-    // Add a map
-    AssertThat(res < 4096 && res > 0,
-               ("Result tn should be less than 4096 and greater than zero, but it is : %u", res));
     return tn_res;
   }
 }
 
+
+TN *
+CGIR::Handle_ILOAD(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
+  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
+           (TFile, "CGIR::Handle_ILOAD\n"));
+  AssertThat(OPCODE_operator(tree->Node(stmt)->Opcode()) == OPR_ILOAD,
+             ("Not a ILOAD to be passed to Handle_ILOAD"));
+  AssertThat(tree->Number_of_children(stmt) == 1,
+             ("Incorrect number of kid in ILOAD, 1 expected, got %d", tree->Number_of_children(
+               stmt)));
+
+  TN *base_tn = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
+  AssertThat(base_tn != nullptr, ("base tn should not be null in ILOAD."));
+
+  CG_OPRAND res       = 0;
+  OPCODE    opcode    = tree->Get_node(stmt)->Opcode();
+  if (target_res != nullptr) {
+    res = TN_tn_idx(target_res);
+  } else {
+    res = Gen_TN(MTYPE_I4);
+  }
+  if (false /* PREG */) {
+    TN *tn_res = PREG_to_ST_TN(tree->Get_node(stmt)->Get_symbol_idx(),
+                               tree->Get_node(stmt)->Get_preg_num());
+    res = TN_tn_idx(tn_res);
+    // TODO: Conversion may still be needed here.
+    return tn_res;
+  } else {
+    VARIANT variant = Memop_Variant(stmt);
+    TN *tn_res = TN_tn(res);
+    Exp_LDST(opcode,
+             OPCODE_desc(opcode),
+             tn_res,
+             base_tn,
+             tree->Get_node(stmt)->Get_symbol_idx(),
+             tree->Get_node(stmt)->Get_load_offset(),
+             cur_bb,
+             variant);
+    return tn_res;
+  }
+}
+
+
+TN *
+CGIR::Handle_ISTORE(IR_ITER stmt, CFG_BB_IDX cur_bb) {
+  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
+           (TFile, "CGIR::Handle_ISTORE\n"))
+  AssertThat(OPCODE_operator(tree->Node(stmt)->Opcode()) == OPR_ISTORE,
+             ("Not a ILOAD to be passed to Handle_ISTORE"));
+  AssertThat(tree->Number_of_children(stmt) == 2,
+             ("Incorrect number of kid in ILOAD, 1 expected, got %d", tree->Number_of_children(
+               stmt)));
+
+  TN *base_tn = Expand_Expr (tree->Get_operand(stmt, 1), stmt, cur_bb, NULL);
+  AssertThat(base_tn != nullptr, ("base tn should not be null in ISTORE."));
+
+  OPCODE    opcode    = tree->Get_node(stmt)->Opcode();
+  CG_OPRAND res = 0;
+  if (false /* PREG */) {
+    TN *tn_res = PREG_to_ST_TN(tree->Get_node(stmt)->Get_symbol_idx(),
+                               tree->Get_node(stmt)->Get_preg_num());
+    res = TN_tn_idx(tn_res);
+    // TODO: Conversion may still be needed here.
+    return tn_res;
+  } else {
+    VARIANT variant = Memop_Variant(stmt);
+    TN *tn_res = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
+    AssertThat(tn_res != NULL, ("Expand of expr should not return null."));
+    res = TN_tn_idx(tn_res);
+    Exp_LDST(opcode,
+             OPCODE_desc(opcode),
+             tn_res,
+             base_tn,
+             tree->Get_node(stmt)->Get_symbol_idx(),
+             tree->Get_node(stmt)->Get_load_offset(),
+             cur_bb,
+             variant);
+    return tn_res;
+  }
+}
+
+
+TN *
+CGIR::Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res) {
+  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
+           (TFile, "CGIR::Handle_LDA\n"));
+  AssertThat(OPCODE_operator(tree->Node(expr)->Opcode()) == OPR_LDA,
+             ("Not a LDA to be passed to Handle_LDA"));
+  AssertThat(tree->Number_of_children(expr) == 0,
+             ("Incorrect number of kid in LDA, 0 expected, got %d", tree->Number_of_children(
+               expr)));
+  AssertThat(tree->Node(expr)->Get_symbol_idx() != 0,
+             ("There should be a valid symbol bound to it."));
+  ST_IDX sym = tree->Node(expr)->Get_symbol_idx();
+  if (ST_sclass(sym) == SYMC_FILE_STATIC) {
+    // LOCAL VAR.
+    // SP + OFST
+    LABEL_IDX lbl = Get_addr_label(sym);
+    Cfg()->BB(cur_bb)->Add_stmt(
+      new CGOP(CGOPC_LDRLBL, cur_bb, TN_tn_idx(target_res), TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0));
+  } else if (ST_sclass(sym) == SYMC_AUTO ||
+    ST_sclass(sym) == SYMC_FORMAL) {
+    TN *sp_tn = Build_Dedicated_TN(REGISTER_CLASS_sp,
+                              REGISTER_sp,
+                              MTYPE_size(MTYPE_I4));
+    INT64 offset_from_base = Layout()->Get_sym_sp_ofst(sym);
+    Cfg()->BB(cur_bb)->Add_stmt(
+      new CGOP(CGOPC_ADD, cur_bb,
+               TN_tn_idx(target_res),
+               TN_tn_idx(sp_tn),
+               TN_tn_idx(Gen_Literal_TN(offset_from_base, 4)), 0));
+  }
+}
 
 void
 CGIR::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb) {
@@ -181,6 +291,10 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
       // What kind of opcode is allowed here.
       case OPR_STID: {
         Handle_STID(stmt, cur_bb);
+        break;
+      }
+      case OPR_ISTORE: {
+        Handle_ISTORE(stmt, cur_bb);
         break;
       }
       case OPR_RETURN_VAL: {
@@ -275,6 +389,12 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
   switch (OPCODE_operator(tree->Node(entry)->Opcode())) {
     case OPR_LDID: {
       return Handle_LDID(entry, cur_bb, result);
+    }
+    case OPR_LDA: {
+      return Handle_LDA(entry, cur_bb, result);
+    }
+    case OPR_ILOAD: {
+      return Handle_ILOAD(entry, cur_bb, result);
     }
     case OPR_CONST: {
       UINT64 val = tree->Node(entry)->Get_const_val();
@@ -474,21 +594,35 @@ OPCODE OPCODE_make_op(OPERATOR opr, MTYPE_ID res, MTYPE_ID desc) {
   return (OPCODE) (opr + RTYPE(res) + DESC(desc));
 }
 
+/**
+ * Generating the LOAD/STORE instructions for LDID/STID/ILOAD/ISTORE...
+ * @param opc
+ * @param mtype
+ * @param src_res_tn
+ * @param base_tn
+ * @param sym
+ * @param ofst_val
+ * @param bb_idx
+ * @param variant
+ */
 void
 CGIR::Exp_LDST (
   OPCODE opc,
   MTYPE_ID mtype,
   TN *src_res_tn,
+  TN *base, // only for ILOAD/ISTORE
   ST_IDX sym,
   INT64 ofst_val,
   CFG_BB_IDX bb_idx,
   VARIANT variant)
 {
   TN *src_res  = src_res_tn;
-  TN *base = nullptr;
   INT64 offset_from_base = ofst_val;
   AssertThat(ofst_val == 0, ("There should be no existing ofst, yet = %d", ofst_val));
-  if (ST_sclass(sym) != SYMC_AUTO) {
+  if (base != nullptr) {
+    // ISTORE or ILOAD case, where base and offset are known.
+    // nothing to do.
+  } else if (ST_sclass(sym) != SYMC_AUTO) {
     // Create a LDR first
     base = TN_tn(Gen_TN(MTYPE_I4));
     LABEL_IDX lbl = Get_addr_label(sym);
@@ -500,11 +634,16 @@ CGIR::Exp_LDST (
                               MTYPE_size(MTYPE_I4));
     offset_from_base = Layout()->Get_sym_sp_ofst(sym);
   }
+  AssertThat(base != nullptr, ("Base cannot be null here."));
   TN *ofst = Gen_Literal_TN(offset_from_base, 4);
   CGOPC top = CGOPC_STR;
   if (OPCODE_operator(opc) == OPR_STID) {
     top = CGOPC_STR;
   } else if (OPCODE_operator(opc) == OPR_LDID) {
+    top = CGOPC_LDR;
+  } else if (OPCODE_operator(opc) == OPR_ISTORE) {
+    top = CGOPC_STR;
+  } else if (OPCODE_operator(opc) == OPR_ILOAD) {
     top = CGOPC_LDR;
   } else {
     AssertThat(false, ("not impl ldst opcode = %s.", OPCODE_name(opc)));
@@ -800,6 +939,7 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
       Set_TN_is_preallocated(spill_tn);
       Exp_LDST(OPC_I4STID, MTYPE_I4,
                spill_tn,
+               nullptr,
                TN_spill(tn), 0, cur_bb, V_BR_NONE);
       oper->setResOpnd(opnd, TN_tn_idx(spill_tn));
       CGOP *rs = *(Cfg()->BB(cur_bb)->Last_stmt() - 1);
@@ -817,6 +957,7 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
       Set_TN_is_preallocated(tn);
       Exp_LDST(OPC_I4LDID, MTYPE_I4,
         spill_tn,
+        nullptr,
         TN_spill(tn), 0, cur_bb, V_BR_NONE);
       CGOP *rs = Cfg()->BB(cur_bb)->Last_real_stmt();
       rs->setFlags(CGOPF_SPILL);

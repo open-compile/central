@@ -406,6 +406,8 @@ public:
   IR_ITER Get_parent_region(IR_ITER stmt);
   IR_ITER Insert_after(IR_ITER position, IRNODE_IDX node);
   IR_ITER Insert_before(IR_ITER position, IRNODE_IDX node);
+  IR_ITER Copy_recursive(IR_ITER position, IR_ITER from);
+  IR_ITER Get_parent(IR_ITER expr);
 };
 
 TREE *Tree();

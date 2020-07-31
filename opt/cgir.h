@@ -484,7 +484,9 @@ public:
   VARIANT Memop_Variant(IR_ITER iterator);
 
   void Exp_LDST(OPCODE opc,
-                MTYPE_ID mtype, TN *src_res_tn, ST_IDX sym, INT64 ofst_val, CFG_BB_IDX bb_idx,
+                MTYPE_ID mtype, TN *src_res_tn,
+                TN *base_tn,
+                ST_IDX sym, INT64 ofst_val, CFG_BB_IDX bb_idx,
                 VARIANT variant);
   void Exp_Ldst (
         OPCODE opcode,
@@ -514,6 +516,11 @@ public:
   CFG_BB_IDX Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb);
   void Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb);
   CGOPC Get_branch_cond(IR_ITER cond, BOOL is_true_br);
+
+  TN *Handle_ILOAD(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res);
+  TN *Handle_ISTORE(IR_ITER stmt, CFG_BB_IDX cur_bb);
+
+  TN *Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res);
 };
 
 

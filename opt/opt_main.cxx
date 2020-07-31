@@ -71,6 +71,27 @@ void Opt_verify(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &conf) {
   }
 }
 
+void Opt_verify_expr(IR_ITER expr, IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
+                     COMPILER_CONFIG &conf) {
+  TREE *tree = func->entry;
+  // Verifying each statement
+  switch (OPCODE_operator(tree->Get_node(expr)->Opcode())) {
+    case OPR_LDID: {
+      break;
+    }
+    case OPR_ILOAD: {
+      break;
+    }
+    case OPR_DIV: {
+      AssertThat(tree->Number_of_children(expr) == 2, ("not 2 operands"));
+      IR_ITER divisor = tree->Get_operand(expr, 0);
+      AssertThat(tree->Node(divisor)->Opcode() != OPC_I4CONST ||
+                 tree->Node(divisor)->Get_const_val() != 0, ("cannot divide by zero."));
+      break;
+    }
+  }
+}
+
 void Opt_verify_block(IR_ITER body, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
                       COMPILER_CONFIG &conf) {
   TREE *tree = func->entry;
@@ -85,11 +106,19 @@ void Opt_verify_block(IR_ITER body, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL 
         IR_ITER expr_val = tree->Get_operand(stmt, 0);
         MTYPE_ID stid_type = OPCODE_desc(tree->Get_node(stmt)->Opcode());
         AssertThat(OPCODE_rtype(tree->Get_node(expr_val)->Opcode()) == stid_type, ("The stid's operand should have same type"));
+        Opt_verify_expr(expr_val, stmt, func, file, level, conf);
         break;
+      }
+      case OPR_ISTORE: {
+        AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in ISTORE, 1 expected, got %d", tree->Number_of_children(stmt)));
+        IR_ITER expr_val = tree->Get_operand(stmt, 0);
+        Opt_verify_expr(expr_val, stmt, func, file, level, conf);
       }
       case OPR_IF: {
         AssertThat(level < LEVEL_MID, ("IF should not be present in level %d", level));
         AssertThat(tree->Number_of_children(stmt) == 3, ("Incorrect number of kid in WHILE_DO, 2 expected, got %d", tree->Number_of_children(stmt)));
+
+        Opt_verify_expr(tree->Get_operand(stmt, 0), stmt, func, file, level, conf);
 
         // The then block.
         IR_ITER block_inside = tree->Get_operand(stmt, 1);
@@ -107,11 +136,13 @@ void Opt_verify_block(IR_ITER body, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL 
         AssertThat(level >= LEVEL_HIGH, ("TRUEBR/FALSEBR should not be present in level %d", level));
         AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in WHILE_DO, 2 expected, got %d", tree->Number_of_children(stmt)));
         AssertThat(tree->Node(stmt)->Get_label_num() != 0, ("There should be a valid label for truebr/falsebr."));
+        Opt_verify_expr(tree->Get_operand(stmt, 0), stmt, func, file, level, conf);
         break;
       }
       case OPR_WHILE_DO: {
         AssertThat(level <= LEVEL_MID, ("WHILE_DO should not be present in level %d", level));
         AssertThat(tree->Number_of_children(stmt) == 2, ("Incorrect number of kid in WHILE_DO, 2 expected, got %d", tree->Number_of_children(stmt)));
+        Opt_verify_expr(tree->Get_operand(stmt, 0), stmt, func, file, level, conf);
         // Previous one should be label, next should be label
         IR_ITER block_inside = tree->Get_operand(stmt, 1);
         AssertThat(tree->Node(block_inside)->Opcode() == OPC_BLOCK, ("Should be a block."));
@@ -125,6 +156,7 @@ void Opt_verify_block(IR_ITER body, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL 
       case OPR_RETURN_VAL: {
         AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in RETURN_VAL, 1 expected, got %d", tree->Number_of_children(stmt)));
         IR_ITER expr_val = tree->Get_operand(stmt, 0);
+        Opt_verify_expr(expr_val, stmt, func, file, level, conf);
         MTYPE_ID ret_type = OPCODE_rtype(tree->Get_node(expr_val)->Opcode());
         AssertThat(MTYPE_I4 == ret_type, ("Should return mtype i4"));
         break;
@@ -137,6 +169,7 @@ void Opt_verify_block(IR_ITER body, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL 
         AssertThat(tree->Node(stmt)->Get_symbol_idx() != 0, ("Incorrect call stmt target symbol"));
         AssertThat(ST_sclass(tree->Node(stmt)->Get_symbol_idx()) == SYMC_TEXT ||
                    ST_sclass(tree->Node(stmt)->Get_symbol_idx()) == SYMC_EXTERN, ("Either should this be extern or text"));
+        // Verify # of arguments matching TY declaration.
         break;
       }
       case OPR_LABEL: {
@@ -202,20 +235,38 @@ Opt_lower_bin_op(IR_ITER expr, TREE *tree, PU_INFO *func, FILE_MANAGER *file,
   // Constants on both sides.
   AssertThat(tree->Get_node(tree->Get_operand(expr, 0))->Opcode() == OPC_I4CONST, ("Unknown pattern"));
   AssertThat(tree->Get_node(tree->Get_operand(expr, 1))->Opcode() == OPC_I4CONST, ("Unknown pattern"));
+  UINT64 lhs = tree->Get_node(tree->Get_operand(expr, 0))->Get_const_val();
+  UINT64 rhs = tree->Get_node(tree->Get_operand(expr, 1))->Get_const_val();
+  AssertThat(OPCODE_rtype(tree->Get_node(expr)->Opcode()) == MTYPE_I4,
+             ("Incorrect type used in op = add"));
+  IRNODE_IDX opr_node = tree->Create_node(OPC_I4CONST);
   switch (OPCODE_operator(tree->Get_node(expr)->Opcode())) {
     case OPR_ADD: {
-      UINT64 lhs = tree->Get_node(tree->Get_operand(expr, 0))->Get_const_val();
-      UINT64 rhs = tree->Get_node(tree->Get_operand(expr, 1))->Get_const_val();
-      AssertThat(OPCODE_rtype(tree->Get_node(expr)->Opcode()) == MTYPE_I4,
-        ("Incorrect type used in op = add"));
-      IRNODE_IDX opr_node = tree->Create_node(OPC_I4CONST);
       tree->Get_node(opr_node)->Set_const_val(lhs + rhs);
-      IR_ITER cur_node = tree->Insert_temp_node(opr_node);
-      return cur_node; // not optimizing anything
+      break; // not optimizing anything
+    }
+    case OPR_REM: {
+      tree->Get_node(opr_node)->Set_const_val(lhs % rhs);
+      break; // not optimizing anything
+    }
+    case OPR_DIV: {
+      AssertThat(rhs != 0, ("Cannot divide by zero."));
+      tree->Get_node(opr_node)->Set_const_val(lhs / rhs);
+      break; // not optimizing anything
+    }
+    case OPR_SUB: {
+      tree->Get_node(opr_node)->Set_const_val(lhs - rhs);
+      break; // not optimizing anything
+    }
+    case OPR_MPY: {
+      tree->Get_node(opr_node)->Set_const_val(lhs * rhs);
+      break; // not optimizing anything
     }
     default:
       return expr;
   }
+  IR_ITER cur_node = tree->Insert_temp_node(opr_node);
+  return cur_node;
 }
 
 IR_ITER Opt_lower_expr(IR_ITER expr, PU_INFO *func, FILE_MANAGER *file,
@@ -231,9 +282,9 @@ IR_ITER Opt_lower_expr(IR_ITER expr, PU_INFO *func, FILE_MANAGER *file,
       }
     }
   }
+  // This is done on every level.
   if (OPCODE_is_bin_arith(tree->Get_node(expr)->Opcode()) &&
-      conf.Opt_enabled(OPT_KIND_ARITH) &&
-      level == LEVEL_HIGH) {
+      conf.Opt_enabled(OPT_KIND_ARITH)) {
     // Check if lowerable,
     IR_ITER res = Opt_lower_bin_op(expr, tree, func, file, level, conf);
     if (res != expr) {
@@ -245,6 +296,91 @@ IR_ITER Opt_lower_expr(IR_ITER expr, PU_INFO *func, FILE_MANAGER *file,
       level == LEVEL_HIGH) {
     // LDID optimization
     // TODO: ...
+    ST_IDX sym = tree->Get_node(expr)->Get_symbol_idx();
+    if (TY_flags(ST_ty(sym)) & TY_FLAG_CONST) {
+      // this is doable.
+      Is_Trace(Tracing(COMPONENT_GOPT, TRACE_INFO),
+               (TFile, ("Missing opportunity of LDID-const convesion")));
+    }
+  }
+  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_ARRAY &&
+      level == LEVEL_MID) {
+    /*
+     * Lowering ARRAY opr
+     *
+     * EXPR is usually CONST.
+     *
+     * ARRAY
+     *   LDA
+     *   EXPR size_dim1
+     *   EXPR size_dim2
+     *   ..
+     *   EXPR size_dimn
+     *   EXPR ofst_dim1
+     *   EXPR ofst_dim2
+     *   ..
+     *   EXPR ofst_dimn
+     * ->
+     * ADD
+     *  MUL
+     *    EXPR size_dim1
+     *    EXPR ofst_dim1
+     *  ADD
+     *    MUL
+     *    ADD
+     *      MUL
+     *      ADD
+     *        MUL
+     *
+     * */
+    AssertThat((tree->Number_of_children(expr) - 1) % 2 == 0,
+               ("not an even number of exprs for dimension/ofst in ARRAY."));
+    AssertThat((tree->Number_of_children(expr) - 1) / 2 > 0,
+               ("There should be at least one dimension in ARRAY."));
+    UINT32      dims           = (tree->Number_of_children(expr) - 1) / 2;
+    IRNODE_IDX  final_add      = tree->Create_node(OPC_I4I4ADD);
+    IR_ITER     temp           = tree->Insert_temp_node(final_add);
+    IRNODE_IDX  offst_calc_add = tree->Create_node(OPC_I4I4ADD);
+    IR_ITER     last_add       = tree->Set_operand(temp, 0, offst_calc_add);
+    IR_ITER     dim_size       = tree->Internal_tree().
+      insert_subtree(last_add,
+                     tree->Get_operand(
+                       expr,
+                       0)); // move the LDA of first address.
+    for (UINT32 cur_dim        = 0; cur_dim < dims; cur_dim++) {
+      IRNODE_IDX mul      = tree->Create_node(OPC_I4I4MPY);
+      IR_ITER    temp_mul = tree->Set_operand(last_add, 0, mul);
+      IR_ITER    dim_temp = tree->Set_operand(temp_mul, 0, 0);
+      IR_ITER    dim_size = tree->Internal_tree().
+        insert_subtree_after(dim_temp,
+                             tree->Get_operand(
+                               expr,
+                               1 +
+                               cur_dim)); // move the size expr
+      IR_ITER    dim_ofst = tree->Internal_tree().
+        insert_subtree_after(dim_size,
+                             tree->Get_operand(
+                               expr,
+                               1 +
+                               dims +
+                               cur_dim)); // move the ofst expr
+      tree->Remove_node_recursive(dim_temp);
+      IRNODE_IDX next_add = tree->Create_node(OPC_I4I4ADD);
+      last_add = tree->Set_operand(last_add, 1, next_add);
+    }
+
+    // Move the last MPY to its parent, which used to be an ADD.
+    tree->Node(last_add)->Set_opcode(OPC_I4CONST);
+    tree->Node(last_add)->Set_const_val(0);
+
+    Is_Trace(Tracing(COMPONENT_GOPT, TRACE_DATA),
+             (TFile, "%sLowering ARRAY\n%s", DBAR, DBAR));
+    if(Tracing(COMPONENT_GOPT, TRACE_DATA)) {
+      tree->Print_recursive(TFile);
+    }
+    Is_Trace(Tracing(COMPONENT_GOPT, TRACE_DATA),
+             (TFile, "%sEnd of lowering ARRAY\n%s", DBAR, DBAR));
+    return temp;
   }
   // Nothing to do.
   return expr;
@@ -256,6 +392,15 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
   char *name_buf = new char[128];
   switch (OPCODE_operator(tree->Get_node(stmt)->Opcode())) {
     case OPR_STID: {
+      // optmize the child
+      IR_ITER expr = tree->Get_operand(stmt, 0);
+      IR_ITER lower_result = Opt_lower_expr(expr, func, file, level, conf);
+      if (expr != lower_result) {
+        tree->Replace_recursive(expr, lower_result);
+      }
+      break;
+    }
+    case OPR_ISTORE: {
       // optmize the child
       IR_ITER expr = tree->Get_operand(stmt, 0);
       IR_ITER lower_result = Opt_lower_expr(expr, func, file, level, conf);

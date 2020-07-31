@@ -196,6 +196,61 @@ public:
 
 };
 
+class NInitializeExpr : public NExpression {
+  shared_ptr<ExpressionList> values = make_shared<ExpressionList>();
+  shared_ptr<ExpressionList> children  = make_shared<ExpressionList>();
+public:
+  void Append(const shared_ptr<NExpression> &expr) {
+    if (expr->getTypeName() == "NInitializeExpr") {
+      const shared_ptr<NInitializeExpr> &val =
+          reinterpret_cast<const shared_ptr<NInitializeExpr> &> (expr);
+      for (ExpressionList::iterator it = val->values->begin();
+           it != val->values->end();
+           it++) {
+        values->push_back(*it);
+      }
+      for (ExpressionList::iterator it = val->children->begin();
+           it != val->children->end();
+           it++) {
+        children->push_back(*it);
+      }
+    } else {
+      values->push_back(expr);
+    }
+  }
+  void Add_child(const shared_ptr<NExpression> &expr) {
+    children->push_back(expr);
+  }
+  NInitializeExpr() {
+
+  }
+  string getTypeName() const override {
+    return "NInitializeExpr";
+  }
+  Json::Value jsonGen() const override {
+    Json::Value root;
+    root["name"] = getTypeName();
+    for (auto it = values->begin(); it != values->end(); it++) {
+      root["values"].append((*it)->jsonGen());
+    }
+    for (auto it = children->begin(); it != children->end(); it++) {
+      root["children"].append((*it)->jsonGen());
+    }
+    return root;
+  }
+
+  void print(string prefix) const override {
+    string nextPrefix = prefix + this->m_PREFIX;
+    cout << prefix << getTypeName() << this->m_DELIM << endl;
+    for (auto it = values->begin(); it != values->end(); it++) {
+      (*it)->print(nextPrefix);
+    }
+    for (auto it = children->begin(); it != children->end(); it++) {
+      (*it)->print(nextPrefix);
+    }
+  }
+};
+
 class NMethodCall : public NExpression {
 public:
   const shared_ptr<NIdentifier> id;
