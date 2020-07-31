@@ -180,10 +180,7 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
   } else if (stmt->getTypeName() == "NReturnStatement") {
     visitReturnStmt(tree, parent, level,
                     reinterpret_cast<const shared_ptr<NReturnStatement> &> (stmt));
-  } /*else if (stmt->getTypeName() == "NArrayIndex") {
-    visitArrayDecl(tree, parent, level,
-                    reinterpret_cast<const shared_ptr<NArrayIndex> &> (stmt));
-  }*/ else {
+  } else {
     AssertThat(FALSE, ("not implemented kind of stmt = %s", stmt->getTypeName().c_str()));
   }
   return parent;
@@ -407,22 +404,44 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     tree->Get_node(ldid_node)->Set_symbol_idx(sym);
     IR_ITER cur_node = tree->Insert_temp_node(ldid_node);
     return cur_node;
-  } /*else if (expr->getTypeName() == "NArrayIndex") {
+  } else if (expr->getTypeName() == "NArrayIndex") {
     // use of variable.
     auto val = reinterpret_cast<shared_ptr<NArrayIndex> &>(expr);
     IRNODE_IDX iload_node = tree->Create_node(OPC_I4I4ILOAD);
-    // Find symbol idx.
+    IRNODE_IDX array_node = tree->Create_node(OPC_ARRAY);
+    IRNODE_IDX lda_node = tree->Create_node(OPC_LDA);
+
     ST_IDX sym = File()->Find_symbol_by_name(val->arrayName->name.c_str());
-    if (sym == 0) {
-      Comp_Failure("Use of undeclared symbol : %s ", val->arrayName->name.c_str());
-    }
-    tree->Get_node(iload_node)->Set_symbol_idx(sym);
+    TY_IDX ty = ST_ty(sym);
+    ARB_IDX one_arb = TY_arb(ty);
+
     IR_ITER cur_node = tree->Insert_temp_node(iload_node);
+    tree->Get_node(array_node)->Set_const_val(ARB_dimension(one_arb));
+    tree->Get_node(lda_node)->Set_symbol_idx(sym);
+    tree->Add_child(cur_node, array_node);
+
+    IR_ITER temp_array_node = tree->Get_operand(cur_node, 0);
+    tree->Add_child(temp_array_node, lda_node);
+
+
+    // 插入数组原维度大小的结点
+    int i;
+    for (i = 1; i <= ARB_dimension(one_arb); ++i) {
+      IRNODE_IDX int_const_node = tree->Create_node(OPC_I4CONST);
+      tree->Get_node(int_const_node)->Set_const_val(ARB_ubnd_val(one_arb + i - 1));
+      tree->Set_operand(temp_array_node, i, int_const_node);
+    }
+
+    // 插入加载的各维度结点
+    for (auto it = val->expressions->begin(); it != val->expressions->end(); it++, i++) {
+      auto temp = it->get();
+      IR_ITER dimension = visitExpression(tree, temp_array_node, level,
+                                          static_cast<shared_ptr<struct NExpression>>(temp));
+      tree->Set_operand(temp_array_node, i, dimension);
+    }
+
     return cur_node;
-
-
-    ARB_IDX one_arb = TY_arb(basic_array_ty);
-  } */else {
+  }else {
       AssertThat(false,
         ("Expression type not implemented : %s",
           expr->getTypeName().c_str()));
@@ -471,8 +490,37 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
   }
   STR_IDX var_name_saved = File()->Save_string(varname->name.c_str());
   if (level <= 1) {
-    sym_idx = File()->Create_var(var_name_saved, i4_idx, 1, SYMC_FILE_STATIC,
-                                        SYME_INTERNAL, SYM_CLASS_VAR);
+    // 数组声明
+    if (vartype->isArray) {
+      STR_IDX anon_array = File()->Save_string(varname->name.c_str());//数组名
+      ARB_IDX arb_idx[vartype.get()->arraySize->size()];
+      int i = 0;
+      int j = vartype.get()->arraySize->size();//维数
+      for (auto it = vartype.get()->arraySize->begin(); it != vartype.get()->arraySize->end(); it++, i++) {
+        if (it->get()->getTypeName() == "NInteger") {
+          auto expr = it->get();
+          auto val = reinterpret_cast<shared_ptr<NInteger> &>(expr);
+          arb_idx[i] = File()->Create_array_bound_const(val->value, MTYPE_size(MTYPE_I4), j--,
+                                                        i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
+        } else if (it->get()->getTypeName() == "NIdentifier") {
+          auto expr = it->get();
+          auto val = reinterpret_cast<shared_ptr<NIdentifier> &>(expr);
+          ST_IDX sym = File()->Find_symbol_by_name(val->name.c_str());
+          arb_idx[i] = File()->Create_array_bound_var(sym, MTYPE_size(MTYPE_I4), j--,
+                                                      i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
+        }
+      }
+      TY_IDX array_ty[vartype.get()->arraySize->size()];
+      for (int k = 0; k < vartype.get()->arraySize->size(); ++k) {
+        array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
+                                              k == 0 ? i4_idx : array_ty[k-1], arb_idx[--i]);
+      }
+      sym_idx = File()->Create_var(anon_array, array_ty[vartype.get()->arraySize->size() - 1], 1, SYMC_FILE_STATIC,
+                                   SYME_INTERNAL, SYM_CLASS_VAR);
+    } else {
+      sym_idx = File()->Create_var(var_name_saved, i4_idx, 1, SYMC_FILE_STATIC,
+                                   SYME_INTERNAL, SYM_CLASS_VAR);
+    }
     // Do we need to store this some where?
   } else {
     AssertThat(level == 2, ("Invalid level = %d", level));
@@ -481,8 +529,33 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
     if (is_formal) {
       sclass = SYMC_FORMAL;
     }
-    sym_idx = File()->Create_var(var_name_saved, i4_idx, level, sclass,
-                                        SYME_INTERNAL, SYM_CLASS_VAR);
+    // 数组声明
+    if (vartype->isArray) {
+      STR_IDX anon_array = File()->Save_string(varname->name.c_str());//数组名
+      ARB_IDX arb_idx[vartype.get()->arraySize->size()];
+      int i = 0;
+      int j = vartype.get()->arraySize->size();//维数
+      for (auto it = vartype.get()->arraySize->begin(); it != vartype.get()->arraySize->end(); it++, i++) {
+        if (it->get()->getTypeName() == "NInteger") {
+          auto expr = it->get();
+          auto val = reinterpret_cast<shared_ptr<NInteger> &>(expr);
+          arb_idx[i] = File()->Create_array_bound_const(val->value, MTYPE_size(MTYPE_I4), j--,
+                                                        i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
+        } else if (it->get()->getTypeName() == "NIdentifier") {
+
+        }
+      }
+      TY_IDX array_ty[vartype.get()->arraySize->size()];
+      for (int k = 0; k < vartype.get()->arraySize->size(); ++k) {
+        array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
+                                              k == 0 ? i4_idx : array_ty[k-1], arb_idx[--i]);
+      }
+      sym_idx = File()->Create_var(anon_array, array_ty[vartype.get()->arraySize->size() - 1], level, SYMC_AUTO,
+                                   SYME_INTERNAL, SYM_CLASS_VAR);
+    } else {
+      sym_idx = File()->Create_var(var_name_saved, i4_idx, level, SYMC_AUTO,
+                                   SYME_INTERNAL, SYM_CLASS_VAR);
+    }
     // Parsing the vartype and save to ST table
     if (rhs != nullptr) {
       // assignment is present
@@ -497,61 +570,6 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
   }
   return block_iter;
 }
-/*
-
-IR_ITER visitArrayDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
-                     const shared_ptr<NArrayIndex>& arraydecl) {
-  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
-           (TFile, "Visit Var Decl\n"));
-  std::shared_ptr<NIdentifier> arrayname = arraydecl->arrayName;
-  std::shared_ptr<ExpressionList> expressions = arraydecl->expressions;
-
-  TY_IDX i4_idx = MTYPE_to_ty(MTYPE_I4);
-  ST_IDX sym_idx = File()->Find_symbol_by_name(arrayname->name.c_str());
-  // Check if symbol exists, if so, use the previous one.
-  if (sym_idx != 0) {
-    // Variable redeclare
-    Is_Trace(Tracing(COMPONENT_FE, TRACE_WARN),
-             (TFile, "Variable redeclare: %s\n", arrayname->name.c_str()));
-    return block_iter;
-  }
-  STR_IDX anon_array = File()->Save_string(arrayname->name.c_str());
-  if (level <= 1) {
-    ARB_IDX arb_idx[expressions->size()];//维数
-    int i = 0;
-    int j = expressions->size();
-    for (auto it = expressions->begin(); it != expressions->end(); it++, i++) {
-      IR_ITER expr = visitExpression(tree, if_stmt, level, it);
-      arb_idx[i] = File()->Create_array_bound_const(expr, MTYPE_size(MTYPE_I4), j--,
-                                                    i == 0 ? ARB_FIRST_DIMEN : (i == expressions->size() - 1 ? ARB_LAST_DIMEN : 0));
-    }
-
-    TY_IDX array_ty[expressions->size()];
-    for (int k = 0; k < expressions->size(); ++k) {
-      array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
-                                            k == 0 ? i4_idx : array_ty[k-1], arb_idx[--i]);
-    }
-  } else {
-    AssertThat(level == 2, ("Invalid level = %d", level));
-    AssertThat(tree != NULL && block_iter != NULL, ("Null visit context in visitVarDecl"));
-    ARB_IDX arb_idx[expressions->size()];//维数
-    int i = 0;
-    int j = expressions->size();
-    for (auto it = expressions->begin(); it != expressions->end(); it++, i++) {
-      IR_ITER expr = visitExpression(tree, if_stmt, level, it);
-      arb_idx[i] = File()->Create_array_bound_const(expr, MTYPE_size(MTYPE_I4), j--,
-                                                    i == 0 ? ARB_FIRST_DIMEN : (i == expressions->size() - 1 ? ARB_LAST_DIMEN : 0));
-    }
-
-    TY_IDX array_ty[expressions->size()];
-    for (int k = 0; k < expressions->size(); ++k) {
-      array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
-                                            i4_idx, arb_idx[--i]);
-    }
-  }
-  return block_iter;
-}
-*/
 
 void yyerror(char *s, ...)
 {

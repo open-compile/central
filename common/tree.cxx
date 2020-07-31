@@ -62,6 +62,25 @@ void IRNODE::Print(FILE *f) {
       fprintf(f, " <callee = %d, name = %s> ", Get_symbol_idx(), ST_name(Get_symbol_idx()));
       break;
     }
+
+    case OPR_ARRAY: {
+      fprintf(f, " dimensions = %d ",
+              (INT32) this->Get_const_val());
+      break;
+    }
+    case OPR_LDA: {
+      if (this->Get_symbol_idx() != 0) {
+        fprintf(f, "  var<%s, idx = %0#x, level = %d, tabid = %d, ofst = %d>",
+                ST_name(this->Get_symbol_idx()),
+                this->Get_symbol_idx(),
+                this->Get_symbol_idx() & 0xff,
+                this->Get_symbol_idx() >> 8,
+                this->Get_load_offset());
+      } else {
+        fprintf(f, "  var<%u>", this->Get_symbol_idx());
+      }
+      break;
+    }
     default: {
       // ... nothing to do
     }
