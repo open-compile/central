@@ -7,8 +7,8 @@ set(FE_OBJS
         fe
         fe_test)
 
-add_library(fe fe_main.cxx grammar.cpp token.cpp)
-add_executable(fe_test fe_main.cxx grammar.cpp token.cpp fe_standalone.cxx)
+add_library(fe fe_main.cxx grammar.cpp token.cpp cpp.cxx mem.cxx)
+add_executable(fe_test fe_main.cxx grammar.cpp token.cpp cpp.cxx mem.cxx fe_standalone.cxx)
 
 foreach(ONE_TARG IN LISTS FE_OBJS)
     target_compile_options(${ONE_TARG} PUBLIC -g)

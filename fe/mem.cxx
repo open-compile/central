@@ -1,12 +1,16 @@
+//
+// Created by xc5 on 2020/6/14.
+//
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ncc.h"
+#include "cpp_pre.h"
 
 #define MEMSZ		512
 
-static void mem_extend(struct mem *mem)
+static void mem_extend(MEM_BLK_NC *mem)
 {
 	char *s = mem->s;
 	mem->sz = mem->sz ? mem->sz + mem->sz : MEMSZ;
@@ -16,43 +20,43 @@ static void mem_extend(struct mem *mem)
 	free(s);
 }
 
-void mem_init(struct mem *mem)
+void Cpp_mem_init(MEM_BLK_NC *mem)
 {
 	memset(mem, 0, sizeof(*mem));
 }
 
-void mem_done(struct mem *mem)
+void Cpp_mem_done(MEM_BLK_NC *mem)
 {
 	free(mem->s);
 	memset(mem, 0, sizeof(*mem));
 }
 
-void mem_cut(struct mem *mem, long pos)
+void mem_cut(MEM_BLK_NC *mem, INT64 pos)
 {
 	mem->n = pos < mem->n ? pos : mem->n;
 }
 
-void mem_cpy(struct mem *mem, long off, void *buf, long len)
+void Mem_cpy(MEM_BLK_NC *mem, INT64 off, void *buf, INT64 len)
 {
 	while (mem->n + off + len + 1 >= mem->sz)
 		mem_extend(mem);
 	memcpy(mem->s + off, buf, len);
 }
 
-void mem_put(struct mem *mem, void *buf, long len)
+void mem_put(MEM_BLK_NC *mem, void *buf, INT64 len)
 {
-	mem_cpy(mem, mem->n, buf, len);
+  Mem_cpy(mem, mem->n, buf, len);
 	mem->n += len;
 }
 
-void mem_putc(struct mem *mem, int c)
+void Mem_putc(MEM_BLK_NC *mem, int c)
 {
 	if (mem->n + 2 >= mem->sz)
 		mem_extend(mem);
 	mem->s[mem->n++] = c;
 }
 
-void mem_putz(struct mem *mem, long sz)
+void mem_putz(MEM_BLK_NC *mem, INT64 sz)
 {
 	while (mem->n + sz + 1 >= mem->sz)
 		mem_extend(mem);
@@ -60,8 +64,8 @@ void mem_putz(struct mem *mem, long sz)
 	mem->n += sz;
 }
 
-/* return a pointer to mem's buffer; valid as long as mem is not modified */
-void *mem_buf(struct mem *mem)
+/* return a pointer to MEM_BLK_NC's buffer; valid as INT64 as MEM_BLK_NC is not modified */
+void *Mem_buf(MEM_BLK_NC *mem)
 {
 	if (!mem->s)
 		return (void *) "";
@@ -69,17 +73,17 @@ void *mem_buf(struct mem *mem)
 	return mem->s;
 }
 
-long mem_len(struct mem *mem)
+INT64 Mem_len(struct MEM_BLK_NC *mem)
 {
 	return mem->n;
 }
 
-void *mem_get(struct mem *mem)
+void *Mem_get(struct MEM_BLK_NC *mem)
 {
 	void *ret;
 	if (!mem->s)
 		mem_extend(mem);
 	ret = mem->s;
-	mem_init(mem);
+  Cpp_mem_init(mem);
 	return ret;
 }

@@ -874,7 +874,7 @@ void CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb) {
 
 CGOPC CGIR::Get_branch_cond(IR_ITER cond, BOOL is_true_br) {
   OPERATOR org = OPCODE_operator(tree->Node(cond)->Opcode());
-  if (is_true_br) {
+  if (!is_true_br) {
     switch (org) {
       case OPR_LT:
         org = OPR_GE;

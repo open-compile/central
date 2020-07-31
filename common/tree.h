@@ -164,7 +164,7 @@ enum OPERATOR {
   OPR_ASM_INPUT = 133,
   OPR_RROTATE = 134,
   OPR_LDA_LABEL = 135,
-  OPR_GOTO_OUTER_BLOCK = 136,
+  OPR_GOTO_OUT = 136,
   OPR_EXTRACT_BITS = 137,
   OPR_COMPOSE_BITS = 138,
   OPERATOR_LAST = 138,
@@ -199,6 +199,12 @@ enum REGION_KIND{
 
 enum INTRINSIC {
   INTRN_I4EXPEXPR = 1,
+};
+
+enum GOTO_OUT_LABELS {
+  GOTO_NONE = 0,
+  GOTO_OUT_BREAK = 1,
+  GOTO_OUT_CONTINUE = 2,
 };
 
 class IRNODE {
@@ -366,6 +372,9 @@ public:
              (TFile, "Creating TREE, size = %lu\n", irtree.size()));
   }
   void Print_recursive(FILE *f);
+  void Print() {
+      this->Print_recursive(stdout);
+  }
   IRNODE *Get_node(IRNODE_IDX iridx);
   IRNODE *Get_node(IR_ITER ir_it) { return Get_node(*ir_it); } //alias
   IRNODE *Node(IR_ITER ir_it)     { return Get_node(ir_it);  } //alias
@@ -396,6 +405,7 @@ public:
   IR_ITER Get_parent_block(IR_ITER stmt);
   IR_ITER Get_parent_region(IR_ITER stmt);
   IR_ITER Insert_after(IR_ITER position, IRNODE_IDX node);
+  IR_ITER Insert_before(IR_ITER position, IRNODE_IDX node);
 };
 
 TREE *Tree();

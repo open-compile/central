@@ -24,6 +24,8 @@ static FILE* yyparse_file_ptr;
 
 %option noyywrap
 
+%x C_COMMENT CL_COMMENT
+
 %%
 "#".*                   ;
 [ \t\r\n]				;
@@ -74,7 +76,14 @@ static FILE* yyparse_file_ptr;
 ";"                     Debug_puts("TSEMICOLON"); return TOKEN(TSEMICOLON);
 .						printf("Unknown token:%s\n", yytext); yyterminate();
 
+"/*"            { BEGIN(C_COMMENT); }
+<C_COMMENT>"*/" { BEGIN(INITIAL); }
+<C_COMMENT>\n   { yylineno++; }
+<C_COMMENT>.    { }
 
+"//"            { BEGIN(CL_COMMENT); }
+<CL_COMMENT>\n  { BEGIN(INITIAL); yylineno++; }
+<CL_COMMENT>.   { }
 
 %%
 

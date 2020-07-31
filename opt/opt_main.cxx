@@ -118,6 +118,10 @@ void Opt_verify_block(IR_ITER body, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL 
         Opt_verify_block(block_inside, func, file, level, conf);
         break;
       }
+      case OPR_GOTO_OUT: {
+        AssertThat(tree->Node(stmt)->Get_label_num() == GOTO_OUT_BREAK, ("Not correct label_num"));
+        break;
+      }
       case OPR_RETURN_VAL: {
         AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in RETURN_VAL, 1 expected, got %d", tree->Number_of_children(stmt)));
         IR_ITER expr_val = tree->Get_operand(stmt, 0);
@@ -249,6 +253,7 @@ IR_ITER Opt_lower_expr(IR_ITER expr, PU_INFO *func, FILE_MANAGER *file,
 IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
                        IR_LEVEL level, COMPILER_CONFIG &conf) {
   TREE *tree = func->entry;
+  char *name_buf = new char[128];
   switch (OPCODE_operator(tree->Get_node(stmt)->Opcode())) {
     case OPR_STID: {
       // optmize the child
@@ -259,10 +264,139 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
       }
       break;
     }
+    case OPR_GOTO_OUT: {
+      /*
+       * WHILE_DO
+      // EQ
+      //  BLOCK
+      //   IF ..
+      //    THEN
+              GOTO_OUT break;
+            ELSE
+              GOTO_OUT continue;
+      ->
+       LABEL3
+       WHILE_DO
+         EQ
+         BLOCK
+          IF
+           THEN
+            GOTO LABEL 4
+           ELSE
+            GOTO LABEL 3
+       LABEL 4
+       */
+    }
+    case OPR_WHILE_DO: {
+      IR_ITER expr = tree->Get_operand(stmt, 0);
+      IR_ITER lower_result = Opt_lower_expr(expr, func, file, level, conf);
+      if (expr != lower_result) {
+        tree->Replace_recursive(expr, lower_result);
+      }
+      IR_ITER block_content = tree->Get_operand(stmt, 1);
+      for (UINT32 i = 0; i < block_content.number_of_children(); i++) {
+        IR_ITER child_stmt = tree->Get_operand(block_content, i);
+        Opt_lower_stmt(child_stmt, func, file, level, conf);
+      }
+      // Only go through the following if in a MIDDLE IR.
+      if (level != LEVEL_MID) {
+        break;
+      }
+      /*
+      // WHILE_DO
+      //  EQ
+      //  BLOCK
+      //   ...stmts...
+
+       transform to :
+
+       LABEL 1
+       FALSEBR LABEL 2
+        EQ
+       ... stmts ...
+       GOTO LABEL 1
+       LABEL 2
+      */
+      IR_ITER label1_stmt;
+      sprintf(name_buf, ".L_%d_1_%llu", func->proc_sym, *stmt);
+      STR_IDX    lname       = File()->Save_string(name_buf);
+      IRNODE_IDX label1_node = tree->Create_node(OPC_LABEL);
+      LABEL_IDX  label_id    = File()->Create_label(lname,
+                                                LABEL_ADDR_SAVED,
+                                                LKIND_DEFAULT);
+
+      label1_stmt = tree->Insert_before(stmt, label1_node);
+      tree->Get_node(label1_stmt)->Set_label_num(label_id);
+
+      IRNODE_IDX identifier_node = tree->Create_node(OPC_GOTO);
+      tree->Node(identifier_node)->Set_label_num(label_id);
+      IR_ITER goto_stmt = tree->Insert_after(stmt, identifier_node);
+
+      IR_ITER label2_stmt;
+      sprintf(name_buf, ".L_%d_2_%llu", func->proc_sym, *stmt);
+      STR_IDX    lname2      = File()->Save_string(name_buf);
+      IRNODE_IDX label2_node = tree->Create_node(OPC_LABEL);
+      LABEL_IDX label2_id = File()->Create_label(lname2,
+                                                 LABEL_ADDR_SAVED,
+                                                 LKIND_DEFAULT);
+
+      label2_stmt = tree->Insert_after(goto_stmt, label2_node);
+      tree->Get_node(label2_stmt)->Set_label_num(label2_id);
+
+      /*
+       * WHILE_DO
+       *  EQ
+       *  BLOCK
+       *   STMT1
+       *   STMT2
+       *   ...
+       *   STMTn
+       * GOTO
+       *
+       * ->
+       *
+       * WHILE_DO
+       *   EQ
+       *   BLOCK
+       *    STMT1
+       *    ...
+       *    STMTn
+       * STMT1
+       * STMT2
+       * ...
+       * STMTn
+       * GOTO
+       *
+       */
+      // Move the contents the in while block to before the GOTO stmt.
+      IR_ITER while_block = tree->Get_operand(stmt, 1);
+      UINT32 n_stmts = tree->Number_of_children(while_block);
+      for(UINT32 i = 0; i < n_stmts; i++) {
+        IR_ITER orig = tree->Get_operand(while_block, i);
+        tree->Internal_tree().insert_subtree(goto_stmt, orig);
+      }
+      tree->Remove_node_recursive(while_block);
+      tree->Node(stmt)->Set_opcode(OPC_FALSEBR);
+      tree->Node(stmt)->Set_label_num(label2_id);
+    }
     case OPR_IF: {
+      IR_ITER expr = tree->Get_operand(stmt, 0);
+      IR_ITER lower_result = Opt_lower_expr(expr, func, file, level, conf);
+      if (expr != lower_result) {
+        tree->Replace_recursive(expr, lower_result);
+      }
+      IR_ITER block_content = tree->Get_operand(stmt, 1);
+      for (UINT32 i = 0; i < block_content.number_of_children(); i++) {
+        IR_ITER child_stmt = tree->Get_operand(block_content, i);
+        Opt_lower_stmt(child_stmt, func, file, level, conf);
+      }
+      block_content = tree->Get_operand(stmt, 2);
+      for (UINT32 i = 0; i < block_content.number_of_children(); i++) {
+        IR_ITER child_stmt = tree->Get_operand(block_content, i);
+        Opt_lower_stmt(child_stmt, func, file, level, conf);
+      }
       if (level != LEVEL_MID) break;
       //Move stmts to parent
-      char *name_buf = new char[1200];
       IR_ITER par = tree->Get_parent_block(stmt);
       IR_ITER then = tree->Get_operand(stmt, 1);
       IR_ITER else_blk = tree->Get_operand(stmt, 2);
@@ -284,28 +418,30 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
       IR_ITER temp_end = tree->Insert_after(else_label, lnode_idx);
 
       // Move the kids
-      for(UINT32 i = 0; i < tree->Number_of_children(then); i++) {
-        IR_ITER orig = tree->Get_operand(then, 0);
+      UINT32 n_then = tree->Number_of_children(then);
+      for(UINT32 i = 0; i < n_then; i++) {
+        IR_ITER orig = tree->Get_operand(then, i);
         tree->Internal_tree().insert_subtree(else_label, orig);
       }
       IRNODE_IDX goto_ndoe = tree->Create_node(OPC_GOTO);
       tree->Node(goto_ndoe)->Set_label_num(end_lidx);
       tree->Internal_tree().insert(else_label, goto_ndoe);
 
-      for(UINT32 i = 0; i < tree->Number_of_children(else_blk); i++) {
-        IR_ITER orig = tree->Get_operand(else_blk, 0);
+      UINT32 n_else = tree->Number_of_children(else_blk);
+      for(UINT32 i = 0; i < n_else; i++) {
+        IR_ITER orig = tree->Get_operand(then, i);
         tree->Internal_tree().insert_subtree(temp_end, orig);
       }
       tree->Node(stmt)->Set_label_num(else_lidx);
       tree->Node(stmt)->Set_opcode(OPC_FALSEBR);
       tree->Remove_node_recursive(then);
       tree->Remove_node_recursive(else_blk);
-      delete[] name_buf;
     }
     default: {
       // do nothing about them.
     }
   }
+  delete[] name_buf;
   return stmt;
   // Replace expr if necessary
 }

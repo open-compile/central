@@ -1,4 +1,7 @@
-/* neatcc preprocessor */
+//
+// Created by xc5 on 2020/6/14.
+//
+
 #include <ctype.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -9,24 +12,25 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include "ncc.h"
+#include "cpp_pre.h"
 #include "basic.h"
 
 static char *buf;
-static long len;
-static long cur;
+static INT64 len;
+static INT64 cur;
 
 static struct macro {
 	char name[NAMELEN];	/* macro name */
 	char def[MDEFLEN];	/* macro definition */
 	char args[NARGS][NAMELEN];
-	int nargs;		/* number of arguments */
-	int isfunc;		/* macro is a function */
-	int undef;		/* macro is removed */
+	INT32 nargs;		/* number of arguments */
+	INT32 isfunc;		/* macro is a function */
+	INT32 undef;		/* macro is removed */
 } macros[NDEFS];
-static int mcount = 1;		/* number of macros */
-static int mhead[256];		/* macro hash table heads */
-static int mnext[NDEFS];	/* macro hash table next entries */
+
+static INT32 mcount = 1;		/* number of macros */
+static INT32 mhead[256];		/* macro hash table heads */
+static INT32 mnext[NDEFS];	/* macro hash table next entries */
 
 #define BUF_FILE		0
 #define BUF_MACRO		1
@@ -37,21 +41,21 @@ static int mnext[NDEFS];	/* macro hash table next entries */
 /* preprocessing input buffers for files, macros and macro arguments */
 static struct buf {
 	char *buf;
-	long len;
-	long cur;
-	int type;
+	INT64 len;
+	INT64 cur;
+	INT32 type;
 	/* for BUF_FILE */
 	char path[NAMELEN];
 	/* for BUF_MACRO */
 	struct macro *macro;
 	char args[NARGS][MARGLEN];	/* arguments passed to a macro */
 	/* for BUF_ARG */
-	int arg_buf;			/* the bufs index of the owning macro */
+	INT32 arg_buf;			/* the bufs index of the owning macro */
 } bufs[NBUFS];
-static int bufs_n;
-static int bufs_limit = 0;		/* cpp_read() limit; useful in cpp_eval() */
+static INT32 bufs_n;
+static INT32 bufs_limit = 0;		/* Cpp_read() limit; useful in cpp_eval() */
 
-static void buf_new(int type, char *dat, long dlen)
+static void buf_new(INT32 type, char *dat, INT64 dlen)
 {
 	if (bufs_n) {
 		bufs[bufs_n - 1].buf = buf;
@@ -67,24 +71,24 @@ static void buf_new(int type, char *dat, long dlen)
 	bufs[bufs_n - 1].type = type;
 }
 
-static void buf_file(char *path, char *dat, int dlen)
+static void buf_file(const char *path, char *dat, INT32 dlen)
 {
 	buf_new(BUF_FILE, dat, dlen);
 	strcpy(bufs[bufs_n - 1].path, path ? path : "");
 }
 
-static int macro_arg(struct macro *m, char *arg);
+static INT32 macro_arg(struct macro *m, char *arg);
 
 static void buf_macro(struct macro *m)
 {
-	struct mem mem;
-	char *s = m->def;
-	char arg[NAMELEN];
-	int len;
-	int quote = 0;
-	mem_init(&mem);
+	struct MEM_BLK_NC mem;
+	char              *s = m->def;
+	char              arg[NAMELEN];
+	INT32               len;
+	INT32               quote = 0;
+  Cpp_mem_init(&mem);
 	while (*s) {
-		int numsign = 0;
+		INT32 numsign = 0;
 		if (quote && s[0] == quote)
 			quote = 0;
 		else if (!quote && s[0] == '"')
@@ -104,36 +108,36 @@ static void buf_macro(struct macro *m)
 			if (macro_arg(m, arg) >= 0) {
 				char *def = mbuf->args[macro_arg(m, arg)];
 				if (def && numsign == 1) {
-					mem_putc(&mem, '\"');
+          Mem_putc(&mem, '\"');
 					while (*def) {
 						if (*def == '\"')
-							mem_putc(&mem, '\\');
-						mem_putc(&mem, (unsigned char) *def++);
+              Mem_putc(&mem, '\\');
+            Mem_putc(&mem, (unsigned char) *def++);
 					}
-					mem_putc(&mem, '\"');
+          Mem_putc(&mem, '\"');
 					s = r;
 					continue;
 				}
 				if (def && numsign == 2) {
 					while (*def)
-						mem_putc(&mem, (unsigned char) *def++);
+            Mem_putc(&mem, (unsigned char) *def++);
 					s = r;
 					continue;
 				}
 			}
 		}
 		if (quote && s[0] == '\\')
-			mem_putc(&mem, (unsigned char) *s++);
+      Mem_putc(&mem, (unsigned char) *s++);
 		if (s[0])
-			mem_putc(&mem, (unsigned char) *s++);
+      Mem_putc(&mem, (unsigned char) *s++);
 	}
-	len = mem_len(&mem);
-	buf_new(BUF_MACRO, (char*) mem_get(&mem), len);
-	mem_done(&mem);
+	len = Mem_len(&mem);
+	buf_new(BUF_MACRO, (char*) Mem_get(&mem), len);
+  Cpp_mem_done(&mem);
 	bufs[bufs_n - 1].macro = m;
 }
 
-static void buf_arg(char *arg, int mbuf)
+static void buf_arg(char *arg, INT32 mbuf)
 {
 	buf_new(BUF_ARG, arg, strlen(arg));
 	bufs[bufs_n - 1].arg_buf = mbuf;
@@ -151,16 +155,16 @@ static void buf_pop(void)
 	}
 }
 
-static int buf_iseval(void)
+static INT32 buf_iseval(void)
 {
-	int i;
+	INT32 i;
 	for (i = bufs_n - 1; i >= 0; i--)
 		if (bufs[i].type == BUF_EVAL)
 			return 1;
 	return 0;
 }
 
-static size_t file_size(int fd)
+static size_t file_size(INT32 fd)
 {
 	struct stat st;
 	if (!fstat(fd, &st))
@@ -168,12 +172,12 @@ static size_t file_size(int fd)
 	return 0;
 }
 
-static int include_file(char *path)
+static INT32 include_file(const char *path)
 {
-	int fd = open(path, O_RDONLY);
-	int n = 0, nr = 0;
+	INT32 fd = open(path, O_RDONLY);
+	INT32 n = 0, nr = 0;
 	char *dat;
-	int size;
+	INT32 size;
 	if (fd == -1)
 		return -1;
 	size = file_size(fd) + 1;
@@ -186,14 +190,14 @@ static int include_file(char *path)
 	return 0;
 }
 
-int cpp_init(char *path)
+INT32 Cpp_preprocess_init(const char *path)
 {
 	return include_file(path);
 }
 
-static int jumpws(void)
+static INT32 jumpws(void)
 {
-	int old = cur;
+	INT32 old = cur;
 	while (cur < len && isspace(buf[cur]))
 		cur++;
 	return cur == old;
@@ -207,7 +211,7 @@ static void read_word(char *dst)
 	*dst = '\0';
 }
 
-static int jumpcomment(void)
+static INT32 jumpcomment(void)
 {
 	if (buf[cur] == '/' && buf[cur + 1] == '*') {
 		while (++cur < len) {
@@ -226,7 +230,7 @@ static int jumpcomment(void)
 	return 1;
 }
 
-static int jumpstr(void)
+static INT32 jumpstr(void)
 {
 	if (buf[cur] == '\'') {
 		while (++cur < len && buf[cur] != '\'')
@@ -250,7 +254,7 @@ static void read_tilleol(char *dst)
 	while (cur < len && isspace(buf[cur]) && buf[cur] != '\n')
 		cur++;
 	while (cur < len && buf[cur] != '\n') {
-		int last = cur;
+		INT32 last = cur;
 		if (buf[cur] == '\\' && buf[cur + 1] == '\n') {
 			cur += 2;
 			continue;
@@ -267,18 +271,18 @@ static void read_tilleol(char *dst)
 	*dst = '\0';
 }
 
-static char *locs[NLOCS] = {};
-static int nlocs = 0;
+static const char *locs[NLOCS] = {};
+static INT32 nlocs = 0;
 
 /* header directory */
-void cpp_path(char *s)
+void Cpp_path(const char *s)
 {
 	locs[nlocs++] = s;
 }
 
-static int include_find(char *name, int std)
+static INT32 include_find(const char *name, INT32 std)
 {
-	int i;
+	INT32 i;
 	for (i = std ? nlocs - 1 : nlocs; i >= 0; i--) {
 		char path[1 << 10];
 		if (locs[i])
@@ -293,8 +297,8 @@ static int include_find(char *name, int std)
 
 static void readarg(char *s)
 {
-	int depth = 0;
-	int beg = cur;
+	INT32 depth = 0;
+	INT32 beg = cur;
 	while (cur < len && (depth || (buf[cur] != ',' && buf[cur] != ')'))) {
 		if (!jumpstr() || !jumpcomment())
 			continue;
@@ -318,9 +322,9 @@ static void readarg(char *s)
 }
 
 /* find a macro; if undef is nonzero, search #undef-ed macros too */
-static int macro_find(char *name, int undef)
+static INT32 macro_find(char *name, INT32 undef)
 {
-	int i = mhead[(unsigned char) name[0]];
+	INT32 i = mhead[(unsigned char) name[0]];
 	while (i > 0) {
 		if (!strcmp(name, macros[i].name))
 			if (!macros[i].undef || undef)
@@ -332,14 +336,14 @@ static int macro_find(char *name, int undef)
 
 static void macro_undef(char *name)
 {
-	int i = macro_find(name, 0);
+	INT32 i = macro_find(name, 0);
 	if (i >= 0)
 		macros[i].undef = 1;
 }
 
-static int macro_new(char *name)
+static INT32 macro_new(char *name)
 {
-	int i = macro_find(name, 1);
+	INT32 i = macro_find(name, 1);
 	if (i >= 0)
 		return i;
 	if (mcount >= NDEFS)
@@ -378,24 +382,24 @@ static void macro_define(void)
 }
 
 static char ebuf[MARGLEN];
-static int elen;
-static int ecur;
+static INT32 elen;
+static INT32 ecur;
 
-static long evalexpr(void);
+static INT64 evalexpr(void);
 
-static long cpp_eval(void)
+static INT64 cpp_eval(void)
 {
 	char evalbuf[MARGLEN];
-	int old_limit;
-	long ret, clen;
-	char *cbuf;
+	INT32 old_limit;
+	INT64 ret, clen;
+	const char *cbuf;
 	read_tilleol(evalbuf);
 	buf_new(BUF_EVAL, evalbuf, strlen(evalbuf));
 	elen = 0;
 	ecur = 0;
 	old_limit = bufs_limit;
 	bufs_limit = bufs_n;
-	while (!cpp_read(&cbuf, &clen)) {
+	while (!Cpp_read(&cbuf, &clen)) {
 		memcpy(ebuf + elen, cbuf, clen);
 		elen += clen;
 	}
@@ -405,9 +409,9 @@ static long cpp_eval(void)
 	return ret;
 }
 
-static void jumpifs(int jumpelse)
+static void jumpifs(INT32 jumpelse)
 {
-	int depth = 0;
+	INT32 depth = 0;
 	while (cur < len) {
 		if (buf[cur] == '#') {
 			char cmd[NAMELEN];
@@ -438,7 +442,7 @@ static void jumpifs(int jumpelse)
 	}
 }
 
-static int cpp_cmd(void)
+static INT32 cpp_cmd(void)
 {
 	char cmd[NAMELEN];
 	cur++;
@@ -456,9 +460,9 @@ static int cpp_cmd(void)
 	if (!strcmp("ifdef", cmd) || !strcmp("ifndef", cmd) ||
 						!strcmp("if", cmd)) {
 		char name[NAMELEN];
-		int matched = 0;
+		INT32 matched = 0;
 		if (cmd[2]) {
-			int not_this = cmd[2] == 'n';
+			INT32 not_this = cmd[2] == 'n';
 			read_word(name);
 			matched = not_this ? macro_find(name, 0) < 0 :
 					macro_find(name, 0) >= 0;
@@ -492,18 +496,18 @@ static int cpp_cmd(void)
 	return 1;
 }
 
-static int macro_arg(struct macro *m, char *arg)
+static INT32 macro_arg(struct macro *m, char *arg)
 {
-	int i;
+	INT32 i;
 	for (i = 0; i < m->nargs; i++)
 		if (!strcmp(arg, m->args[i]))
 			return i;
 	return -1;
 }
 
-static int buf_arg_find(char *name)
+static INT32 buf_arg_find(char *name)
 {
-	int i;
+	INT32 i;
 	for (i = bufs_n - 1; i >= 0; i--) {
 		struct buf *mbuf = &bufs[i];
 		struct macro *m = mbuf->macro;
@@ -518,9 +522,9 @@ static int buf_arg_find(char *name)
 static void macro_expand(char *name)
 {
 	struct macro *m;
-	int mbuf;
+	INT32 mbuf;
 	if ((mbuf = buf_arg_find(name)) >= 0) {
-		int arg = macro_arg(bufs[mbuf].macro, name);
+		INT32 arg = macro_arg(bufs[mbuf].macro, name);
 		char *dat = bufs[mbuf].args[arg];
 		buf_arg(dat, mbuf);
 		return;
@@ -532,7 +536,7 @@ static void macro_expand(char *name)
 	}
 	jumpws();
 	if (buf[cur] == '(') {
-		int i = 0;
+		INT32 i = 0;
 		struct buf *mbuf = &bufs[bufs_n];
 		cur++;
 		jumpws();
@@ -551,9 +555,9 @@ static void macro_expand(char *name)
 	}
 }
 
-static int buf_expanding(char *macro)
+static INT32 buf_expanding(char *macro)
 {
-	int i;
+	INT32 i;
 	for (i = bufs_n - 1; i >= 0; i--) {
 		if (bufs[i].type == BUF_ARG)
 			return 0;
@@ -565,9 +569,9 @@ static int buf_expanding(char *macro)
 }
 
 /* return 1 for plain macros and arguments and 2 for function macros */
-static int expandable(char *word)
+static INT32 expandable(char *word)
 {
-	int i;
+	INT32 i;
 	if (buf_arg_find(word) >= 0)
 		return 1;
 	if (buf_expanding(word))
@@ -576,7 +580,7 @@ static int expandable(char *word)
 	return i >= 0 ? macros[i].isfunc + 1 : 0;
 }
 
-void cpp_define(char *name, char *def)
+void Cpp_define(const char *name, const char *def)
 {
 	char tmp_buf[MDEFLEN];
 	sprintf(tmp_buf, "%s\t%s", name, def);
@@ -585,16 +589,16 @@ void cpp_define(char *name, char *def)
 	buf_pop();
 }
 
-static int seen_macro;		/* seen a macro; 2 if a function macro */
+static INT32 seen_macro;		/* seen a macro; 2 if a function macro */
 static char seen_name[NAMELEN];	/* the name of the last macro */
 
-static int hunk_off;
-static int hunk_len;
+static INT32 hunk_off;
+static INT32 hunk_len;
 
-int cpp_read(char **obuf, long *olen)
+INT32 Cpp_read(const char **obuf, INT64 *olen)
 {
-	int old, end;
-	int jump_name = 0;
+	INT32 old, end;
+	INT32 jump_name = 0;
 	*olen = 0;
 	*obuf = "";
 	if (seen_macro == 1) {
@@ -636,7 +640,7 @@ int cpp_read(char **obuf, long *olen)
 				break;
 			}
 			if (buf_iseval() && !strcmp("defined", word)) {
-				int parens = 0;
+				INT32 parens = 0;
 				jumpws();
 				if (buf[cur] == '(') {
 					parens = 1;
@@ -671,16 +675,23 @@ int cpp_read(char **obuf, long *olen)
 #define TOK_EOF		-1
 
 static char etok[NAMELEN];
-static int enext;
+static INT32 enext;
 
 static char *tok2[] = {
-	"<<", ">>", "&&", "||", "==", "!=", "<=", ">="
+  (char *) "<<",
+  (char *) ">>",
+  (char *) "&&",
+  (char *) "||",
+  (char *) "==",
+  (char *) "!=",
+  (char *) "<=",
+  (char *) ">="
 };
 
-static int eval_tok(void)
+static INT32 eval_tok(void)
 {
 	char *s = etok;
-	int i;
+	INT32 i;
 	while (ecur < elen) {
 		while (ecur < elen && isspace(ebuf[ecur]))
 			ecur++;
@@ -710,36 +721,36 @@ static int eval_tok(void)
 	}
 	for (i = 0; i < LEN(tok2); i++)
 		if (TOK2(tok2[i]) == TOK2(ebuf + ecur)) {
-			int ret = TOK2(tok2[i]);
+			INT32 ret = TOK2(tok2[i]);
 			ecur += 2;
 			return ret;
 		}
 	return ebuf[ecur++];
 }
 
-static int eval_see(void)
+static INT32 eval_see(void)
 {
 	if (enext == -1)
 		enext = eval_tok();
 	return enext;
 }
 
-static int eval_get(void)
+static INT32 eval_get(void)
 {
 	if (enext != -1) {
-		int ret = enext;
+		INT32 ret = enext;
 		enext = -1;
 		return ret;
 	}
 	return eval_tok();
 }
 
-static long eval_num(void)
+static INT64 eval_num(void)
 {
 	return atol(etok);
 }
 
-static int eval_jmp(int tok)
+static INT32 eval_jmp(INT32 tok)
 {
 	if (eval_see() == tok) {
 		eval_get();
@@ -748,7 +759,7 @@ static int eval_jmp(int tok)
 	return 1;
 }
 
-static void eval_expect(int tok)
+static void eval_expect(INT32 tok)
 {
 	eval_jmp(tok);
 }
@@ -758,15 +769,15 @@ static char *eval_id(void)
 	return etok;
 }
 
-static long evalcexpr(void);
+static INT64 evalcexpr(void);
 
-static long evalatom(void)
+static INT64 evalatom(void)
 {
 	if (!eval_jmp(TOK_NUM))
 		return eval_num();
 	if (!eval_jmp(TOK_NAME)) {
-		int parens = !eval_jmp('(');
-		long ret;
+		INT32 parens = !eval_jmp('(');
+		INT64 ret;
 		eval_expect(TOK_NAME);
 		ret = macro_find(eval_id(), 0) >= 0;
 		if (parens)
@@ -774,14 +785,14 @@ static long evalatom(void)
 		return ret;
 	}
 	if (!eval_jmp('(')) {
-		long ret = evalcexpr();
+		INT64 ret = evalcexpr();
 		eval_expect(')');
 		return ret;
 	}
 	return -1;
 }
 
-static long evalpre(void)
+static INT64 evalpre(void)
 {
 	if (!eval_jmp('!'))
 		return !evalpre();
@@ -792,9 +803,9 @@ static long evalpre(void)
 	return evalatom();
 }
 
-static long evalmul(void)
+static INT64 evalmul(void)
 {
-	long ret = evalpre();
+	INT64 ret = evalpre();
 	while (1) {
 		if (!eval_jmp('*')) {
 			ret *= evalpre();
@@ -813,9 +824,9 @@ static long evalmul(void)
 	return ret;
 }
 
-static long evaladd(void)
+static INT64 evaladd(void)
 {
-	long ret = evalmul();
+	INT64 ret = evalmul();
 	while (1) {
 		if (!eval_jmp('+')) {
 			ret += evalmul();
@@ -830,9 +841,9 @@ static long evaladd(void)
 	return ret;
 }
 
-static long evalshift(void)
+static INT64 evalshift(void)
 {
-	long ret = evaladd();
+	INT64 ret = evaladd();
 	while (1) {
 		if (!eval_jmp(TOK2("<<"))) {
 			ret <<= evaladd();
@@ -847,9 +858,9 @@ static long evalshift(void)
 	return ret;
 }
 
-static long evalcmp(void)
+static INT64 evalcmp(void)
 {
-	long ret = evalshift();
+	INT64 ret = evalshift();
 	while (1) {
 		if (!eval_jmp('<')) {
 			ret = ret < evalshift();
@@ -872,9 +883,9 @@ static long evalcmp(void)
 	return ret;
 }
 
-static long evaleq(void)
+static INT64 evaleq(void)
 {
-	long ret = evalcmp();
+	INT64 ret = evalcmp();
 	while (1) {
 		if (!eval_jmp(TOK2("=="))) {
 			ret = ret == evalcmp();
@@ -889,49 +900,49 @@ static long evaleq(void)
 	return ret;
 }
 
-static long evalbitand(void)
+static INT64 evalbitand(void)
 {
-	long ret = evaleq();
+	INT64 ret = evaleq();
 	while (!eval_jmp('&'))
 		ret &= evaleq();
 	return ret;
 }
 
-static long evalxor(void)
+static INT64 evalxor(void)
 {
-	long ret = evalbitand();
+	INT64 ret = evalbitand();
 	while (!eval_jmp('^'))
 		ret ^= evalbitand();
 	return ret;
 }
 
-static long evalbitor(void)
+static INT64 evalbitor(void)
 {
-	long ret = evalxor();
+	INT64 ret = evalxor();
 	while (!eval_jmp('|'))
 		ret |= evalxor();
 	return ret;
 }
 
-static long evaland(void)
+static INT64 evaland(void)
 {
-	long ret = evalbitor();
+	INT64 ret = evalbitor();
 	while (!eval_jmp(TOK2("&&")))
 		ret = ret && evalbitor();
 	return ret;
 }
 
-static long evalor(void)
+static INT64 evalor(void)
 {
-	long ret = evaland();
+	INT64 ret = evaland();
 	while (!eval_jmp(TOK2("||")))
 		ret = ret || evaland();
 	return ret;
 }
 
-static long evalcexpr(void)
+static INT64 evalcexpr(void)
 {
-	long ret = evalor();
+	INT64 ret = evalor();
 	if (eval_jmp('?'))
 		return ret;
 	if (ret)
@@ -941,16 +952,16 @@ static long evalcexpr(void)
 	return evalor();
 }
 
-static long evalexpr(void)
+static INT64 evalexpr(void)
 {
 	enext = -1;
 	return evalcexpr();
 }
 
-static int buf_loc(char *s, int off)
+static INT32 buf_loc(char *s, INT32 off)
 {
 	char *e = s + off;
-	int n = 1;
+	INT32 n = 1;
 	while ((s = strchr(s, '\n')) && s < e) {
 		n++;
 		s++;
@@ -958,11 +969,11 @@ static int buf_loc(char *s, int off)
 	return n;
 }
 
-char *cpp_loc(long addr)
+char *cpp_loc(INT64 addr)
 {
 	static char loc[256];
-	int line = -1;
-	int i;
+	INT32 line = -1;
+	INT32 i;
 	for (i = bufs_n - 1; i > 0; i--)
 		if (bufs[i].type == BUF_FILE)
 			break;

@@ -750,8 +750,8 @@ private:
   GROWING_TABLE<IDX, T> tab;
 public:
   explicit RELATED_SYMTAB_ACCESS(FILE_SYMTAB *symtab) : _symtab(symtab) {
-    Is_Trace(Tracing(COMPONENT_FE, TRACE_INVOCATION),
-             (TFile, "Creating a table %s\n", typeid(this).name()));
+    //Is_Trace(Tracing(COMPONENT_FE, TRACE_INVOCATION),
+    //         (TFile, "Creating a table %s\n", typeid(this).name()));
   };
   T *operator[] (IDX idx) {
     return Get(idx);
