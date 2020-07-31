@@ -1,0 +1,11 @@
+int a = 1;
+int b = 2;
+int c;
+
+int foo() {
+  if (a != b) {
+    c = a;
+  } else {
+    c = b;
+  }
+}
