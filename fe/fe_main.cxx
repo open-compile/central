@@ -423,32 +423,19 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
 
 
     // 插入数组原维度大小的结点
-    for (int i = 0; i < ARB_dimension(one_arb); ++i) {
+    int i;
+    for (i = 1; i <= ARB_dimension(one_arb); ++i) {
       IRNODE_IDX int_const_node = tree->Create_node(OPC_I4CONST);
-      tree->Get_node(int_const_node)->Set_const_val(ARB_ubnd_val(one_arb + i));
-      tree->Add_child(temp_array_node, int_const_node);
+      tree->Get_node(int_const_node)->Set_const_val(ARB_ubnd_val(one_arb + i - 1));
+      tree->Set_operand(temp_array_node, i, int_const_node);
     }
 
     // 插入加载的各维度结点
-    int i = 0;
     for (auto it = val->expressions->begin(); it != val->expressions->end(); it++, i++) {
       auto temp = it->get();
-      if (temp->getTypeName() == "NInteger") {
-        auto dimension = reinterpret_cast<shared_ptr<NInteger> &>(temp);
-        IRNODE_IDX int_const_node = tree->Create_node(OPC_I4CONST);
-        tree->Get_node(int_const_node)->Set_const_val(dimension->value);
-        tree->Add_child(temp_array_node, int_const_node);
-      } else if (temp->getTypeName() == "NIdentifier") {
-        auto dimension = reinterpret_cast<shared_ptr<NIdentifier> &>(temp);
-        IRNODE_IDX ldid_node = tree->Create_node(OPC_I4LDID);
-        // Find symbol idx.
-        ST_IDX sym = File()->Find_symbol_by_name(dimension->name.c_str());
-        if (sym == 0) {
-          Comp_Failure("Use of undeclared symbol : %s ", dimension->name.c_str());
-        }
-        tree->Get_node(ldid_node)->Set_symbol_idx(sym);
-        tree->Add_child(temp_array_node, ldid_node);
-      }
+      IR_ITER dimension = visitExpression(tree, temp_array_node, level,
+                                          static_cast<shared_ptr<struct NExpression>>(temp));
+      tree->Set_operand(temp_array_node, i, dimension);
     }
 
     return cur_node;
