@@ -257,6 +257,10 @@ CGIR::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb) {
                                  0);
     Cfg()->BB(cur_bb)->Add_stmt(cgop);
   }
+  LABEL_IDX lbl = File()->Get_func_exit_label();
+  CGOP    *cgop     = new CGOP(CGOPC_B, cur_bb,
+                               0, TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0);
+  Cfg()->BB(cur_bb)->Add_stmt(cgop);
 }
 
 void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
@@ -347,6 +351,7 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
   // Adding function epilog (exit BB)
   cur_bb = Cfg()->Add_bb(cur_bb);
   Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_EXIT);
+  Cfg()->BB(cur_bb)->Set_label_id(File()->Get_func_exit_label());
   Cfg()->BB(cur_bb)->Add_stmt(
     new CGOP(CGOPC_BX, cur_bb,
              0,

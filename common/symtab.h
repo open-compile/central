@@ -378,13 +378,14 @@ using ARB_LIST = std::vector<ARB *>;
 
 enum LABEL_KIND {
   LKIND_DEFAULT = 0,
-  LKIND_ASSIGNED = 1, // in ASSIGNED statement
-  LKIND_BEGIN_EH_RANGE = 2,
-  LKIND_END_EH_RANGE = 3,
+  LKIND_NEVER = 1,
+  LKIND_ENTRY = 2,
+  LKIND_EXIT = 3,
   LKIND_BEGIN_HANDLER = 4,
   LKIND_END_HANDLER = 5,
   LKIND_TAG = 6, // symbolic address, never branched to
-  LKIND_RELOC = 7,
+  LKIND_RELOC = 7, // addr label, used for loading addressing for
+                   // variables in .data section.
 };
 
 enum LABEL_FLAGS {
@@ -404,6 +405,8 @@ struct LABEL {
     // AssertThat(FALSE, ("LABEL default constructor must not be called."));
     name_idx = 0;
     kind = LKIND_DEFAULT;
+    flags = 0;
+    temp_sym = 0;
   }
 
   STR_IDX Get_name_idx() const {
@@ -988,6 +991,8 @@ public:
 
   ST_IDX Find_symbol_by_name(const char *name);
   LABEL_IDX Create_preg(STR_IDX preg_name, UINT32 desire_num);
+
+  LABEL_IDX Get_func_exit_label();
 };
 const char *STR_str(STR_IDX idx);
 

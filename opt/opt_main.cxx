@@ -276,9 +276,13 @@ IR_ITER Opt_lower_expr(IR_ITER expr, PU_INFO *func, FILE_MANAGER *file,
     // visit child
     for (UINT32 ch_id = 0; ch_id < tree->Number_of_children(expr); ch_id++) {
       IR_ITER ch = tree->Get_operand(expr, ch_id);
-      IR_ITER res = Opt_lower_expr(ch, func, file, level, conf);
-      if (ch != res) {
-        tree->Replace_recursive(ch, res);
+      if (tree->Node(expr)->Opcode() == OPC_BLOCK) {
+        Opt_lower_stmt(ch, func, file, level, conf);
+      } else {
+        IR_ITER res = Opt_lower_expr(ch, func, file, level, conf);
+        if (ch != res) {
+          tree->Replace_recursive(ch, res);
+        }
       }
     }
   }
@@ -390,25 +394,17 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
                        IR_LEVEL level, COMPILER_CONFIG &conf) {
   TREE *tree = func->entry;
   char *name_buf = new char[128];
+  if (tree->Number_of_children(stmt) >= 0) {
+    // visit child
+    for (UINT32 ch_id = 0; ch_id < tree->Number_of_children(stmt); ch_id++) {
+      IR_ITER ch = tree->Get_operand(stmt, ch_id);
+      IR_ITER res = Opt_lower_expr(ch, func, file, level, conf);
+      if (ch != res) {
+        tree->Replace_recursive(ch, res);
+      }
+    }
+  }
   switch (OPCODE_operator(tree->Get_node(stmt)->Opcode())) {
-    case OPR_STID: {
-      // optmize the child
-      IR_ITER expr = tree->Get_operand(stmt, 0);
-      IR_ITER lower_result = Opt_lower_expr(expr, func, file, level, conf);
-      if (expr != lower_result) {
-        tree->Replace_recursive(expr, lower_result);
-      }
-      break;
-    }
-    case OPR_ISTORE: {
-      // optmize the child
-      IR_ITER expr = tree->Get_operand(stmt, 0);
-      IR_ITER lower_result = Opt_lower_expr(expr, func, file, level, conf);
-      if (expr != lower_result) {
-        tree->Replace_recursive(expr, lower_result);
-      }
-      break;
-    }
     case OPR_GOTO_OUT: {
       /*
        * WHILE_DO
@@ -525,13 +521,9 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
       tree->Remove_node_recursive(while_block);
       tree->Node(stmt)->Set_opcode(OPC_FALSEBR);
       tree->Node(stmt)->Set_label_num(label2_id);
+      break;
     }
     case OPR_IF: {
-      IR_ITER expr = tree->Get_operand(stmt, 0);
-      IR_ITER lower_result = Opt_lower_expr(expr, func, file, level, conf);
-      if (expr != lower_result) {
-        tree->Replace_recursive(expr, lower_result);
-      }
       IR_ITER block_content = tree->Get_operand(stmt, 1);
       for (UINT32 i = 0; i < block_content.number_of_children(); i++) {
         IR_ITER child_stmt = tree->Get_operand(block_content, i);
@@ -583,6 +575,7 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
       tree->Node(stmt)->Set_opcode(OPC_FALSEBR);
       tree->Remove_node_recursive(then);
       tree->Remove_node_recursive(else_blk);
+      break;
     }
     default: {
       // do nothing about them.

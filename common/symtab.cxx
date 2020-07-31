@@ -520,6 +520,22 @@ LABEL_IDX FILE_MANAGER::Create_preg(STR_IDX preg_name, UINT32 desire_num) {
   return preg_idx;
 }
 
+LABEL_IDX FILE_MANAGER::Get_func_exit_label() {
+  LABEL_TABLE *lbt = Tables()->Label();
+  SCOPE *scope = Scopes()->Current();
+  for (UINT32 i = 0; i < lbt->Length(scope); i++) {
+    LABEL_IDX lbl = (i << 8) + LOCAL_SYMTAB;
+    if (LABEL_label(lbl)->kind == LKIND_EXIT) {
+      return lbl;
+    }
+  }
+  ST_IDX st = scope->st_idx;
+  char names[120];
+  sprintf(names, ".L%d_endfunc", st);
+  return Create_label(Save_string(names),
+                      LABEL_FLAGS::LABEL_ADDR_SAVED, LKIND_EXIT);
+}
+
 void SCOPE::Print(FILE *f) {
   if (st_idx <= 0) {
     fprintf(f, "[Scope] sym = %d, (dummy function)", st_idx);

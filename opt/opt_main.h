@@ -24,4 +24,7 @@ void Opt_verify_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
 void Opr_lower_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
                         COMPILER_CONFIG &conf);
 
+IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
+                       IR_LEVEL level, COMPILER_CONFIG &conf);
+
 #endif //OCC_OPT_MAIN_H
