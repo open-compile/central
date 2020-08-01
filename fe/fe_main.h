@@ -85,6 +85,9 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
 IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
                             const shared_ptr<NAssignment> &stmt);
 
+IR_ITER visitArrayAssignmentStmt(TREE *tree, IR_ITER parent, int level,
+                                 const shared_ptr<NArrayAssignment> &stmt);
+
 IR_ITER visitIfStmt(TREE *tree, IR_ITER parent, int level,
                     const shared_ptr<NIfStatement> &stmt);
 
@@ -101,10 +104,7 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
                         shared_ptr<NExpression> expr);
 
 IR_ITER visitIdentifierStmt(TREE *tree, IR_ITER parent, int level,
-                     const shared_ptr<NIdentifier> &stmt);
-
-IR_ITER visitArrayDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level,
-                       const shared_ptr<NArrayIndex>& arraydecl);
+                            const shared_ptr<NIdentifier> &stmt);
 
 OPERATOR Get_op_by_token(FEOPCODE op);
 MTYPE_ID Get_rtype_by_token(FEOPCODE op);

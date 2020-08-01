@@ -177,6 +177,9 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
   } else if (stmt->getTypeName() == "NReturnStatement") {
     visitReturnStmt(tree, parent, level,
                     reinterpret_cast<const shared_ptr<NReturnStatement> &> (stmt));
+  } else if (stmt->getTypeName() == "NArrayAssignment") {
+    visitArrayAssignmentStmt(tree, parent, level,
+                    reinterpret_cast<const shared_ptr<NArrayAssignment> &> (stmt));
   } else {
     AssertThat(FALSE, ("not implemented kind of stmt = %s", stmt->getTypeName().c_str()));
   }
@@ -346,6 +349,58 @@ IR_ITER visitIdentifierStmt(TREE *tree, IR_ITER parent, int level,
   return parent;
 }
 
+IR_ITER visitArrayAssignmentStmt(TREE *tree, IR_ITER parent, int level,
+                            const shared_ptr<NArrayAssignment> &stmt) {
+  std::shared_ptr<NArrayIndex> array_index = stmt->arrayIndex;
+  shared_ptr<NExpression> rhs = stmt->expression;
+
+  AssertThat(array_index != nullptr, ("Array index should not be null"));
+  AssertThat(rhs != nullptr, ("Rhs should not be null"));
+
+  IR_ITER stid_stmt;
+  IRNODE_IDX assignment_node = tree->Create_node(OPC_I4I4ISTORE);
+  stid_stmt = tree->Insert_stmt_to_block(parent, assignment_node);
+
+  // 插入表达式结点
+  IR_ITER rhs_expr = visitExpression(tree, stid_stmt, level, rhs);
+  AssertThat(rhs_expr != parent && rhs_expr != stid_stmt && rhs_expr != nullptr, ("Invalid expr conversion result"));
+  tree->Set_operand(stid_stmt, 0, rhs_expr);
+
+  IRNODE_IDX array_node = tree->Create_node(OPC_ARRAY);
+  IRNODE_IDX lda_node = tree->Create_node(OPC_LDA);
+
+  ST_IDX sym = File()->Find_symbol_by_name(array_index->arrayName->name.c_str());
+  TY_IDX ty = ST_ty(sym);
+  ARB_IDX one_arb = TY_arb(ty);
+  tree->Get_node(array_node)->Set_const_val(ARB_dimension(one_arb));
+  tree->Get_node(lda_node)->Set_symbol_idx(sym);
+
+  // 插入array结点
+  tree->Set_operand(stid_stmt, 1, array_node);
+
+  // 插入lda结点
+  IR_ITER temp_array_node = tree->Get_operand(stid_stmt, 1);
+  tree->Add_child(temp_array_node, lda_node);
+
+  // 插入数组原维度大小的结点
+  int i;
+  for (i = 1; i <= ARB_dimension(one_arb); ++i) {
+    IRNODE_IDX int_const_node = tree->Create_node(OPC_I4CONST);
+    tree->Get_node(int_const_node)->Set_const_val(ARB_ubnd_val(one_arb + i - 1));
+    tree->Set_operand(temp_array_node, i, int_const_node);
+  }
+
+  // 插入加载的各维度结点
+  for (auto it = array_index->expressions->begin(); it != array_index->expressions->end(); it++, i++) {
+    auto temp = it->get();
+    IR_ITER dimension = visitExpression(tree, temp_array_node, level,
+                                        static_cast<shared_ptr<struct NExpression>>(temp));
+    tree->Set_operand(temp_array_node, i, dimension);
+  }
+
+  return parent;
+}
+
 IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
                             const shared_ptr<NAssignment> &stmt) {
   std::shared_ptr<NIdentifier> varname = stmt->lhs;
@@ -438,7 +493,6 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
 
     IR_ITER temp_array_node = tree->Get_operand(cur_node, 0);
     tree->Add_child(temp_array_node, lda_node);
-
 
     // 插入数组原维度大小的结点
     int i;
@@ -605,14 +659,51 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
                (TFile, "INITO creation not implemented now, continue to use assignment expr"));
     }
     AssertThat(level == LOCAL_SYMTAB, ("Incorrect level"));
-    // assignment is present, create stmts to do this.
-    IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
-    tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
-    tree->Get_node(assignment_node)->Set_load_offset(0);
-    IR_ITER stid_stmt = tree->Insert_stmt_to_block(block_iter, assignment_node);
-    IR_ITER rhs_expr = visitExpression(tree, stid_stmt, level, rhs);
-    AssertThat(rhs_expr != block_iter && rhs_expr != stid_stmt && rhs_expr != nullptr, ("Invalid expr conversion result"));
-    tree->Set_operand(stid_stmt, 0, rhs_expr);
+
+    // 数组初始化
+    if (vartype->isArray) {
+      IR_ITER stid_stmt;
+      IRNODE_IDX assignment_node = tree->Create_node(OPC_I4I4ISTORE);
+      stid_stmt = tree->Insert_stmt_to_block(block_iter, assignment_node);
+
+      // 插入表达式结点
+      IR_ITER rhs_expr = visitExpression(tree, stid_stmt, level, rhs);
+      AssertThat(rhs_expr != block_iter && rhs_expr != stid_stmt && rhs_expr != nullptr, ("Invalid expr conversion result"));
+      tree->Set_operand(stid_stmt, 0, rhs_expr);
+
+      IRNODE_IDX array_node = tree->Create_node(OPC_ARRAY);
+      IRNODE_IDX lda_node = tree->Create_node(OPC_LDA);
+
+      ST_IDX sym = File()->Find_symbol_by_name(varname->name.c_str());
+      TY_IDX ty = ST_ty(sym);
+      ARB_IDX one_arb = TY_arb(ty);
+      tree->Get_node(array_node)->Set_const_val(ARB_dimension(one_arb));
+      tree->Get_node(lda_node)->Set_symbol_idx(sym);
+
+      // 插入array结点
+      tree->Set_operand(stid_stmt, 1, array_node);
+
+      // 插入lda结点
+      IR_ITER temp_array_node = tree->Get_operand(stid_stmt, 1);
+      tree->Add_child(temp_array_node, lda_node);
+
+      // 插入数组原维度大小的结点
+      int i;
+      for (i = 1; i <= ARB_dimension(one_arb); ++i) {
+        IRNODE_IDX int_const_node = tree->Create_node(OPC_I4CONST);
+        tree->Get_node(int_const_node)->Set_const_val(ARB_ubnd_val(one_arb + i - 1));
+        tree->Set_operand(temp_array_node, i, int_const_node);
+      }
+    } else {
+      // assignment is present, create stmts to do this.
+      IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
+      tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
+      tree->Get_node(assignment_node)->Set_load_offset(0);
+      IR_ITER stid_stmt = tree->Insert_stmt_to_block(block_iter, assignment_node);
+      IR_ITER rhs_expr = visitExpression(tree, stid_stmt, level, rhs);
+      AssertThat(rhs_expr != block_iter && rhs_expr != stid_stmt && rhs_expr != nullptr, ("Invalid expr conversion result"));
+      tree->Set_operand(stid_stmt, 0, rhs_expr);
+    }
   }
   return block_iter;
 }
