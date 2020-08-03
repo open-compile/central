@@ -340,6 +340,23 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
       return res;
     }
   }
+  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_MOD &&
+      level == LEVEL_LOW) {
+    /*
+     * MOD
+     *  A
+     *  B
+     * ->
+     * SUB
+     *   A
+     *   MPY
+     *    B
+     *    DIV
+     *     A
+     *     B
+     * */
+
+  }
   if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_LAND &&
       level == LEVEL_LOW) {
     // Lower
@@ -383,25 +400,52 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
     /*
      * FALSEBR LABEL X
      *   EXPR0 (maybe LAND)
-     *     LAND
+     *     BIOR
      *       EXPR1
      *       EXPR2
      *     EXPR 3
      *  ->
      *
-     *  FALSEBR LABEL X
+     *  TRUEBR LABEL 6
      *    EXPR 1
      *
      *  FALSEBR LABEL X
      *    EXPR 0 (maybe LAND)
      *      EXPR 2
      *      EXPR 3
+     *  LABEL 6
      * */
-    IR_ITER false_br_orig = tree->Get_parent_in_block(expr);
-    IR_ITER block = tree->Get_parent(false_br_orig);
-    AssertThat(tree->Node(false_br_orig)->Opcode() == OPC_FALSEBR, ("Not in a falsebr"));
-    IRNODE_IDX new_false_br = tree->Create_node(OPC_FALSEBR);
-    return expr;
+    IR_ITER lhs = tree->Get_operand(expr, 0);
+    IR_ITER rhs = tree->Get_operand(expr, 1);
+    IR_ITER use_stmt = tree->Get_parent_in_block(expr);
+    IR_ITER block = tree->Get_parent(use_stmt);
+    AssertThat(tree->Node(use_stmt)->Opcode() == OPC_FALSEBR,
+               ("Not in a falsebr, it it a %s. ",
+                 OPCODE_name(tree->Node(use_stmt)->Opcode())));
+    IRNODE_IDX new_true_br = tree->Create_node(OPC_TRUEBR);
+    IRNODE_IDX after_label = tree->Create_node(OPC_LABEL);
+    LABEL_IDX  label3_id = 0;
+    const IR_ITER &next_sib = tree->Internal_tree().next_sibling(expr);
+    if (tree->Internal_tree().is_valid(next_sib) &&
+        tree->Node(next_sib)->Opcode() == OPC_LABEL) {
+      label3_id = tree->Node(next_sib)->Get_label_num();
+    } else {
+      char name_buf[1024];
+      sprintf(name_buf, ".L_%d_tbr_%llu", func->proc_sym, *expr);
+      STR_IDX    lname3      = File()->Save_string(name_buf);
+      IRNODE_IDX label3_node = tree->Create_node(OPC_LABEL);
+      label3_id = File()->Create_label(lname3,LABEL_ADDR_SAVED,
+                                              LKIND_DEFAULT);
+      tree->Node(label3_node)->Set_label_num(label3_id);
+      IR_ITER new_label = tree->Insert_after(use_stmt, label3_node);
+    }
+    tree->Node(new_true_br)->Set_label_num(label3_id);
+    IR_ITER new_false_br_stmt = tree->Insert_before(use_stmt, new_true_br);
+    IR_ITER expr_lhs = tree->Set_operand(new_false_br_stmt, 0, new_true_br);
+    IR_ITER expr_rhs = tree->Set_operand(new_false_br_stmt, 1, new_true_br);
+    expr_lhs = tree->Replace_recursive(expr_lhs, lhs);
+    expr_rhs = tree->Replace_recursive(expr_rhs, rhs);
+    return expr_rhs;
   }
   if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_LDID &&
       conf.Opt_enabled(OPT_KIND_LDID_CONST)  &&

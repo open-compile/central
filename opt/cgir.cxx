@@ -420,8 +420,8 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
       return Handle_ILOAD(entry, cur_bb, result);
     }
     case OPR_CONST: {
-      UINT64 val = tree->Node(entry)->Get_const_val();
-      AssertThat(val < (1llu << 32u), ("val should be with in range"));
+      INT64 val = tree->Node(entry)->Get_const_val();
+      AssertThat(val < (1ll << 32l), ("val should be with in range"));
       Cfg()->BB(cur_bb)->Add_stmt(
           new CGOP(CGOPC_MOV, cur_bb, TN_tn_idx(result),
                  TN_tn_idx(Gen_Literal_TN((val) & 0xFFFF, 2)), 0, 0));
@@ -432,6 +432,7 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
       }
       return result;
     }
+    case OPR_MOD:
     case OPR_BIOR:
     case OPR_LAND:
     case OPR_ADD:

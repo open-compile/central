@@ -38,11 +38,17 @@
 %type <var_decl> basic_var_decl
 
 %left TLOR
+%left ORDING_COMP
 %left TLAND
-%left TCEQ TCNE TCLT TCLE TCGT TCGE
+%left ANDING_COMP
+%left TCEQ TCNE TCLT TCLE TCGT TCGE TXOR TSHIFTL TSHIFTR
+%left PREC_COMP
 %left TPLUS TMINUS
+%left BIN_COMP
 %left TMUL TDIV TMOD
+%left EAGER_BIN_COMP
 %right TNOT TANOT
+%left HIGHEST_BIN_COMP
 
 %start program
 
@@ -146,17 +152,20 @@ expr : 	 ident TLPAREN call_args TRPAREN { $$ = new NMethodCall(shared_ptr<NIden
 		 | TLPAREN expr TRPAREN { $$ = $2; }
 		 | array_index { $$ = $1; }
 		 | ident TDOT ident { $$ = new NStructMember(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($3)); }
-		 | TNOT expr { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
-		 | TANOT expr { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
-		 | TMINUS expr { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
-		 | expr TMOD expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
-		 | expr TMUL expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
-		 | expr TDIV expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
-		 | expr TPLUS expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
-		 | expr TMINUS expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
-		 | expr comparison expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
-		 | expr and_comparison expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
-		 | expr or_comparison expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
+		 | TNOT expr %prec HIGHEST_BIN_COMP { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
+		 | TANOT expr %prec HIGHEST_BIN_COMP { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
+		 | TMINUS expr %prec HIGHEST_BIN_COMP { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
+		 | expr TMOD expr %prec EAGER_BIN_COMP { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
+		 | expr TMUL expr %prec EAGER_BIN_COMP { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
+		 | expr TDIV expr %prec EAGER_BIN_COMP { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
+		 | expr TPLUS expr %prec BIN_COMP { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
+		 | expr TMINUS expr %prec BIN_COMP { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
+		 | expr comparison expr  %prec PREC_COMP
+		   { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
+		 | expr and_comparison expr %prec ANDING_COMP
+		  { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
+		 | expr or_comparison expr %prec ORDING_COMP
+		  { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
 		 | assign { $$ = $1; }
 		 | TLITERAL { $$ = new NLiteral(*$1); delete $1; }
 		 ;
@@ -196,13 +205,13 @@ assign : ident TEQUAL expr { $$ = new NAssignment(shared_ptr<NIdentifier>($1), s
 call_args : /* blank */ { $$ = new ExpressionList(); }
 					| expr { $$ = new ExpressionList(); $$->push_back(shared_ptr<NExpression>($1)); }
 					| call_args TCOMMA expr { $1->push_back(shared_ptr<NExpression>($3)); }
-comparison : TLAND | TLOR | TCEQ | TCNE | TCLT | TCLE | TCGT | TCGE
+comparison : TCEQ | TCNE | TCLT | TCLE | TCGT | TCGE
 	   | TXOR | TSHIFTL | TSHIFTR
 	   ;
 
-and_comparison: TAND
+and_comparison: TLAND
 		;
-or_comparison: TOR
+or_comparison: TLOR
 		;
 
 block_or_single_stmt : block { $$ = $1; }

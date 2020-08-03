@@ -20,7 +20,6 @@ BIN_OP_TO_OPR FEOPCODE_INFO[] = {
   { "*", TMUL,   OPR_MPY, MTYPE_I4 },
   { "-", TMINUS, OPR_SUB, MTYPE_I4 },
   { "/", TDIV,   OPR_DIV, MTYPE_I4 },
-  { "/", TMOD,   OPR_MOD, MTYPE_I4 },
   { "<", TCLT,   OPR_LT , MTYPE_B  },
   { ">", TCGT,   OPR_GT , MTYPE_B  },
   { "%", TMOD,   OPR_MOD , MTYPE_I4  },
@@ -558,7 +557,6 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
       tree->Node(rhs)->Set_const_val(-tree->Node(rhs)->Get_const_val());
     } else {
       OPCODE opc = (u_op->op == TNEG) ? OPC_I4I4SUB : OPC_I4I4ADD;
-      IR_ITER rhs = visitExpression(tree, parent, level, u_op->rhs);
       IRNODE_IDX opr_node = tree->Create_node(opc);
       IRNODE_IDX zero_node = tree->Create_node(OPC_I4CONST);
       cur_node = tree->Insert_temp_node(opr_node);
