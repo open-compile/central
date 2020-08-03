@@ -248,7 +248,19 @@ IR_ITER visitStatement(TREE *tree, IR_ITER parent, int level,
                     reinterpret_cast<const shared_ptr<NReturnStatement> &> (stmt));
   } else if (stmt->getTypeName() == "NArrayAssignment") {
     visitArrayAssignmentStmt(tree, parent, level,
-                    reinterpret_cast<const shared_ptr<NArrayAssignment> &> (stmt));
+                             reinterpret_cast<const shared_ptr<NArrayAssignment> &> (stmt));
+  } else if (stmt->getTypeName() == "NExpressionStatement") {
+    shared_ptr<NExpressionStatement> expr = reinterpret_cast<const shared_ptr<NExpressionStatement> &> (stmt);
+    if (expr->expression->getTypeName() == "NBlock") {
+      visitBlock(tree, parent, level,
+                 reinterpret_cast<const shared_ptr<NBlock> &> (expr->expression));
+    } else {
+      AssertThat(FALSE,
+                 ("not implemented kind of expr-stmt, expr = %s", expr->getTypeName().c_str()));
+    }
+  } else if (stmt->getTypeName() == "NBlock") {
+    shared_ptr<NBlock> expr = reinterpret_cast<const shared_ptr<NBlock> &> (stmt);
+    visitBlock(tree, parent, level, expr);
   } else {
     AssertThat(FALSE, ("not implemented kind of stmt = %s", stmt->getTypeName().c_str()));
   }

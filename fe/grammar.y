@@ -45,8 +45,17 @@
 %%
 program : stmts { programBlock = $1; }
 				;
+
+block : TLBRACE stmts TRBRACE { $$ = $2; }
+	| TLBRACE TRBRACE { $$ = new NBlock(); }
+	;
+
 stmts : stmt { $$ = new NBlock(); $$->child->push_back(shared_ptr<NStatement>($1)); }
 			| stmts stmt { $1->child->push_back(shared_ptr<NStatement>($2)); }
+			| stmts block {
+			    shared_ptr<NExpressionStatement> blk = std::make_shared<NExpressionStatement>(shared_ptr<NExpression>($2));
+			    $1->child->push_back(blk);
+			}
 			;
 basic_stmt : var_decl TSEMICOLON { $$ = $1; }
              | expr TSEMICOLON { $$ = new NExpressionStatement(shared_ptr<NExpression>($1)); }
@@ -60,9 +69,6 @@ stmt :  basic_stmt | func_decl | struct_decl TSEMICOLON
 		 | while_stmt
 		 ;
 
-block : TLBRACE stmts TRBRACE { $$ = $2; }
-			| TLBRACE TRBRACE { $$ = new NBlock(); }
-			;
 
 primary_typename : TYINT { $$ = new NIdentifier(*$1); $$->isType = true;  delete $1; }
 					| TYDOUBLE { $$ = new NIdentifier(*$1); $$->isType = true; delete $1; }
