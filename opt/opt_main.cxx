@@ -647,6 +647,7 @@ IR_ITER &Opt_lower_if_stmt(IR_ITER &stmt, const PU_INFO *func, TREE *tree,
 
 void Opr_lower_function(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL level,
                         COMPILER_CONFIG &conf) {
+  File()->Scopes()->Goto_function(func->proc_sym);
   // Lower each node in the tree
   TREE *tree = func->entry;
   IR_ITER body = tree->Get_operand(tree->Get_root(), TREE_SEQ_BODY);

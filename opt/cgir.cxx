@@ -13,6 +13,7 @@ void CGIR::CG_Expand(SCOPE *scope) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::CG_Expand\n"));
   ST_IDX func_sym = scope->getSt();
+  File()->Scopes()->Goto_function(func_sym);
   AssertThat(func_sym != 0, ("Incorrect function symbol idx = 0x%08x", func_sym));
   Get_function(func_sym);
   Data_layout(scope);
@@ -37,7 +38,6 @@ void CGIR::Data_layout(SCOPE *scope) {
 void CGIR::IR_to_CGIR(ST_IDX sym) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "Perform IR to CGIR conversion in CGIR::IR_to_CGIR\n"));
-  File()->Scopes()->Goto_function(sym);
   CG_CFG    *function_cgir = Get_function(sym);
   Set_current_cgir(function_cgir, sym);
   Handle_Entry(tree->Get_root(), 0);

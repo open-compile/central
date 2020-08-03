@@ -135,8 +135,12 @@ const char *FILE_SYMTAB::Get_string(STR_IDX idx) {
 void FILE_SYMTAB::Print_functions(FILE *f) {
   UINT32 cursor = 0;
   UINT32 total = Pu_info()->Length();
+  SCOPE *old_current = File()->Scopes()->Current();
   for (cursor = 1; cursor < total; cursor++) {
     PU_INFO *pu_info = Pu_info()->Get(cursor);
+    if (pu_info->proc_sym > 0) {
+      File()->Scopes()->Goto_function(pu_info->proc_sym);
+    }
     const char *func_name = pu_info->proc_sym > 0 ? ST_name(pu_info->proc_sym) : "(incomplete function)";
     fprintf(f, "%s+ [%-4d] Begin function %s, Tree: \n%s", DBAR, cursor, func_name, DBAR);
     if (pu_info->entry == NULL) {
@@ -161,6 +165,9 @@ void FILE_SYMTAB::Print_functions(FILE *f) {
       Inito()->Print(f, &(pu_info->scope));
     }
     fprintf(f, "%s+ [%-4d] End of function %s \n%s", DBAR, cursor, func_name, DBAR);
+  }
+  if (old_current && old_current->st_idx != 0) {
+    File()->Scopes()->Goto_function(old_current->st_idx);
   }
 }
 
