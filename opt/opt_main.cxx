@@ -87,6 +87,7 @@ void Opt_verify_expr(IR_ITER expr, IR_ITER stmt, PU_INFO *func, FILE_MANAGER *fi
   switch (OPCODE_operator(tree->Get_node(expr)->Opcode())) {
     case OPR_ARRAY: {
       AssertThat(level < LEVEL_MID, ("%s not allowed after MIDDLE level", OPCODE_name(tree->Get_node(expr)->Opcode())));
+      break;
     }
     case OPR_RETURN:
     case OPR_GOTO:
@@ -148,13 +149,16 @@ void Opt_verify_block(IR_ITER body, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL 
         break;
       }
       case OPR_ISTORE: {
-        AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in ISTORE, 1 expected, got %d", tree->Number_of_children(stmt)));
+        AssertThat(tree->Number_of_children(stmt) == 2, ("Incorrect number of kid in ISTORE, 1 expected, got %d", tree->Number_of_children(stmt)));
         IR_ITER expr_val = tree->Get_operand(stmt, 0);
         Opt_verify_expr(expr_val, stmt, func, file, level, conf);
+        expr_val = tree->Get_operand(stmt, 1);
+        Opt_verify_expr(expr_val, stmt, func, file, level, conf);
+        break;
       }
       case OPR_IF: {
         AssertThat(level < LEVEL_MID, ("IF should not be present in level %d", level));
-        AssertThat(tree->Number_of_children(stmt) == 3, ("Incorrect number of kid in WHILE_DO, 2 expected, got %d", tree->Number_of_children(stmt)));
+        AssertThat(tree->Number_of_children(stmt) == 3, ("Incorrect number of kid in IF, 3 expected, got %d", tree->Number_of_children(stmt)));
 
         Opt_verify_expr(tree->Get_operand(stmt, 0), stmt, func, file, level, conf);
 

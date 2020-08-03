@@ -586,6 +586,9 @@ void ST::Print_storage_class(FILE *f) {
     case SYMC_AUTO:
       fprintf(f, "%s", "local");
       break;
+    case SYMC_FORMAL:
+      fprintf(f, "%s", "formal");
+      break;
     case SYMC_FILE_STATIC:
       fprintf(f, "%s", "file-static");
       break;

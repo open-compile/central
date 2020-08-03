@@ -187,8 +187,8 @@ CGIR::Handle_ISTORE(IR_ITER stmt, CFG_BB_IDX cur_bb) {
              OPCODE_desc(opcode),
              tn_res,
              base_tn,
-             tree->Get_node(stmt)->Get_symbol_idx(),
-             tree->Get_node(stmt)->Get_load_offset(),
+             0,
+             0,
              cur_bb,
              variant);
     return tn_res;
@@ -654,12 +654,12 @@ CGIR::Exp_LDST (
   if (base != nullptr) {
     // ISTORE or ILOAD case, where base and offset are known.
     // nothing to do.
-  } else if (ST_symclass(sym) == SYM_CLASS_PREG) {
+  } else if (sym != 0 && ST_symclass(sym) == SYM_CLASS_PREG) {
     base = Gen_Register_TN(REGISTER_CLASS_sp, MTYPE_size(MTYPE_I4));
     PREG_IDX pgid = ST_st(sym)->offset;
     Set_TN_is_preallocated(base);
     Set_TN_register(base, PREG_preg(pgid)->desire_reg_num);
-  } else if (ST_sclass(sym) != SYMC_AUTO) {
+  } else if (sym != 0 && ST_sclass(sym) != SYMC_AUTO && ST_sclass(sym) != SYMC_FORMAL) {
     // Create a LDR first
     base = TN_tn(Gen_TN(MTYPE_I4));
     LABEL_IDX lbl = Get_addr_label(sym);

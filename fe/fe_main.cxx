@@ -453,11 +453,20 @@ IR_ITER visitArrayAssignmentStmt(TREE *tree, IR_ITER parent, int level,
   tree->Set_operand(stid_stmt, 0, rhs_expr);
 
   IRNODE_IDX array_node = tree->Create_node(OPC_ARRAY);
-  IRNODE_IDX lda_node = tree->Create_node(OPC_LDA);
 
   ST_IDX sym = File()->Find_symbol_by_name(array_index->arrayName->name.c_str());
+  AssertThat(sym != 0,
+             ("Cannot find symbol for array store. = %s",
+               array_index->arrayName->name.c_str()));
   TY_IDX ty = ST_ty(sym);
   ARB_IDX one_arb = TY_arb(ty);
+  IRNODE_IDX lda_node = 0;
+  if (ST_sclass(sym) == SYMC_FORMAL) {
+    lda_node = tree->Create_node(OPC_I4LDID);
+  } else {
+    lda_node = tree->Create_node(OPC_LDA);
+  }
+
   tree->Get_node(array_node)->Set_const_val(ARB_dimension(one_arb));
   tree->Get_node(lda_node)->Set_symbol_idx(sym);
 
@@ -576,11 +585,18 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     auto       val        = reinterpret_cast<shared_ptr<NArrayIndex> &>(expr);
     IRNODE_IDX iload_node = tree->Create_node(OPC_I4I4ILOAD);
     IRNODE_IDX array_node = tree->Create_node(OPC_ARRAY);
-    IRNODE_IDX lda_node   = tree->Create_node(OPC_LDA);
+    IRNODE_IDX lda_node   = 0;
 
     ST_IDX  sym     = File()->Find_symbol_by_name(val->arrayName->name.c_str());
     TY_IDX  ty      = ST_ty(sym);
     ARB_IDX one_arb = TY_arb(ty);
+
+    if (ST_sclass(sym) == SYMC_FORMAL) {
+      lda_node = tree->Create_node(OPC_I4LDID);
+    } else {
+      lda_node = tree->Create_node(OPC_LDA);
+    }
+
 
     IR_ITER cur_node = tree->Insert_temp_node(iload_node);
     tree->Get_node(array_node)->Set_const_val(ARB_dimension(one_arb));
@@ -670,8 +686,8 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
     return block_iter;
   }
   STR_IDX var_name_saved = File()->Save_string(varname->name.c_str());
-  if (level <= 1) {
-    // 数组声明
+  if (level <= GLOBAL_SYMTAB) {
+    // 数组声明, global
     if (vartype->isArray) {
       STR_IDX anon_array = File()->Save_string(varname->name.c_str());//数组名
       ARB_IDX arb_idx[vartype.get()->arraySize->size()];
@@ -734,10 +750,10 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
         array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
                                               k == 0 ? i4_idx : array_ty[k-1], arb_idx[--i]);
       }
-      sym_idx = File()->Create_var(anon_array, array_ty[vartype->arraySize->size() - 1], level, SYMC_AUTO,
+      sym_idx = File()->Create_var(anon_array, array_ty[vartype->arraySize->size() - 1], level, sclass,
                                    SYME_INTERNAL, SYM_CLASS_VAR);
     } else {
-      sym_idx = File()->Create_var(var_name_saved, i4_idx, level, SYMC_AUTO,
+      sym_idx = File()->Create_var(var_name_saved, i4_idx, level, sclass,
                                    SYME_INTERNAL, SYM_CLASS_VAR);
     }
   }
