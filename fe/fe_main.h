@@ -57,7 +57,7 @@ enum FEOPCODE {
   TFOR = 305,                    /* TFOR  */
   TWHILE = 306,                  /* TWHILE  */
   TRETURN = 307,                 /* TRETURN  */
-  TSTRUCT = 308,                 /* TSTRUCT  *
+  TSTRUCT = 308,                 /* TSTRUCT  */
 };
 
 typedef struct BIN_OP_TO_OPCODE_T {
