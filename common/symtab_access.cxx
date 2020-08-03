@@ -54,6 +54,8 @@ template LABEL  *Symtab_get<LABEL_IDX, LABEL, LABEL_TABLE>(LABEL_IDX idx);
 
 template PREG   *Symtab_get<PREG_IDX, PREG, PREG_TABLE>(PREG_IDX idx);
 
+template INITO   *Symtab_get<INITO_IDX, INITO, INITO_TABLE>(INITO_IDX idx);
+
 //================================================================================
 // Defining IDX -> const char * functions, using STR Table, and a STR_IDX
 //================================================================================

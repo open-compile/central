@@ -753,6 +753,54 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
       // NInitializeExpr, inito creation
       Is_Trace(Tracing(COMPONENT_FE, TRACE_DATA),
                (TFile, "INITO creation not implemented."));
+
+      std::vector<INITV> initvs;// 一个INITO的所有INITV
+      INITV initv;
+      auto vals = reinterpret_cast<shared_ptr<NInitializeExpr> &>(rhs);
+      if (vals->children->empty()) {
+        for (auto it = vals->values->begin(); it != vals->values->end(); it++) {
+          auto temp = it->get();
+          auto val  = reinterpret_cast<shared_ptr<NInteger> &>(temp);
+          initv.Set_val(val->value);
+          if (val->value == 0) {
+            initv.kind      = INITVKIND_PAD;
+            initv.u.pad.pad = 4;
+          }
+          else {
+            initv.kind = INITVKIND_VAL;
+          }
+          initvs.push_back(initv);
+        }
+        File()->Create_inito(sym_idx, initvs);
+      } else { // 多维数组
+        for (auto it1 = vals->children->begin(); it1 != vals->children->end(); it1++) {
+          auto temp0 = it1->get();
+          auto temp  = reinterpret_cast<shared_ptr<NInitializeExpr> &>(temp0);
+          for (auto it2 = temp->values->begin(); it2 != temp->values->end(); it2++) {
+            auto temp1 = it2->get();
+            auto val   = reinterpret_cast<shared_ptr<NInteger> &>(temp1);
+            initv.Set_val(val->value);
+            if (val->value == 0) {
+              initv.kind      = INITVKIND_PAD;
+              initv.u.pad.pad = 4;
+            }
+            else {
+              initv.kind = INITVKIND_VAL;
+            }
+            initvs.push_back(initv);
+          }
+          // 填充未赋值的部分
+          TY_IDX  ty      = ST_ty(sym_idx);
+          ARB_IDX one_arb = TY_arb(ty);
+          if (temp->values->size() < ARB_ubnd_val(one_arb + 1)) {
+            initv.kind      = INITVKIND_PAD;
+            initv.u.pad.pad = 4 * (ARB_ubnd_val(one_arb + 1) - temp->values->size());
+            initvs.push_back(initv);
+          }
+        }
+        File()->Create_inito(sym_idx, initvs);
+      }
+
       return block_iter;
     } else if (rhs->getTypeName() == "NInteger") {
       Is_Trace(Tracing(COMPONENT_FE, TRACE_DATA),
