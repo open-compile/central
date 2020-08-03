@@ -607,6 +607,9 @@ struct INITV {
   void Print(FILE *file) const;
   INT64 Val() const { return u.c_val; }
   void Set_val(INT64 cval) { u.c_val = cval; }
+  INITVKIND Kind() const { return kind; }
+  void Set_kind(INITVKIND cval) { kind = cval; }
+  void Set_pad(INT32 cval) { u.pad.pad = cval; }
 }; // INITV
 
 // initialized objects

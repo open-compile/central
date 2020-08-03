@@ -759,16 +759,11 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
   }
   // Parsing the vartype and save to ST table
   if (rhs != nullptr) {
-    if (level <= GLOBAL_SYMTAB) {
-      // we need an INITO initialization process.
-      Is_Trace(Tracing(COMPONENT_FE, TRACE_DATA),
-               (TFile, "INITO creation not implemented."));
-      return block_iter;
-    }
     if (rhs->getTypeName() == "NInitializeExpr") {
       // NInitializeExpr, inito creation
-      Is_Trace(Tracing(COMPONENT_FE, TRACE_DATA),
-               (TFile, "INITO creation not implemented."));
+      Is_Trace(level == LOCAL_SYMTAB &&
+               Tracing(COMPONENT_FE, TRACE_WARN),
+               (TFile, "INITO creation in LOCAL not implemented."));
 
       std::vector<INITV> initvs;// 一个INITO的所有INITV
       INITV initv;
@@ -779,11 +774,11 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
           auto val  = reinterpret_cast<shared_ptr<NInteger> &>(temp);
           initv.Set_val(val->value);
           if (val->value == 0) {
-            initv.kind      = INITVKIND_PAD;
-            initv.u.pad.pad = 4;
+            initv.Set_kind(INITVKIND_PAD);
+            initv.Set_pad(4);
           }
           else {
-            initv.kind = INITVKIND_VAL;
+            initv.Set_kind(INITVKIND_VAL);
           }
           initvs.push_back(initv);
         }
@@ -797,11 +792,11 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
             auto val   = reinterpret_cast<shared_ptr<NInteger> &>(temp1);
             initv.Set_val(val->value);
             if (val->value == 0) {
-              initv.kind      = INITVKIND_PAD;
-              initv.u.pad.pad = 4;
+              initv.Set_kind(INITVKIND_PAD);
+              initv.Set_pad(4);
             }
             else {
-              initv.kind = INITVKIND_VAL;
+              initv.Set_kind(INITVKIND_VAL);
             }
             initvs.push_back(initv);
           }
@@ -809,28 +804,39 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
           TY_IDX  ty      = ST_ty(sym_idx);
           ARB_IDX one_arb = TY_arb(ty);
           if (temp->values->size() < ARB_ubnd_val(one_arb + 1)) {
-            initv.kind      = INITVKIND_PAD;
-            initv.u.pad.pad = 4 * (ARB_ubnd_val(one_arb + 1) - temp->values->size());
+            initv.Set_kind(INITVKIND_PAD);
+            initv.Set_pad(4 * (ARB_ubnd_val(one_arb + 1) - temp->values->size()));
             initvs.push_back(initv);
           }
         }
         File()->Create_inito(sym_idx, initvs);
       }
-
       return block_iter;
-    } else if (rhs->getTypeName() == "NInteger") {
-      Is_Trace(Tracing(COMPONENT_FE, TRACE_DATA),
-               (TFile, "INITO creation not implemented now, continue to use assignment expr"));
+    } else {
+      if (level <= GLOBAL_SYMTAB && rhs->getTypeName() == "NInteger") {
+        auto rhs_int = reinterpret_cast<const shared_ptr<NInteger> &>(rhs);
+        std::vector<INITV> initvs; // 一个INITO的所有INITV
+        INITV initv;
+        initv.Set_kind(INITVKIND_VAL);
+        initv.Set_val(rhs_int->value);
+        initvs.push_back(initv);
+        File()->Create_inito(sym_idx, initvs);
+      } else {
+        AssertThat(level == LOCAL_SYMTAB, ("Incorrect level"));
+        // assignment is present, create stmts to do this.
+        IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
+        tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
+        tree->Get_node(assignment_node)->Set_load_offset(0);
+        IR_ITER stid_stmt = tree->Insert_stmt_to_block(block_iter,
+                                                       assignment_node);
+        IR_ITER rhs_expr  = visitExpression(tree, stid_stmt, level, rhs);
+        AssertThat(
+          rhs_expr != block_iter && rhs_expr != stid_stmt &&
+          rhs_expr != nullptr,
+          ("Invalid expr conversion result"));
+        tree->Set_operand(stid_stmt, 0, rhs_expr);
+      }
     }
-    AssertThat(level == LOCAL_SYMTAB, ("Incorrect level"));
-    // assignment is present, create stmts to do this.
-    IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
-    tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
-    tree->Get_node(assignment_node)->Set_load_offset(0);
-    IR_ITER stid_stmt = tree->Insert_stmt_to_block(block_iter, assignment_node);
-    IR_ITER rhs_expr = visitExpression(tree, stid_stmt, level, rhs);
-    AssertThat(rhs_expr != block_iter && rhs_expr != stid_stmt && rhs_expr != nullptr, ("Invalid expr conversion result"));
-    tree->Set_operand(stid_stmt, 0, rhs_expr);
   }
   return block_iter;
 }
