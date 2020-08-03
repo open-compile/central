@@ -1116,6 +1116,8 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
     if (TY_kind(ty_idx) == KIND_VOID) {
       // do nothing.
       call_args = 0;
+      arg_id = 0;
+      break;
     } else if (TY_kind(ty_idx) == KIND_ARRAY) {
       callargs_size += 4;
       if (arg_id >= 4) abi_callarg_size += 4;

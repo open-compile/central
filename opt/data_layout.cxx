@@ -44,9 +44,14 @@ UINT32 DATA_LAYOUT::Get_sym_stack_size(ST_IDX obj_sym) const {
              TY_kind(ST_ty(obj_sym)) == KIND_ARRAY ||
              TY_kind(ST_ty(obj_sym)) == KIND_POINTER,
              ("only i4/array/pointer is processed right now"));
-  AssertThat(TY_size(ST_ty(obj_sym)) != 0,
+  UINT32 size = TY_size(ST_ty(obj_sym));
+  if (ST_sclass(obj_sym) == SYMC_FORMAL && TY_kind(ST_ty(obj_sym)) == KIND_ARRAY) {
+    // pointer used.
+    size = MTYPE_size(MTYPE_A4);
+  }
+  AssertThat(size != 0,
              ("the type %d should be of valid size (>0)", ST_ty(obj_sym)));
-  return TY_size(ST_ty(obj_sym));
+  return size;
 }
 
 void DATA_LAYOUT::Allocate_temp_to_stack(IRNODE_IDX irnode) {
