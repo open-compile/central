@@ -352,8 +352,8 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
       case OPR_CALL: {
         // Create new bb including this as a start
         CFG_BB_IDX next_bb = Cfg()->Add_bb(cur_bb); // fall-thru
-        Handle_call(stmt, cur_bb, next_bb);
-        cur_bb = next_bb;
+        CFG_BB_IDX bb_after_call = Handle_call(stmt, cur_bb, next_bb);
+        cur_bb = bb_after_call;
         cur_bb_stmt_processed = 0;
         break;
       }
@@ -619,6 +619,14 @@ void CGIR::Print(ST_IDX sym, FILE *file) {
   fprintf(file, "%sPrinting the CGIR's function : name = %s, sym = 0x%08x\n%s",
           DBAR, ST_name(sym), sym, DBAR);
   Get_function(sym)->Print(file);
+
+  fprintf(file, "%sPrinting the TN info\n%s", DBAR, DBAR);
+  // Printing TNs
+  for (INT32 i = TN_tab_size() - 1; i >= 0; i--) {
+    TN *tn_obj = TN_tn(i);
+    fprintf(file, "[TN %-8d, 0x%04x]  ", i, i);
+    tn_obj->Print(file);
+  }
 }
 
 
@@ -650,15 +658,17 @@ CGIR::Exp_LDST (
 {
   TN *src_res  = src_res_tn;
   INT64 offset_from_base = ofst_val;
-  AssertThat(ofst_val == 0, ("There should be no existing ofst, yet = %d", ofst_val));
+  CGOPC top = CGOPC_STR;
+  AssertThat(base != nullptr || ofst_val == 0, ("There should be no existing ofst, yet = %d", ofst_val));
   if (base != nullptr) {
     // ISTORE or ILOAD case, where base and offset are known.
     // nothing to do.
   } else if (sym != 0 && ST_symclass(sym) == SYM_CLASS_PREG) {
-    base = Gen_Register_TN(REGISTER_CLASS_sp, MTYPE_size(MTYPE_I4));
+    base = Gen_Register_TN(ISA_REGISTER_CLASS_integer, MTYPE_size(MTYPE_I4));
     PREG_IDX pgid = ST_st(sym)->offset;
     Set_TN_is_preallocated(base);
     Set_TN_register(base, PREG_preg(pgid)->desire_reg_num);
+    top = CGOPC_ADD;
   } else if (sym != 0 && ST_sclass(sym) != SYMC_AUTO && ST_sclass(sym) != SYMC_FORMAL) {
     // Create a LDR first
     base = TN_tn(Gen_TN(MTYPE_I4));
@@ -673,8 +683,9 @@ CGIR::Exp_LDST (
   }
   AssertThat(base != nullptr, ("Base cannot be null here."));
   TN *ofst = Gen_Literal_TN(offset_from_base, 4);
-  CGOPC top = CGOPC_STR;
-  if (OPCODE_operator(opc) == OPR_STID) {
+  if (top == CGOPC_ADD) {
+    // do nothing, continue on.
+  } else if (OPCODE_operator(opc) == OPR_STID) {
     top = CGOPC_STR;
   } else if (OPCODE_operator(opc) == OPR_LDID) {
     top = CGOPC_LDR;
@@ -771,13 +782,17 @@ void CGIR::Emit_operand(CGOP *oper, CGOPR_KIND kind, UINT32 ch_id, FILE* out) {
       fprintf(out, ".%s ", LABEL_name(TN_label(tn)));
     } else if (TN_is_dedicated(tn)) {
       UINT32 reg_id = TN_register(tn);
-      if (reg_id == REGISTER_ra) {
+      if (TN_register_class(tn) == REGISTER_CLASS_ra &&
+          reg_id == REGISTER_ra) {
         fprintf(out, "lr ");
-      } else if (reg_id == REGISTER_sp) {
+      } else if (TN_register_class(tn) == REGISTER_CLASS_sp &&
+                 reg_id == REGISTER_sp) {
         fprintf(out, "sp");
-      } else if (reg_id == REGISTER_fp) {
+      } else if (TN_register_class(tn) == REGISTER_CLASS_fp &&
+                 reg_id == REGISTER_fp) {
         fprintf(out, "fp");
-      } else if (reg_id == REGISTER_v0) {
+      } else if (TN_register_class(tn) == REGISTER_CLASS_v0 &&
+                 reg_id == REGISTER_v0) {
         fprintf(out, "r0");
       } else {
         AssertThat(false, ("not implemented"));
@@ -943,14 +958,16 @@ UINT32 CGIR::Count_needed_register(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb, U
   CG_OPRAND cgoper = oper->getResOpnd()[opr_pos];
   AssertThat(cgoper.tn != 0, ("TN does not exist"));
   TN *tn = TN_tn(cgoper.tn);
-  if (TN_is_symbol(tn) || TN_is_label(tn) ||
+  if (TN_is_symbol(tn) || TN_is_label(tn) || TN_is_preallocated(tn) ||
       TN_is_constant(tn)  || TN_is_dedicated(tn)) {
     Is_Trace(TR_LRA(), (TFile, "Found tn %d no need to allocate \n", cgoper.tn));
     return 0;
   } else {
     // There is a need for R-A.
     Is_Trace(TR_LRA(), (TFile, "Found tn %d to allocate \n", cgoper.tn));
-    AssertThat(TN_register(tn) == 0, ("Should not be allocated already."));
+    AssertThat(TN_register(tn) == 0,
+               ("TN: %d, Should not be allocated already. %d",
+                cgoper.tn, TN_register(tn)));
     TN_IDX tid = TN_tn_idx(tn);
     UINT32 old_freq = 0;
     if (_tn_freq_map.find(tid) != _tn_freq_map.end()) {
@@ -1052,12 +1069,97 @@ CFG_BB_IDX CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   return newbb;
 }
 
-void CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb) {
-  ST_IDX func_sym = tree->Node(stmt)->Get_symbol_idx();
-  LABEL_IDX lbl_idx = File()->Create_label(ST_st(func_sym)->getNameIdx(), 0, LKIND_DEFAULT);
-  TN *callee_name_tn = Gen_Label_TN(lbl_idx, 0);
+CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb) {
+  ST_IDX func_sym      = tree->Node(stmt)->Get_symbol_idx();
+  LABEL_IDX lbl_idx    = File()->Create_label(ST_st(func_sym)->getNameIdx(), 0,
+                                              LKIND_DEFAULT);
+  TN *callee_name_tn   = Gen_Label_TN(lbl_idx, 0);
+  UINT32 call_args     = tree->Number_of_children(stmt);
+  TY_IDX callee_proto  = PU_pu(ST_pu(func_sym))->getPrototype();
+  UINT32 callargs_size    = 0; // including the first four param.
+  UINT32 abi_callarg_size = 0; // not including the first four param.
+  for (UINT32 i = TY_tylist_id(callee_proto) + 1; ; i ++) {
+    if (TYLIST_tylist(i)->Ty_idx() == 0) {
+      // end met.
+      break;
+    }
+    TY_IDX ty_idx = TYLIST_tylist(i)->Ty_idx();
+    if (TY_kind(ty_idx) == KIND_VOID) {
+      // do nothing.
+      call_args = 0;
+    } else if (TY_kind(ty_idx) == KIND_ARRAY) {
+      callargs_size += 4;
+      if (i >= 4) abi_callarg_size += 4;
+    } else if (TY_kind(ty_idx) == KIND_SCALAR) {
+      callargs_size += TY_size(ty_idx);
+      if (i >= 4) abi_callarg_size += TY_size(ty_idx);
+    } else {
+      AssertThat(false,
+                 ("Unexpected type kind : %d, in type: %d",
+                   TY_kind(ty_idx), ty_idx));
+    }
+  }
+
+  CFG_BB_IDX to_mem_bb = Cfg()->Add_bb(cur_bb);
+  // Create a new BB for storing to memory.
+  for (UINT32 i = 0; i < call_args; i++) {
+    IR_ITER expr = tree->Get_operand(stmt, i);
+    TN *result = TN_tn(Gen_TN(MTYPE_I4));
+    Expand_Expr(expr, stmt, to_mem_bb, result);
+    INT32 sp_ofst = -callargs_size + (i * 4);
+    // SP related store
+    Exp_LDST(OPC_I4STID, MTYPE_I4,
+             result,
+             Build_Dedicated_TN(REGISTER_CLASS_sp, REGISTER_sp, 4), 0,
+             sp_ofst, to_mem_bb, V_BR_NONE);
+  }
+
+  CFG_BB_IDX to_reg_bb = Cfg()->Add_bb(to_mem_bb);
+  // Create a new BB for loading to r0 to r3.
+  for (UINT32 i = 0; i < 3 && i < call_args; i++) {
+    IR_ITER expr = tree->Get_operand(stmt, i);
+    Cfg()->BB(to_reg_bb)->Dedicate_reg(i);
+    INT32 sp_ofst = -callargs_size + (i * 4);
+    // SP related store
+    TN *dedic = TN_tn(Gen_TN(MTYPE_I4));
+    Set_TN_is_preallocated(dedic);
+    Set_TN_register(dedic, i);
+    Exp_LDST(OPC_I4LDID, MTYPE_I4,
+             dedic,
+             Build_Dedicated_TN(REGISTER_CLASS_sp, REGISTER_sp, 4), 0, sp_ofst,
+             to_reg_bb, V_BR_NONE);
+  }
+
+  if (call_args > 0) {
+    // Adjust SP, sub the arguments.
+    CGOP *adjust_sp = new CGOP(CGOPC_SUBS, cur_bb,
+                               TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_sp,
+                                                            REGISTER_sp, 4)),
+                               TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_sp,
+                                                            REGISTER_sp, 4)),
+                               TN_tn_idx(Gen_Literal_TN(abi_callarg_size, 4)),
+                               0);
+    Cfg()->BB(to_reg_bb)->Add_stmt(adjust_sp);
+  }
+
+  // Call
   CGOP *jmp = new CGOP(CGOPC_BL, cur_bb, 0, TN_tn_idx(callee_name_tn), 0, 0);
-  Cfg()->BB(cur_bb)->Add_stmt(jmp);
+  Cfg()->BB(to_reg_bb)->Add_stmt(jmp);
+
+  // After calling, handling results.
+  // Re-adjust sp
+  CFG_BB_IDX after_call_bb = Cfg()->Add_bb(to_reg_bb);
+  if (call_args > 0) {
+    CGOP *readjust_sp = new CGOP(CGOPC_ADD, cur_bb,
+                                 TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_sp,
+                                                              REGISTER_sp, 4)),
+                                 TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_sp,
+                                                              REGISTER_sp, 4)),
+                                 TN_tn_idx(Gen_Literal_TN(abi_callarg_size, 4)),
+                                 0);
+    Cfg()->BB(after_call_bb)->Add_stmt(readjust_sp);
+  }
+  return after_call_bb;
 }
 
 CGOPC CGIR::Get_branch_cond(IR_ITER cond, BOOL is_true_br) {
@@ -1110,6 +1212,10 @@ CGOPC CGIR::Get_branch_cond(IR_ITER cond, BOOL is_true_br) {
       AssertThat(false, ("unknown condition met: %s", OPCODE_name(tree->Node(cond)->Opcode())));
   }
   return end;
+}
+
+UINT32 CGIR::TN_tab_size() {
+  return _global_tn_vec.size();
 }
 
 UINT8 ISA_OPCODE_results(CGOPC cgopc) {

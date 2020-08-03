@@ -149,6 +149,7 @@ private:
   BB_LIST             _df_list;   // dominance frontier on CFG
   BB_LIST             _cd_list;   // control dependence
   UINT32              _id;        // unique id
+  vector<UINT32>      _dedicated_regs;
 
 public:
   UINT32   Get_id() const { return _id; }
@@ -406,7 +407,12 @@ public:
   void Move_stmt_to_before(NODE_TYPE *position, NODE_TYPE *from);
   CGOP *Last_real_stmt();
   vector<CGTODO_ITEM<NODE_TYPE>> &Get_work_list() { return _work_list; }
-
+  void Dedicate_reg(UINT32 i) {
+    _dedicated_regs.push_back(i);
+  }
+  vector<UINT32> &Get_dedicate_regs() {
+    return _dedicated_regs;
+  }
   UINT32 Get_stmt_count();
 };
 
@@ -428,6 +434,7 @@ private:
   ST_IDX                      _current_sym;
   DATA_LAYOUT                *_current_layout;
   TREE                        *tree;
+  std::vector<TN>              _global_tn_vec;
 public:
   CG_CFG    *Get_function(ST_IDX func_sym) {
     if(trees.find(func_sym) == trees.end()) {
@@ -514,7 +521,7 @@ public:
                         UINT32 cur_bb, UINT32 opnd, BOOL is_write);
 
   CFG_BB_IDX Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb);
-  void Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb);
+  CFG_BB_IDX Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb);
   CGOPC Get_branch_cond(IR_ITER cond, BOOL is_true_br);
 
   TN *Handle_ILOAD(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res);
@@ -523,6 +530,9 @@ public:
   TN *Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res);
 
   void Handle_ret(CFG_BB_IDX cur_bb);
+  vector<TN>  &Get_tn_table() {  return _global_tn_vec;  };
+
+  UINT32 TN_tab_size();
 };
 
 

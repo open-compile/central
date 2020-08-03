@@ -35,6 +35,7 @@ private:
   INT32   local_size_allocated    = 0;
   INT32   formal_size_allocated   = 0;
   UINT32  frame_size              = 0;
+  UINT32  _callee_actual_space    = 0;
   STACK_MODEL Current_stack_model = SMODEL_UNDEF;
 
   vector<ST_IDX> var_allocated;

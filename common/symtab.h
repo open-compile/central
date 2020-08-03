@@ -125,6 +125,7 @@ public:
 struct TYLIST {
   TY_IDX ty_id;
   void Print(FILE *f);
+  TY_IDX Ty_idx() { return ty_id; }
 };
 
 struct MTYPE_TAB {
@@ -155,6 +156,38 @@ struct PU {
   } ;
   // void Verify() const;
   void Print (FILE *f) const {};
+
+  TY_IDX getPrototype() {
+    return prototype;
+  }
+
+  void setPrototype(TY_IDX prototype) {
+    PU::prototype = prototype;
+  }
+
+  TY_IDX getBaseClass() {
+    return base_class;
+  }
+
+  void setBaseClass(TY_IDX baseClass) {
+    base_class = baseClass;
+  }
+
+  UINT32 getFlags() {
+    return flags;
+  }
+
+  void setFlags(UINT32 flags) {
+    PU::flags = flags;
+  }
+
+  PU_INFO_IDX getPuInfoIdx() {
+    return pu_info_idx;
+  }
+
+  void setPuInfoIdx(PU_INFO_IDX puInfoIdx) {
+    pu_info_idx = puInfoIdx;
+  }
 }; // PU
 
 

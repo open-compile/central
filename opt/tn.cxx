@@ -5,6 +5,8 @@
 #include "tn.h"
 #include <memory.h>
 #include <ir.h>
+#include "options.h"
+#include "cg_main.h"
 
 #define POINTER_SIZE 4
 
@@ -23,8 +25,6 @@
  */
 namespace TN_CONTEXT {
   BOOL is_str_expand = true;
-
-  static std::vector<TN> _global_tn_vec;
 
 /**
  * Dedicated TN Groups
@@ -69,10 +69,11 @@ namespace TN_CONTEXT {
 using namespace TN_CONTEXT;
 
 TN *Gen_TN() {
-  UINT32 sz = _global_tn_vec.size();
-  _global_tn_vec.push_back(TN(sz));
-  AssertThat(TN_tn(_global_tn_vec[sz].Get_tn_idx()) == &(_global_tn_vec[sz]), ("Generation failed somehow."));
-  return &(_global_tn_vec[sz]);
+  UINT32 sz = Cgir()->Get_tn_table().size();
+  Cgir()->Get_tn_table().push_back(TN(sz));
+  AssertThat(TN_tn(Cgir()->Get_tn_table()[sz].Get_tn_idx()) ==
+             &(Cgir()->Get_tn_table()[sz]), ("Generation failed somehow."));
+  return &(Cgir()->Get_tn_table()[sz]);
 }
 
 TN_IDX Gen_TN(MTYPE_ID mtype) {
@@ -83,8 +84,9 @@ TN_IDX Gen_TN(MTYPE_ID mtype) {
 }
 
 TN *TN_tn(TN_IDX tn_idx) {
-  AssertThat(_global_tn_vec.size() > tn_idx, ("TN_IDX = %d is out of max range = %d", tn_idx, _global_tn_vec.size()));
-  return &(_global_tn_vec[tn_idx]);
+  AssertThat(Cgir()->Get_tn_table().size() > tn_idx,
+             ("TN_IDX = %d is out of max range = %d", tn_idx, Cgir()->Get_tn_table().size()));
+  return &(Cgir()->Get_tn_table()[tn_idx]);
 }
 
 namespace TNS {
@@ -92,7 +94,8 @@ namespace TNS {
 }
 
 void Check_TN_Vec_Size() {
-  AssertThat(TNS::_last_tn < 4096 && _global_tn_vec.size() < 4096, ("Too much TNs used"));
+  AssertThat(TNS::_last_tn < 4096 && Cgir()->Get_tn_table().size() < 4096,
+             ("Too much TNs used"));
 }
 
 /* ====================================================================
@@ -290,6 +293,37 @@ Gen_Register_TN (ISA_REGISTER_CLASS rclass, INT size)
 
 void TN::Print(FILE *file) {
   // Printing the TN.
+  fprintf(file, "flags : ");
+  if (TN_is_dedicated(this)) {
+    fprintf(file, "dedicated ");
+  }
+  if (TN_is_preallocated(this)) {
+    fprintf(file, "preallocated ");
+  }
+  if (TN_is_ra_reg(this)) {
+    fprintf(file, "r0(ret-value) ");
+  }
+  if (TN_is_sp_reg(this)) {
+    fprintf(file, "sp(stack pointer) ");
+  }
+  fprintf(file, ", kv : ");
+  if (TN_is_constant(this)) {
+    fprintf(file, "const = %lld ", TN_value(this));
+  }
+  if (TN_is_register(this)) {
+    fprintf(file, "register = %d, class = %d ", TN_register(this), TN_register_class(this));
+    if (TN_register_class(this) == REGISTER_CLASS_ra) {
+      fprintf(file, "(ra)");
+    } else if (TN_register_class(this) == REGISTER_CLASS_sp) {
+      fprintf(file, "(sp)");
+    } else if (TN_register_class(this) == REGISTER_CLASS_fp) {
+      fprintf(file, "(fp)");
+    }
+  }
+  if (TN_is_label(this)) {
+    fprintf(file, "label = %d ", TN_label(this));
+  }
+  fprintf(file, "\n");
 }
 
 void TN::Dup_from(TN *pTn) {

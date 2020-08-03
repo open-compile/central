@@ -37,6 +37,10 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
                (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
       File()->Scopes()->Goto_function(pu_info->proc_sym);
       Cgir()->CG_Expand(&pu_info->scope); // Expansion
+      if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
+        // Printing the cgir exapnsion result.
+        Cgir()->Print(pu_info->proc_sym, TFile);
+      }
       Cgir()->Local_register_allocate(pu_info); // GRA/LRA
       Cgir()->Layout()->Calculate_stack_frame_size();
       if(Tracing(COMPONENT_CG, TRACE_DATA)) {
@@ -179,16 +183,16 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & BB_FLAG_ENTRY) {
       Is_Trace(TR_EMIT(), (out, "#  ---  function prologue ---   \n"));
-      fprintf(out, "\tstr\tfp, [sp, #-4]!\n");
-      fprintf(out, "\tadd\tfp, sp, #0\n");
-      fprintf(out, "\tadd\tsp, sp, #%d\n", (-Layout()->Frame_final_size()));
+      fprintf(out, "\tpush\t{fp, lr}\n"
+                   "\tadd\tfp, sp, #4\n"
+                   "\tsub\tsp, sp, #%d\n", (Layout()->Frame_final_size() - 8));
     }
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & BB_FLAG_EXIT) {
       // Finishing function
       Is_Trace(TR_EMIT(), (out, "#  ---  function epilog ---   \n"));
-      fprintf(out, "\tadd\tsp, fp, #0\n");
-      fprintf(out, "\tldr\tfp, [sp, #-4]\n");
+      fprintf(out, "\tsub\tsp, fp, #4\n");
+      fprintf(out, "\tpop\t{fp, pc}\n");
     }
     Is_Trace(TR_EMIT(), (out, "#  -------- Begin Code ---------- \n"));
     // If there is a label to it, emit the label
