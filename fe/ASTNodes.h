@@ -197,9 +197,9 @@ public:
 };
 
 class NInitializeExpr : public NExpression {
+public:
   shared_ptr<ExpressionList> values = make_shared<ExpressionList>();
   shared_ptr<ExpressionList> children  = make_shared<ExpressionList>();
-public:
   void Append(const shared_ptr<NExpression> &expr) {
     if (expr->getTypeName() == "NInitializeExpr") {
       const shared_ptr<NInitializeExpr> &val =
