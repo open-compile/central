@@ -489,7 +489,7 @@ IR_ITER visitArrayAssignmentStmt(TREE *tree, IR_ITER parent, int level,
   for (auto it = array_index->expressions->begin(); it != array_index->expressions->end(); it++, i++) {
     auto temp = it->get();
     IR_ITER dimension = visitExpression(tree, temp_array_node, level,
-                                        static_cast<shared_ptr<struct NExpression>>(temp));
+                                        reinterpret_cast<const shared_ptr<struct NExpression> &>(temp));
     tree->Set_operand(temp_array_node, i, dimension);
   }
 
@@ -552,10 +552,19 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     OPERATOR opr = Get_op_by_token((FEOPCODE) u_op->op);
     AssertThat(opr >= OPERATOR_FIRST, ("Operator not implementeed"));
     OPCODE opc = (OPCODE) (opr + RTYPE(Get_rtype_by_token((FEOPCODE) u_op->op)) + DESC(MTYPE_I4));
-    IRNODE_IDX opr_node = tree->Create_node(opc);
-    IR_ITER cur_node = tree->Insert_temp_node(opr_node);
-    IR_ITER rhs = visitExpression(tree, cur_node, level, u_op->rhs);
-    tree->Set_operand(cur_node, 0, rhs); // rhs should be on the 0 operand.
+    IR_ITER rhs = visitExpression(tree, parent, level, u_op->rhs);
+    IR_ITER cur_node = rhs;
+    if (tree->Node(rhs)->Opcode() == OPC_I4CONST) {
+      tree->Node(rhs)->Set_const_val(-tree->Node(rhs)->Get_const_val());
+    } else {
+      OPCODE opc = (u_op->op == TNEG) ? OPC_I4I4SUB : OPC_I4I4ADD;
+      IR_ITER rhs = visitExpression(tree, parent, level, u_op->rhs);
+      IRNODE_IDX opr_node = tree->Create_node(opc);
+      IRNODE_IDX zero_node = tree->Create_node(OPC_I4CONST);
+      cur_node = tree->Insert_temp_node(opr_node);
+      tree->Set_operand(cur_node, 0, zero_node);
+      tree->Set_operand(cur_node, 1, rhs); // rhs should be here
+    }
     return cur_node;
   } else if (expr->getTypeName() == "NDouble") {
     AssertThat(false, ("double not implemented."));
@@ -620,7 +629,7 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
          it != val->expressions->end(); it++, i++) {
       auto    temp      = it->get();
       IR_ITER dimension = visitExpression(tree, temp_array_node, level,
-                                          static_cast<shared_ptr<struct NExpression>>(temp));
+                                          reinterpret_cast<const shared_ptr<struct NExpression> &>(temp));
       tree->Set_operand(temp_array_node, i, dimension);
     }
 
