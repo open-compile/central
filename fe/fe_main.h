@@ -7,18 +7,6 @@
 
 
 enum FEOPCODE {
-  TIDENTIFIER = 258,             /* TIDENTIFIER  */
-  TINTEGER = 259,                /* TINTEGER  */
-  TDOUBLE = 260,                 /* TDOUBLE  */
-  TYINT = 261,                   /* TYINT  */
-  TYDOUBLE = 262,                /* TYDOUBLE  */
-  TYFLOAT = 263,                 /* TYFLOAT  */
-  TYCHAR = 264,                  /* TYCHAR  */
-  TYBOOL = 265,                  /* TYBOOL  */
-  TYVOID = 266,                  /* TYVOID  */
-  TYSTRING = 267,                /* TYSTRING  */
-  TEXTERN = 268,                 /* TEXTERN  */
-  TLITERAL = 269,                /* TLITERAL  */
   TCEQ = 270,                    /* TCEQ  */
   TCNE = 271,                    /* TCNE  */
   TCLT = 272,                    /* TCLT  */
@@ -26,34 +14,38 @@ enum FEOPCODE {
   TCGT = 274,                    /* TCGT  */
   TCGE = 275,                    /* TCGE  */
   TEQUAL = 276,                  /* TEQUAL  */
-  TLPAREN = 277,                 /* TLPAREN  */
-  TRPAREN = 278,                 /* TRPAREN  */
-  TLBRACE = 279,                 /* TLBRACE  */
-  TRBRACE = 280,                 /* TRBRACE  */
-  TCOMMA = 281,                  /* TCOMMA  */
-  TDOT = 282,                    /* TDOT  */
-  TSEMICOLON = 283,              /* TSEMICOLON  */
-  TLBRACKET = 284,               /* TLBRACKET  */
-  TRBRACKET = 285,               /* TRBRACKET  */
-  TQUOTATION = 286,              /* TQUOTATION  */
-  TPLUS = 287,                   /* TPLUS  */
-  TMINUS = 288,                  /* TMINUS  */
-  TMUL = 289,                    /* TMUL  */
-  TDIV = 290,                    /* TDIV  */
-  TAND = 291,                    /* TAND  */
-  TOR = 292,                     /* TOR  */
-  TXOR = 293,                    /* TXOR  */
-  TMOD = 294,                    /* TMOD  */
-  TNEG = 295,                    /* TNEG  */
-  TNOT = 296,                    /* TNOT  */
-  TSHIFTL = 297,                 /* TSHIFTL  */
-  TSHIFTR = 298,                 /* TSHIFTR  */
-  TIF = 299,                     /* TIF  */
-  TELSE = 300,                   /* TELSE  */
-  TFOR = 301,                    /* TFOR  */
-  TWHILE = 302,                  /* TWHILE  */
-  TRETURN = 303,                 /* TRETURN  */
-  TSTRUCT = 304                  /* TSTRUCT  */
+  TAND = 277,                    /* TAND  */
+  TOR = 278,                     /* TOR  */
+  TLAND = 279,                   /* TLAND  */
+  TLOR = 280,                    /* TLOR  */
+  TLPAREN = 281,                 /* TLPAREN  */
+  TRPAREN = 282,                 /* TRPAREN  */
+  TLBRACE = 283,                 /* TLBRACE  */
+  TRBRACE = 284,                 /* TRBRACE  */
+  TCOMMA = 285,                  /* TCOMMA  */
+  TDOT = 286,                    /* TDOT  */
+  TSEMICOLON = 287,              /* TSEMICOLON  */
+  TLBRACKET = 288,               /* TLBRACKET  */
+  TRBRACKET = 289,               /* TRBRACKET  */
+  TQUOTATION = 290,              /* TQUOTATION  */
+  TPLUS = 291,                   /* TPLUS  */
+  TMINUS = 292,                  /* TMINUS  */
+  TMUL = 293,                    /* TMUL  */
+  TDIV = 294,                    /* TDIV  */
+  TXOR = 295,                    /* TXOR  */
+  TMOD = 296,                    /* TMOD  */
+  TNEG = 297,                    /* TNEG  */
+  TNOT = 298,                    /* TNOT  */
+  TANOT = 299,                   /* TANOT  */
+  TSHIFTL = 300,                 /* TSHIFTL  */
+  TSHIFTR = 301,                 /* TSHIFTR  */
+  TIF = 302,                     /* TIF  */
+  TELSE = 303,                   /* TELSE  */
+  TFOR = 304,                    /* TFOR  */
+  TWHILE = 305,                  /* TWHILE  */
+  TRETURN = 306,                 /* TRETURN  */
+  TSTRUCT = 307,                 /* TSTRUCT  */
+  TCONST = 308                   /* TCONST  */
 };
 
 typedef struct BIN_OP_TO_OPCODE_T {

@@ -142,8 +142,8 @@ void Opt_verify_block(IR_ITER body, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL 
       case OPR_STID: {
         AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in STID, 1 expected, got %d", tree->Number_of_children(stmt)));
         IR_ITER expr_val = tree->Get_operand(stmt, 0);
-        MTYPE_ID stid_type = OPCODE_desc(tree->Get_node(stmt)->Opcode());
-        AssertThat(OPCODE_rtype(tree->Get_node(expr_val)->Opcode()) == stid_type, ("The stid's operand should have same type"));
+        // MTYPE_ID stid_type = OPCODE_desc(tree->Get_node(stmt)->Opcode());
+        // AssertThat(OPCODE_rtype(tree->Get_node(expr_val)->Opcode()) == stid_type, ("The stid's operand should have same type"));
         Opt_verify_expr(expr_val, stmt, func, file, level, conf);
         break;
       }
