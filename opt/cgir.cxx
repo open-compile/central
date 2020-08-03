@@ -3,6 +3,7 @@
 // This is the IR definition for CG to use, i.e. CG-IR
 //
 #include "cgir.h"
+#include <algorithm>
 
 INLINE BOOL TR_LRA() {
   return Tracing(COMPONENT_CG_LRA, TRACE_DATA);

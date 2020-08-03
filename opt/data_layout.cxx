@@ -2,6 +2,7 @@
 // Created by xc5 on 2020/7/16.
 //
 #include "data_layout.h"
+#include <algorithm>
 
 void DATA_LAYOUT::Allocate_object(ST_IDX obj_sym) {
   AssertThat(ST_sclass(obj_sym) == SYMC_AUTO,
