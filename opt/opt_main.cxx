@@ -142,8 +142,8 @@ void Opt_verify_block(IR_ITER body, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL 
       case OPR_STID: {
         AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in STID, 1 expected, got %d", tree->Number_of_children(stmt)));
         IR_ITER expr_val = tree->Get_operand(stmt, 0);
-        MTYPE_ID stid_type = OPCODE_desc(tree->Get_node(stmt)->Opcode());
-        AssertThat(OPCODE_rtype(tree->Get_node(expr_val)->Opcode()) == stid_type, ("The stid's operand should have same type"));
+        // MTYPE_ID stid_type = OPCODE_desc(tree->Get_node(stmt)->Opcode());
+        // AssertThat(OPCODE_rtype(tree->Get_node(expr_val)->Opcode()) == stid_type, ("The stid's operand should have same type"));
         Opt_verify_expr(expr_val, stmt, func, file, level, conf);
         break;
       }
@@ -497,7 +497,7 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
             GOTO LABEL 3
        LABEL 4
        */
-
+      IR_ITER while_stmt = tree->Get_parent_region(stmt);
       IR_ITER label3_stmt;
       sprintf(name_buf, ".L_%d_3_%llu", func->proc_sym, *stmt);
       STR_IDX    lname3       = File()->Save_string(name_buf);
@@ -506,7 +506,7 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
                                                     LABEL_ADDR_SAVED,
                                                     LKIND_DEFAULT);
 
-      label3_stmt = tree->Insert_before(stmt, label3_node);
+      label3_stmt = tree->Insert_before(while_stmt, label3_node);
       tree->Get_node(label3_stmt)->Set_label_num(label3_id);
 
       IR_ITER label4_stmt;
@@ -517,19 +517,22 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
                                                      LABEL_ADDR_SAVED,
                                                      LKIND_DEFAULT);
 
-      label4_stmt = tree->Insert_after(stmt, label4_node);
+      label4_stmt = tree->Insert_after(while_stmt, label4_node);
       tree->Get_node(label4_stmt)->Set_label_num(label4_id);
 
       IRNODE_IDX goto_node = tree->Create_node(OPC_GOTO);
       if(tree->Node(stmt)->Get_label_num() == GOTO_OUT_BREAK){
         tree->Node(goto_node)->Set_label_num(label4_id);
-        IR_ITER goto_stmt = tree->Insert_after(stmt, goto_node);
-      }
-      else if(tree->Node(stmt)->Get_label_num() == GOTO_OUT_CONTINUE){
+      } else if(tree->Node(stmt)->Get_label_num() == GOTO_OUT_CONTINUE){
         tree->Node(goto_node)->Set_label_num(label3_id);
-        IR_ITER goto_stmt = tree->Insert_after(stmt, goto_node);
+      } else {
+        AssertThat(false,
+                   ("Condition not impl. label = %d",
+                     tree->Node(stmt)->Get_label_num()));
       }
-
+      IR_ITER goto_stmt = tree->Insert_after(stmt, goto_node);
+      tree->Remove_node_recursive(stmt);
+      stmt = goto_stmt;
       break;
     }
     case OPR_WHILE_DO: {

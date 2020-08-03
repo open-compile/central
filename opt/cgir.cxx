@@ -429,6 +429,8 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
       }
       return result;
     }
+    case OPR_BIOR:
+    case OPR_LAND:
     case OPR_ADD:
     case OPR_SUB:
     case OPR_MPY:
@@ -443,6 +445,16 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
         result = TN_tn(Gen_TN(MTYPE_I4)); // rh1_res; // A trick to reduce # of register
       }
       Exp_op2(tree->Node(entry)->Opcode(), cur_bb, result, rh1_res, rh2_res, &exp_res);
+      return result;
+    }
+    case OPR_LNOT: {
+      CGOP *exp_res = nullptr;
+      TN *rh1_res = TN_tn(Gen_TN(MTYPE_I4));
+      Expand_Expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
+      if (result == NULL) {
+        result = TN_tn(Gen_TN(MTYPE_I4)); // rh1_res; // A trick to reduce # of register
+      }
+      Exp_op1(tree->Node(entry)->Opcode(), cur_bb, result, rh1_res, &exp_res);
       return result;
     }
     default:
@@ -709,15 +721,23 @@ void CGIR::Exp_op(OPCODE opcode, CFG_BB_IDX cur_bb,
     case OPR_MPY: { cgop = CGOPC_MUL; break; }
     case OPR_DIV: { cgop = CGOPC_ADD; break; }
     case OPR_SUB: { cgop = CGOPC_SUBS; break; }
+    case OPR_LAND: { cgop = CGOPC_AND; break; }
+    case OPR_BIOR: { cgop = CGOPC_ORR; break; }
+    case OPR_LNOT: { cgop = CGOPC_MVN; break; }
     default: {
       AssertThat(false, ("Exp_op some opcode = %s not impl.", OPCODE_name(opcode)));
     }
   }
   AssertThat(result != NULL, ("Result should not be null."));
   AssertThat(op1 != NULL, ("OP1 should not be null."));
-  AssertThat(op2 != NULL, ("OP2 should not be null."));
-  CGOP *stmt_ins = new CGOP(cgop, cur_bb, TN_tn_idx(result), TN_tn_idx(op1), TN_tn_idx(op2), 0);
-  Cfg()->BB(cur_bb)->Add_stmt(stmt_ins);
+  if (op2 != nullptr) {
+    AssertThat(op2 != NULL, ("OP2 should not be null."));
+    CGOP *stmt_ins = new CGOP(cgop, cur_bb, TN_tn_idx(result), TN_tn_idx(op1),
+                              TN_tn_idx(op2), 0);
+    Cfg()->BB(cur_bb)->Add_stmt(stmt_ins);
+  } else {
+    CGOP *stmt_ins = new CGOP(cgop, cur_bb, TN_tn_idx(result), TN_tn_idx(op1), 0, 0);
+  }
 }
 
 VARIANT CGIR::Memop_Variant(IR_ITER iterator) {

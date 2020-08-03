@@ -333,6 +333,37 @@ public:
 
 };
 
+
+class NUnaryOperator : public NExpression {
+public:
+  int op;
+  shared_ptr<NExpression> rhs;
+
+  NUnaryOperator() {}
+
+  NUnaryOperator(int op, shared_ptr<NExpression> rhs)
+    : rhs(rhs), op(op) {
+  }
+
+  string getTypeName() const override {
+    return "NUnaryOperator";
+  }
+
+  Json::Value jsonGen() const override {
+    Json::Value root;
+    root["name"] = getTypeName() + this->m_DELIM + std::to_string(op);
+    root["children"].append(rhs->jsonGen());
+    return root;
+  }
+
+  void print(string prefix) const override {
+    string nextPrefix = prefix + this->m_PREFIX;
+    cout << prefix << getTypeName() << this->m_DELIM << op << endl;
+    rhs->print(nextPrefix);
+  }
+};
+
+
 class NAssignment : public NExpression {
 public:
   shared_ptr<NIdentifier> lhs;

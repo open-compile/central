@@ -28,6 +28,9 @@ BIN_OP_TO_OPR FEOPCODE_INFO[] = {
   { ">=", TCGE,   OPR_GE , MTYPE_B  },
   { "!=", TCNE,   OPR_NE , MTYPE_B  },
   { "==", TCEQ,   OPR_EQ , MTYPE_B  },
+  { "!",  TNOT,   OPR_LNOT,MTYPE_B  },
+  { "||", TLOR,   OPR_BIOR,MTYPE_B  },
+  { "&&", TLAND,  OPR_LAND,MTYPE_B  },
 };
 
 void Create_internal_functions() {
@@ -523,15 +526,25 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
            (TFile, "Visit Expression : %s \n", expr->getTypeName().c_str()));
   if (expr->getTypeName() == "NBinaryOperator") {
     shared_ptr<NBinaryOperator> bin_op = reinterpret_cast<const shared_ptr<NBinaryOperator> &>(expr);
-    OPERATOR opr = Get_op_by_token((FEOPCODE) bin_op->op);
-    AssertThat(opr != OPERATOR_UNKNOTREE && opr >= OPERATOR_FIRST, ("Operator not implementeed"));
-    OPCODE opc = (OPCODE) (opr + RTYPE(Get_rtype_by_token((FEOPCODE) bin_op->op)) + DESC(MTYPE_I4));
+    OPERATOR                    opr    = Get_op_by_token((FEOPCODE) bin_op->op);
+    AssertThat(opr >= OPERATOR_FIRST, ("Operator not implementeed"));
+    OPCODE     opc      = (OPCODE) (opr + RTYPE(Get_rtype_by_token((FEOPCODE) bin_op->op)) + DESC(MTYPE_I4));
     IRNODE_IDX opr_node = tree->Create_node(opc);
-    IR_ITER cur_node = tree->Insert_temp_node(opr_node);
-    IR_ITER lhs = visitExpression(tree, cur_node, level, bin_op->lhs);
-    IR_ITER rhs = visitExpression(tree, cur_node, level, bin_op->rhs);
+    IR_ITER    cur_node = tree->Insert_temp_node(opr_node);
+    IR_ITER    lhs      = visitExpression(tree, cur_node, level, bin_op->lhs);
+    IR_ITER    rhs      = visitExpression(tree, cur_node, level, bin_op->rhs);
     tree->Set_operand(cur_node, 0, lhs); // lhs should be on the 0 operand.
     tree->Set_operand(cur_node, 1, rhs); // rhs should be on the 1 operand.
+    return cur_node;
+  } else if (expr->getTypeName() == "NUnaryOperator") {
+    shared_ptr<NUnaryOperator> u_op = reinterpret_cast<const shared_ptr<NUnaryOperator> &>(expr);
+    OPERATOR opr = Get_op_by_token((FEOPCODE) u_op->op);
+    AssertThat(opr >= OPERATOR_FIRST, ("Operator not implementeed"));
+    OPCODE opc = (OPCODE) (opr + RTYPE(Get_rtype_by_token((FEOPCODE) u_op->op)) + DESC(MTYPE_I4));
+    IRNODE_IDX opr_node = tree->Create_node(opc);
+    IR_ITER cur_node = tree->Insert_temp_node(opr_node);
+    IR_ITER rhs = visitExpression(tree, cur_node, level, u_op->rhs);
+    tree->Set_operand(cur_node, 0, rhs); // rhs should be on the 0 operand.
     return cur_node;
   } else if (expr->getTypeName() == "NDouble") {
     AssertThat(false, ("double not implemented."));
