@@ -173,6 +173,7 @@ public:
   UINT32       offset; // offset from base
   INT32        sp_offset; // offset from base
   ST_IDX       base_idx; // base in the allocated block.
+  INITO_IDX    inito_idx; // inito idx to inito
   // ST_IDX st_idx; // my own st_idx
   // operations
 
@@ -268,6 +269,14 @@ public:
 
   void setNameIdx(STR_IDX nameIdx) {
     name_idx = nameIdx;
+  }
+
+  INITO_IDX getInitoIdx() {
+    return inito_idx;
+  }
+
+  void setInitoIdx(INITO_IDX initoIdx) {
+    inito_idx = initoIdx;
   }
 }; // ST
 
@@ -625,6 +634,10 @@ public:
     val.push_back(initv);
     return val.size() - 1;
   }
+  void Set_sym(ST_IDX i) {
+    st_idx = i;
+  }
+  ST_IDX Get_sym() { return st_idx; }
 };
 
 
@@ -984,7 +997,7 @@ public:
   LABEL_IDX Create_label(STR_IDX name, UINT32 flags, LABEL_KIND lbk);
   ST_IDX Create_var(STR_IDX string, TY_IDX idx, UINT8 level,
                     SYM_SCLASS sclass, SYM_ECLASS eclass, SYM_CLASS symclass);
-  INITO_IDX Create_inito(ST_IDX st_idx, std::vector<INITV> initv);
+  INITO_IDX Create_inito(ST_IDX st_idx, std::vector<INITV> &initv);
 
   STR_IDX Save_string(const char *string); // Save a null-term-string to string tab
   void Print(FILE *f);

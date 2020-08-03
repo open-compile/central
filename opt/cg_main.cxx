@@ -259,6 +259,8 @@ INT32 Emit_section_data(FILE *out, FILE_MANAGER *manager) {
         ("Cannot initialize a symbol that has "
          "incomplete type, sym = <%s, or 0x%08x>", ST_name(new_idx), new_idx));
       // Find INITO matching this.
+      INITO_IDX inito = ST_st(new_idx)->getInitoIdx();
+      // Generate initv
       fprintf(out, ".zero %lld\n", TY_size(ty));
     }
   }

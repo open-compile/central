@@ -409,9 +409,11 @@ ST_IDX FILE_MANAGER::Create_var(STR_IDX str, TY_IDX idx, UINT8 level,
   return sym;
 }
 
-INITO_IDX FILE_MANAGER::Create_inito(ST_IDX st_idx, std::vector<INITV> initvs) {
+INITO_IDX FILE_MANAGER::Create_inito(ST_IDX st_idx, std::vector<INITV> &initvs) {
   INITO_IDX inito_idx = Tables()->Inito()->Add(LOCAL_SYMTAB);
   INITO *inito = INITO_inito(inito_idx);
+  inito->Set_sym(st_idx);
+  ST_st(st_idx)->setInitoIdx(inito_idx);
   for (int i = 0; i < initvs.size(); ++i) {
     inito->Add_value(st_idx, initvs[i]);
   }
