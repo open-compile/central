@@ -425,7 +425,7 @@ private:
   map<ST_IDX, CG_CFG *>        trees;
   map<ST_IDX, DATA_LAYOUT*>    layout;
   map<TN_IDX, UINT32>         _tn_freq_map;
-  map<TN_IDX, vector<UINT32> >_tn_live_range;
+  map<TN_IDX, vector<UINT64> >_tn_live_range;
   IR_TN_MAP                    ir_to_tn_map;
   TN_IR_MAP                    tn_to_ir_map;
   // Memory Layout
@@ -516,7 +516,8 @@ public:
     AssertThat(_current_layout != NULL, ("layout is null"));
     return _current_layout;
   }
-  UINT32 Count_needed_register(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb, UINT8 opr_pos);
+  UINT32 Count_needed_register(CGOP *oper, UINT32 cgop_id,
+                               CGOPR_KIND kind, UINT32 cur_bb, UINT8 opr_pos);
   void Process_spill_op(CGOP *oper, CGOPR_KIND kind,
                         UINT32 cur_bb, UINT32 opnd, BOOL is_write);
 
@@ -533,6 +534,8 @@ public:
   vector<TN>  &Get_tn_table() {  return _global_tn_vec;  };
 
   UINT32 TN_tab_size();
+
+  void Add_store_formals(IR_ITER entry, CFG_BB_IDX bb);
 };
 
 

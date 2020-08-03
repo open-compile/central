@@ -49,6 +49,9 @@ private:
   vector<ST_IDX> var_on_formal_reg;
   map<ST_IDX, UINT32> var_ofst;
 
+  vector<ST_IDX> var_on_reg;
+  map<ST_IDX, UINT32> var_on_reg_map;
+
 public:
   BOOL        ST_on_stack(ST_IDX sym);
   BOOL        ST_pu_defined(ST_IDX sym);
@@ -78,12 +81,14 @@ public:
     return (ST_sclass(st) == SYMC_FORMAL &&
             Get_ST_formal_preg_num(st) != 0);
   }
-  void Allocate_formal(ST_IDX idx);
+  void Allocate_formal(ST_IDX idx, UINT32 i);
   UINT32 Get_sym_stack_size(ST_IDX obj_sym) const;
   UINT32 Get_sym_sp_ofst(ST_IDX local_or_formal) const;
   void Print(FILE *file = stderr);
-
   UINT32 Frame_final_size();
+  UINT32 Get_sym_reg_num(ST_IDX sym);
+
+  vector<ST_IDX> &Get_sym_on_formal_reg();
 };
 
 #endif //OCC_DATA_LAYOUT_H

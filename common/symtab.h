@@ -204,7 +204,6 @@ public:
   PU_IDX       pu;   // idx to program unit
   UINT32       pad; // 4 pad bytes (initialize to zero)
   UINT32       offset; // offset from base
-  INT32        sp_offset; // offset from base
   ST_IDX       base_idx; // base in the allocated block.
   INITO_IDX    inito_idx; // inito idx to inito
   // ST_IDX st_idx; // my own st_idx
@@ -278,14 +277,6 @@ public:
 
   void setOffset(UINT32 offset) {
     ST::offset = offset;
-  }
-
-  INT32 getSpOffset() const {
-    return sp_offset;
-  }
-
-  void setSpOffset(INT32 fpOffset) {
-    sp_offset = fpOffset;
   }
 
   ST_IDX getBaseIdx() const {

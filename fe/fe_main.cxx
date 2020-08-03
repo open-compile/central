@@ -348,7 +348,7 @@ IR_ITER visitMethodCall(TREE *tree, IR_ITER parent, int level, BOOL is_expr,
   for (UINT32 i = 0; i < args->size(); i++) {
     IR_ITER call_opnd = visitExpression(tree, call_stmt, level, (*args)[i]);
     AssertThat(call_opnd != parent && call_opnd != nullptr, ("Invalid expr conversion result"));
-    tree->Set_operand(call_stmt, 0, call_opnd);
+    tree->Set_operand(call_stmt, i, call_opnd);
   }
   return ret_stmt;
 }

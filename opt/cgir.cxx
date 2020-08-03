@@ -279,6 +279,7 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
   // Adding entry BB.
   Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_ENTRY); //Assuming there is only one BB.
   cur_bb = Cfg()->Add_bb(cur_bb);
+  Add_store_formals(entry, cur_bb);
 
   // Do nothing
   IR_ITER root = tree->Get_root();
@@ -389,6 +390,7 @@ void CGIR::Set_current_cgir(CG_CFG *cgir, ST_IDX sym) {
   _current = cgir;
   _current_sym = sym;
   tree = PU_INFO_pu_info(File()->Tables()->Get_pu_info_by_st_idx(sym))->entry;
+  Set_current_layout(layout[sym]);
 }
 
 /**
@@ -501,26 +503,30 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
       _tn_freq_map.clear();
     }
     // If there is a label to it, emit the label
-    for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
+    UINT32 stmt_id = 0;
+    for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++, stmt_id++) {
       CGOP *cgop = (*stmt_it);
       Is_Trace(TR_LRA(),
                (TFile, "LRA: Processing op = %s\n",
                 Get_cg_opc_info(cgop->getOpcode())->ins_token));
       if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
-        i32_register_needed += Count_needed_register(cgop, CGOPR_R, i, 0);
+        i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 0);
       }
       if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
-        i32_register_needed += Count_needed_register(cgop, CGOPR_R, i, 1);
+        i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 1);
       }
       if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
-        i32_register_needed += Count_needed_register(cgop, CGOPR_R, i, 2);
+        i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 2);
       }
     }
 
     /*** LRA ***/
-
     Is_Trace(TR_LRA(),
              (TFile, "Found %lu registers to allocate for \n", _tn_freq_map.size()));
+
+    // Build interference graph.
+    // ...
+
     // This is actually global register allocation.
     REGISTER_SET used = 0;
     REGISTER_SET_EmptyP(used);
@@ -531,11 +537,14 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
       // Allocate one-by-one
       Is_Trace(TR_LRA(), (TFile, "LRA: Assigning reg %d to TN : %d\n", used_cnt, tid));
       Set_TN_register(tn, used_cnt);
+      Cfg()->BB(i)->Get_dedicate_regs().push_back(used_cnt);
       Set_TN_is_preallocated(tn);
       Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
-      if (used_cnt < 7) {
+      vector<UINT32> &ded = Cfg()->BB(i)->Get_dedicate_regs();
+      while(std::find(ded.begin(), ded.end(), used_cnt) != ded.end() && used_cnt < 4) {
         used_cnt ++;
-      } else {
+      }
+      if (used_cnt >= 4) {
         // We could put the spill on r8.
         // Now we have at least the R9 to process
         Is_Trace(TR_LRA(),
@@ -674,7 +683,8 @@ CGIR::Exp_LDST (
     base = TN_tn(Gen_TN(MTYPE_I4));
     LABEL_IDX lbl = Get_addr_label(sym);
     Cfg()->BB(bb_idx)->Add_stmt(
-      new CGOP(CGOPC_LDRLBL, bb_idx, TN_tn_idx(base), TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0));
+      new CGOP(CGOPC_LDRLBL, bb_idx, TN_tn_idx(base),
+               TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0));
   } else {
     base = Build_Dedicated_TN(REGISTER_CLASS_sp,
                               REGISTER_sp,
@@ -950,7 +960,8 @@ BOOL CGIR::CGOPC_is_ldst(CGOPC cgopc) {
   return (Get_cg_opc_info(cgopc)->opk == CGOPK_LDST);
 }
 
-UINT32 CGIR::Count_needed_register(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb, UINT8 opr_pos) {
+UINT32 CGIR::Count_needed_register(CGOP *oper, UINT32 cgop_id,
+                                   CGOPR_KIND kind, UINT32 cur_bb, UINT8 opr_pos) {
   if (kind != CGOPR_R) {
     Is_Trace(TR_LRA(), (TFile, "Found kind != r, no need to allocate \n"));
     return 0;
@@ -960,6 +971,20 @@ UINT32 CGIR::Count_needed_register(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb, U
   TN *tn = TN_tn(cgoper.tn);
   if (TN_is_symbol(tn) || TN_is_label(tn) || TN_is_preallocated(tn) ||
       TN_is_constant(tn)  || TN_is_dedicated(tn)) {
+    if (TN_is_dedicated(tn) || TN_is_preallocated(tn)) {
+      UINT32 reg_id;
+      if (TN_register_class(tn) == REGISTER_CLASS_ra && TN_is_dedicated(tn)) {
+        reg_id = 0;
+      } else if (TN_is_preallocated(tn) && TN_register(tn) >= 0) {
+        reg_id = TN_register(tn);
+      } else {
+        AssertThat(false, ("Condition unexpected."));
+      }
+      vector<UINT32> &ded = Cfg()->BB(cur_bb)->Get_dedicate_regs();
+      if (std::find(ded.begin(), ded.end(), reg_id) == ded.end()) {
+        ded.push_back(reg_id);
+      }
+    }
     Is_Trace(TR_LRA(), (TFile, "Found tn %d no need to allocate \n", cgoper.tn));
     return 0;
   } else {
@@ -974,10 +999,11 @@ UINT32 CGIR::Count_needed_register(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb, U
       old_freq = _tn_freq_map[tid];
     } else {
       _tn_freq_map.insert(std::make_pair(tid, 0));
-      _tn_live_range.insert(std::make_pair(tid, vector<UINT32>()));
+      _tn_live_range.insert(std::make_pair(tid, vector<UINT64>()));
     }
     _tn_freq_map[tid] = old_freq + 1;
-    _tn_live_range[tid].push_back(cur_bb);
+    UINT64 bb_stmt = (((UINT64) cur_bb) << 32l) & cgop_id;
+    _tn_live_range[tid].push_back(bb_stmt);
     return 1;
   }
   return 0;
@@ -1074,25 +1100,28 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
   LABEL_IDX lbl_idx    = File()->Create_label(ST_st(func_sym)->getNameIdx(), 0,
                                               LKIND_DEFAULT);
   TN *callee_name_tn   = Gen_Label_TN(lbl_idx, 0);
-  UINT32 call_args     = tree->Number_of_children(stmt);
-  TY_IDX callee_proto  = PU_pu(ST_pu(func_sym))->getPrototype();
+  UINT32 call_args        = tree->Number_of_children(stmt);
+  TY_IDX callee_proto     = PU_pu(ST_pu(func_sym))->getPrototype();
   UINT32 callargs_size    = 0; // including the first four param.
   UINT32 abi_callarg_size = 0; // not including the first four param.
-  for (UINT32 i = TY_tylist_id(callee_proto) + 1; ; i ++) {
-    if (TYLIST_tylist(i)->Ty_idx() == 0) {
+  UINT32 arg_id           = 0;
+  for (TYLIST_IDX ty_list = TY_tylist_id(callee_proto) + 1; ;
+       arg_id ++,
+       ty_list++) {
+    if (TYLIST_tylist(ty_list)->Ty_idx() == 0) {
       // end met.
       break;
     }
-    TY_IDX ty_idx = TYLIST_tylist(i)->Ty_idx();
+    TY_IDX ty_idx = TYLIST_tylist(ty_list)->Ty_idx();
     if (TY_kind(ty_idx) == KIND_VOID) {
       // do nothing.
       call_args = 0;
     } else if (TY_kind(ty_idx) == KIND_ARRAY) {
       callargs_size += 4;
-      if (i >= 4) abi_callarg_size += 4;
+      if (arg_id >= 4) abi_callarg_size += 4;
     } else if (TY_kind(ty_idx) == KIND_SCALAR) {
       callargs_size += TY_size(ty_idx);
-      if (i >= 4) abi_callarg_size += TY_size(ty_idx);
+      if (arg_id >= 4) abi_callarg_size += TY_size(ty_idx);
     } else {
       AssertThat(false,
                  ("Unexpected type kind : %d, in type: %d",
@@ -1100,6 +1129,9 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
     }
   }
 
+  AssertThat(arg_id == call_args,
+             ("Insufficient arguments %d needed , %d present",
+               arg_id, call_args));
   CFG_BB_IDX to_mem_bb = Cfg()->Add_bb(cur_bb);
   // Create a new BB for storing to memory.
   for (UINT32 i = 0; i < call_args; i++) {
@@ -1216,6 +1248,19 @@ CGOPC CGIR::Get_branch_cond(IR_ITER cond, BOOL is_true_br) {
 
 UINT32 CGIR::TN_tab_size() {
   return _global_tn_vec.size();
+}
+
+void CGIR::Add_store_formals(IR_ITER entry, CFG_BB_IDX bb) {
+  ST_IDX cur_func = File()->Scopes()->Current()->st_idx;
+  TY_IDX ty = ST_ty(cur_func);
+  vector<ST_IDX> &sym_on_reg = Layout()->Get_sym_on_formal_reg();
+  for(UINT32 i = 0; i < sym_on_reg.size(); i++) {
+    ST_IDX sym   = sym_on_reg[i];
+    TN *from_reg = Gen_Register_TN(ISA_REGISTER_CLASS_integer, MTYPE_size(MTYPE_I4));
+    Set_TN_is_preallocated(from_reg);
+    Set_TN_register(from_reg, Layout()->Get_sym_reg_num(sym));
+    Exp_LDST(OPC_I4STID, MTYPE_I4, from_reg, nullptr, sym, 0, bb, V_BR_NONE);
+  }
 }
 
 UINT8 ISA_OPCODE_results(CGOPC cgopc) {
