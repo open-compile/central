@@ -21,7 +21,7 @@
 	int token;
 }
 
-%token <string> TIDENTIFIER TINTEGER TDOUBLE TYINT TYDOUBLE TYFLOAT TYCHAR TYBOOL TYVOID TYSTRING TEXTERN TLITERAL
+%token <string> TIDENTIFIER TINTEGER THEX TDOUBLE TYINT TYDOUBLE TYFLOAT TYCHAR TYBOOL TYVOID TYSTRING TEXTERN TLITERAL
 %token <token> TCEQ TCNE TCLT TCLE TCGT TCGE TEQUAL TAND TOR TLAND TLOR
 %token <token> TLPAREN TRPAREN TLBRACE TRBRACE TCOMMA TDOT TSEMICOLON TLBRACKET TRBRACKET TQUOTATION
 %token <token> TPLUS TMINUS TMUL TDIV TXOR TMOD TNEG TNOT TANOT TSHIFTL TSHIFTR
@@ -138,6 +138,7 @@ ident : TIDENTIFIER { $$ = new NIdentifier(*$1); delete $1; }
 
 numeric : TINTEGER { $$ = new NInteger(atol($1->c_str())); }
 	 | TDOUBLE { $$ = new NDouble(atof($1->c_str())); }
+	 | THEX { $$ = new NInteger(strtol($1->c_str(), NULL, 16)); }
 	 ;
 expr : 	assign { $$ = $1; }
 		 | ident TLPAREN call_args TRPAREN { $$ = new NMethodCall(shared_ptr<NIdentifier>($1), shared_ptr<ExpressionList>($3)); }

@@ -3,7 +3,7 @@ all: grammar.cpp grammar.hpp token.cpp
 BISON = /usr/local/opt/bison/bin/bison
 
 grammar.cpp: grammar.y
-	$(BISON) -d -o $@ $<
+	bison -d -o $@ $<
 
 grammar.hpp: grammar.cpp
 

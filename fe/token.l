@@ -45,6 +45,7 @@ static FILE* yyparse_file_ptr;
 "const"                 SAVE_TOKEN; Debug_puts("TRBRACE"); return TCONST;
 "extern"                SAVE_TOKEN; Debug_puts("TEXTERN"); return TEXTERN;
 [a-zA-Z_][a-zA-Z0-9_]*	SAVE_TOKEN; Debug_puts("TIDENTIFIER"); return TIDENTIFIER;
+0[xX][0-9a-fA-F]+	    SAVE_TOKEN; Debug_puts("THEX"); return THEX;
 [0-9]+\.[0-9]*			SAVE_TOKEN; Debug_puts("TDOUBLE"); return TDOUBLE;
 [0-9]+  				SAVE_TOKEN; Debug_puts("TINTEGER"); return TINTEGER;
 \"(\\.|[^"])*\"         SAVE_TOKEN; Debug_puts("TLITERAL"); return TLITERAL;

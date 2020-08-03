@@ -22,6 +22,7 @@ BIN_OP_TO_OPR FEOPCODE_INFO[] = {
   { "/", TDIV,   OPR_DIV, MTYPE_I4 },
   { "<", TCLT,   OPR_LT , MTYPE_B  },
   { ">", TCGT,   OPR_GT , MTYPE_B  },
+  { "%", TMOD,   OPR_MOD , MTYPE_I4  },
   { "&", TAND,   OPR_BAND , MTYPE_I4  },
 //  { "|", TOR,   OPR_BAND , MTYPE_I4  },
   { "<=", TCLE,   OPR_LE , MTYPE_B  },
