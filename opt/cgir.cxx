@@ -719,7 +719,7 @@ void CGIR::Exp_op(OPCODE opcode, CFG_BB_IDX cur_bb,
   switch (OPCODE_operator(opcode)) {
     case OPR_ADD: { cgop = CGOPC_ADD; break; }
     case OPR_MPY: { cgop = CGOPC_MUL; break; }
-    case OPR_DIV: { cgop = CGOPC_ADD; break; }
+    case OPR_DIV: { cgop = CGOPC_DIV; break; }
     case OPR_SUB: { cgop = CGOPC_SUBS; break; }
     case OPR_LAND: { cgop = CGOPC_AND; break; }
     case OPR_BIOR: { cgop = CGOPC_ORR; break; }

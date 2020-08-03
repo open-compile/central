@@ -27,6 +27,7 @@ CGOPDEF( CGOPC_BGT   , 0,   1,  false,  CGOPR_R,  CGOPR_R,  CGOPR_R,   "bgt"  , 
 CGOPDEF( CGOPC_BLE   , 0,   1,  false,  CGOPR_R,  CGOPR_R,  CGOPR_R,   "ble"  , CGOPK_NONE  )
 CGOPDEF( CGOPC_ADD   , 1,   2,  true,   CGOPR_R,  CGOPR_R,  CGOPR_R,   "add"  , CGOPK_NONE  ) // Arithmetic ... TODO: to be addeed
 CGOPDEF( CGOPC_MUL   , 1,   2,  true,   CGOPR_R,  CGOPR_R,  CGOPR_R,   "mul"  , CGOPK_NONE  )
+CGOPDEF( CGOPC_DIV   , 1,   2,  true,   CGOPR_R,  CGOPR_R,  CGOPR_R,   "sdiv" , CGOPK_NONE  )
 CGOPDEF( CGOPC_SUBS  , 1,   2,  true,   CGOPR_R,  CGOPR_R,  CGOPR_R,   "subs" , CGOPK_NONE  )
 CGOPDEF( CGOPC_AND   , 1,   2,  true,   CGOPR_R,  CGOPR_R,  CGOPR_R,   "and" ,  CGOPK_NONE  )
 CGOPDEF( CGOPC_ORR   , 1,   2,  true,   CGOPR_R,  CGOPR_R,  CGOPR_R,   "orr" ,  CGOPK_NONE  )

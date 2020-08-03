@@ -34,7 +34,7 @@
 %type <exprvec> call_args
 %type <block> program stmts block block_or_single_stmt
 %type <stmt> stmt var_decl func_decl basic_stmt struct_decl if_stmt for_stmt while_stmt
-%type <token> comparison
+%type <token> comparison and_comparison or_comparison
 %type <var_decl> basic_var_decl
 
 %left TLOR
@@ -140,22 +140,24 @@ numeric : TINTEGER { $$ = new NInteger(atol($1->c_str())); }
 	 | TDOUBLE { $$ = new NDouble(atof($1->c_str())); }
 	 | THEX { $$ = new NInteger(strtol($1->c_str(), NULL, 16)); }
 	 ;
-expr : 	assign { $$ = $1; }
-		 | ident TLPAREN call_args TRPAREN { $$ = new NMethodCall(shared_ptr<NIdentifier>($1), shared_ptr<ExpressionList>($3)); }
-		 | ident { $<ident>$ = $1; }
-		 | ident TDOT ident { $$ = new NStructMember(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($3)); }
+expr : 	 ident TLPAREN call_args TRPAREN { $$ = new NMethodCall(shared_ptr<NIdentifier>($1), shared_ptr<ExpressionList>($3)); }
 		 | numeric
+		 | ident { $<ident>$ = $1; }
+		 | TLPAREN expr TRPAREN { $$ = $2; }
+		 | array_index { $$ = $1; }
+		 | ident TDOT ident { $$ = new NStructMember(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($3)); }
+		 | TNOT expr { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
+		 | TANOT expr { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
+		 | TMINUS expr { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
 		 | expr TMOD expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
 		 | expr TMUL expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
 		 | expr TDIV expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
 		 | expr TPLUS expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
 		 | expr TMINUS expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
-		 | TLPAREN expr TRPAREN { $$ = $2; }
 		 | expr comparison expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
-		 | TNOT expr { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
-		 | TANOT expr { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
-		 | TMINUS expr { $$ = new NUnaryOperator($1, shared_ptr<NExpression>($2)); }
-		 | array_index { $$ = $1; }
+		 | expr and_comparison expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
+		 | expr or_comparison expr { $$ = new NBinaryOperator(shared_ptr<NExpression>($1), $2, shared_ptr<NExpression>($3)); }
+		 | assign { $$ = $1; }
 		 | TLITERAL { $$ = new NLiteral(*$1); delete $1; }
 		 ;
 init_expr :
@@ -195,8 +197,14 @@ call_args : /* blank */ { $$ = new ExpressionList(); }
 					| expr { $$ = new ExpressionList(); $$->push_back(shared_ptr<NExpression>($1)); }
 					| call_args TCOMMA expr { $1->push_back(shared_ptr<NExpression>($3)); }
 comparison : TLAND | TLOR | TCEQ | TCNE | TCLT | TCLE | TCGT | TCGE
-	    | TAND | TOR | TXOR | TSHIFTL | TSHIFTR
-					 ;
+	   | TXOR | TSHIFTL | TSHIFTR
+	   ;
+
+and_comparison: TAND
+		;
+or_comparison: TOR
+		;
+
 block_or_single_stmt : block { $$ = $1; }
 		     | basic_stmt {
 		       $$ = new NBlock();

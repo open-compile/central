@@ -128,6 +128,10 @@ void Set_current_tree(TREE *current) {
   current_tree = current;
 }
 
+void TREE::Print() {
+  this->Print_recursive(stdout);
+}
+
 void TREE::Print_recursive(FILE *f) {
   fprintf(f, "Printing the table size = %lu, tree of size = %zu ... \n", _ir_elem_tab.size(), irtree.size());
   IR_ITER it = irtree.begin();

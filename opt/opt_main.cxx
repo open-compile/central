@@ -172,7 +172,7 @@ void Opt_verify_block(IR_ITER body, PU_INFO *func, FILE_MANAGER *file, IR_LEVEL 
       case OPR_FALSEBR:
       case OPR_TRUEBR: {
         AssertThat(level >= LEVEL_HIGH, ("TRUEBR/FALSEBR should not be present in level %d", level));
-        AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in WHILE_DO, 2 expected, got %d", tree->Number_of_children(stmt)));
+        AssertThat(tree->Number_of_children(stmt) == 1, ("Incorrect number of kid in truebr/falsebr, 2 expected, got %d", tree->Number_of_children(stmt)));
         AssertThat(tree->Node(stmt)->Get_label_num() != 0, ("There should be a valid label for truebr/falsebr."));
         Opt_verify_expr(tree->Get_operand(stmt, 0), stmt, func, file, level, conf);
         break;
@@ -308,7 +308,7 @@ Opt_lower_bin_op(IR_ITER expr, TREE *tree, PU_INFO *func, FILE_MANAGER *file,
   return cur_node;
 }
 
-IR_ITER Opt_lower_expr(IR_ITER expr, PU_INFO *func, FILE_MANAGER *file,
+IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE_MANAGER *file,
                        IR_LEVEL level, COMPILER_CONFIG &conf) {
   TREE *tree = func->entry;
   if (tree->Number_of_children(expr) >= 0) {
@@ -318,9 +318,11 @@ IR_ITER Opt_lower_expr(IR_ITER expr, PU_INFO *func, FILE_MANAGER *file,
       if (tree->Node(expr)->Opcode() == OPC_BLOCK) {
         Opt_lower_stmt(ch, func, file, level, conf);
       } else {
-        IR_ITER res = Opt_lower_expr(ch, func, file, level, conf);
-        if (ch != res) {
-          tree->Replace_recursive(ch, res);
+        IR_ITER res = Opt_lower_expr(ch, ch_id, func, file, level, conf);
+        if (tree->Internal_tree().is_valid(ch)) {
+          if (ch != res) {
+            tree->Replace_recursive(ch, res);
+          }
         }
       }
     }
@@ -333,6 +335,69 @@ IR_ITER Opt_lower_expr(IR_ITER expr, PU_INFO *func, FILE_MANAGER *file,
     if (res != expr) {
       return res;
     }
+  }
+  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_LAND &&
+      level == LEVEL_LOW) {
+    // Lower
+    /*
+     * FALSEBR LABEL X
+     *   EXPR0 (maybe LAND)
+     *     LAND
+     *       EXPR1
+     *       EXPR2
+     *     EXPR 3
+     *  ->
+     *
+     *  FALSEBR LABEL X
+     *    EXPR 1
+     *
+     *  FALSEBR LABEL X
+     *    EXPR 0 (maybe LAND)
+     *      EXPR 2
+     *      EXPR 3
+     * */
+    IR_ITER lhs = tree->Get_operand(expr, 0);
+    IR_ITER rhs = tree->Get_operand(expr, 1);
+    IR_ITER use_stmt = tree->Get_parent_in_block(expr);
+    IR_ITER block = tree->Get_parent(use_stmt);
+    AssertThat(tree->Node(use_stmt)->Opcode() == OPC_FALSEBR,
+               ("Not in a falsebr, it it a %s. ",
+                 OPCODE_name(tree->Node(use_stmt)->Opcode())));
+    IRNODE_IDX new_false_br = tree->Create_node(OPC_FALSEBR);
+    tree->Node(new_false_br)->Set_label_num(tree->Node(use_stmt)->Get_label_num());
+    IR_ITER new_false_br_stmt = tree->Insert_before(use_stmt, new_false_br);
+    IR_ITER expr_lhs = tree->Set_operand(new_false_br_stmt, 0, new_false_br);
+    IR_ITER expr_rhs = tree->Set_operand(new_false_br_stmt, 1, new_false_br);
+    expr_lhs = tree->Replace_recursive(expr_lhs, lhs);
+//    IR_ITER new_expr = tree->Set_operand(expr, 1, new_false_br);
+    expr_rhs = tree->Replace_recursive(expr_rhs, rhs);
+    return expr_rhs;
+  }
+  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_BIOR &&
+      level == LEVEL_LOW) {
+    // Lower
+    /*
+     * FALSEBR LABEL X
+     *   EXPR0 (maybe LAND)
+     *     LAND
+     *       EXPR1
+     *       EXPR2
+     *     EXPR 3
+     *  ->
+     *
+     *  FALSEBR LABEL X
+     *    EXPR 1
+     *
+     *  FALSEBR LABEL X
+     *    EXPR 0 (maybe LAND)
+     *      EXPR 2
+     *      EXPR 3
+     * */
+    IR_ITER false_br_orig = tree->Get_parent_in_block(expr);
+    IR_ITER block = tree->Get_parent(false_br_orig);
+    AssertThat(tree->Node(false_br_orig)->Opcode() == OPC_FALSEBR, ("Not in a falsebr"));
+    IRNODE_IDX new_false_br = tree->Create_node(OPC_FALSEBR);
+    return expr;
   }
   if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_LDID &&
       conf.Opt_enabled(OPT_KIND_LDID_CONST)  &&
@@ -468,7 +533,7 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
     // visit child
     for (UINT32 ch_id = 0; ch_id < tree->Number_of_children(stmt); ch_id++) {
       IR_ITER ch = tree->Get_operand(stmt, ch_id);
-      IR_ITER res = Opt_lower_expr(ch, func, file, level, conf);
+      IR_ITER res = Opt_lower_expr(ch, ch_id, func, file, level, conf);
       if (ch != res) {
         tree->Replace_recursive(ch, res);
       }

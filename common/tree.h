@@ -343,9 +343,7 @@ public:
              (TFile, "Creating TREE, size = %lu\n", irtree.size()));
   }
   void Print_recursive(FILE *f);
-  void Print() {
-      this->Print_recursive(stdout);
-  }
+  void Print();
   IRNODE *Get_node(IRNODE_IDX iridx);
   IRNODE *Get_node(IR_ITER ir_it) { return Get_node(*ir_it); } //alias
   IRNODE *Node(IR_ITER ir_it)     { return Get_node(ir_it);  } //alias

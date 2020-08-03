@@ -471,7 +471,6 @@ public:
                        shared_ptr<NIdentifier> id,
                        shared_ptr<NExpression> assignmentExpr = NULL)
     : type(type), id(id), assignmentExpr(assignmentExpr) {
-    cout << "isArray = " << type->isArray << endl;
     AssertThat(type->isType, ("Type->isType should be true"));
     AssertThat(!type->isArray || (type->isArray && type->arraySize != nullptr),
                ("Incorrect type for decl."));
@@ -483,7 +482,7 @@ public:
 
   void print(string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
+    cout << prefix << getTypeName() << this->m_DELIM << "isArray = " << type->isArray << endl;
     type->print(nextPrefix);
     id->print(nextPrefix);
     if (assignmentExpr != nullptr) {
