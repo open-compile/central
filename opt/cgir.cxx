@@ -512,7 +512,7 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
     // This is actually global register allocation.
     REGISTER_SET used = 0;
     REGISTER_SET_EmptyP(used);
-    UINT32 used_cnt = 0; // Use r0 for return value
+    UINT32 used_cnt = 1; // Use r0 for return value
     for (auto tn_freq : _tn_freq_map) {
       TN_IDX tid = tn_freq.first;
       TN *tn = TN_tn(tid);

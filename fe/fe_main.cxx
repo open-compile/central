@@ -30,8 +30,76 @@ BIN_OP_TO_OPR FEOPCODE_INFO[] = {
   { "==", TCEQ,   OPR_EQ , MTYPE_B  },
 };
 
+void Create_internal_functions() {
+  TY_IDX ty_i4 = MTYPE_to_ty(MTYPE_I4);
+  TY_IDX ty_v = MTYPE_to_ty(MTYPE_V);
+  ARB_IDX arb = File()->Create_array_bound_const(0, 4, 1, ARB_FLAGS::ARB_CONST_UBND);
+  TY_IDX ty_ivec = File()->Create_array_ty(File()->Save_string(".internal.i4"),
+                                           TY_FLAG_INTERNAL, ty_i4, arb);
+
+  STR_IDX internal_func_name = File()->Save_string(".internal.func");
+  std::vector<TY_IDX> *param_ret_vec = new std::vector<TY_IDX>;
+  param_ret_vec->clear();
+  param_ret_vec->push_back(ty_i4);
+  param_ret_vec->push_back(ty_v);
+  TY_IDX one_ret = File()->Create_func_ty(internal_func_name, 0, MTYPE_V, TY_FLAG::TY_ANONYMOUS,
+                                          *param_ret_vec);
+
+  param_ret_vec->clear();
+  param_ret_vec->push_back(ty_i4);
+  param_ret_vec->push_back(ty_ivec);
+  TY_IDX one_ret_one_array_parm = File()->Create_func_ty(internal_func_name, 0, MTYPE_V, TY_FLAG::TY_ANONYMOUS,
+                                                         *param_ret_vec);
+
+  param_ret_vec->clear();
+  param_ret_vec->push_back(ty_v);
+  param_ret_vec->push_back(ty_i4);
+  TY_IDX void_ret_one_parm = File()->Create_func_ty(internal_func_name, 0, MTYPE_V, TY_FLAG::TY_ANONYMOUS,
+                                                    *param_ret_vec);
+
+  param_ret_vec->clear();
+  param_ret_vec->push_back(ty_v);
+  param_ret_vec->push_back(ty_ivec);
+  TY_IDX void_ret_one_vec = File()->Create_func_ty(internal_func_name, 0, MTYPE_V, TY_FLAG::TY_ANONYMOUS,
+                                                   *param_ret_vec);
+
+  STR_IDX func_name = File()->Save_string("getint");
+  File()->Create_var(func_name, one_ret,
+                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
+
+  func_name = File()->Save_string("getch");
+  File()->Create_var(func_name, one_ret,
+                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
+
+  func_name = File()->Save_string("getarray");
+  File()->Create_var(func_name, one_ret_one_array_parm,
+                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
+
+  func_name = File()->Save_string("putint");
+  File()->Create_var(func_name, void_ret_one_parm,
+                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
+
+  func_name = File()->Save_string("putch");
+  File()->Create_var(func_name, void_ret_one_parm,
+                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
+
+  func_name = File()->Save_string("putarray");
+  File()->Create_var(func_name, void_ret_one_vec,
+                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
+
+//  int getint();
+//  int getch();
+//  int getarray(int a[]);
+//  void putint(int a);
+//  void putch(int a);
+//  void putarray(int n,int a[]);
+}
+
 INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_name) {
-    // TODO:
+
+  // Create internal functions.
+  Create_internal_functions();
+
   extern FILE *yyin;
   if ((yyin = fopen(file_name, "r")) == NULL) {
     Comp_Failure("Failed to open source code : %s", file_name);
@@ -41,9 +109,10 @@ INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_nam
   if (!programBlock) {
     Comp_Failure("Syntax check failed for file : %s:%d", file_name, yylineno);
   }
-  
-  // std::cout << programBlock << std::endl;
-  programBlock->print("--");
+
+  if(Tracing(COMPONENT_FE, TRACE_INFO)) {
+    programBlock->print("--");
+  }
   auto root = programBlock->jsonGen();
   Irgen_visit(programBlock);
 
