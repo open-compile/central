@@ -1,19 +1,12 @@
-int a;
-int b;
-int c;
 
-void foo () {
-  int a;
-  a = 4;
-}
-
-void far() {
-  int m;
-  m = 5;
-  m = 6;
-}
-
-void foo2() {
+int foo2() {
   int m = 4;
+  if(m > 0){
+      m = 1;
+  }
+  else{
+      m = 2;
+  }
+  m = 0;
 }
 

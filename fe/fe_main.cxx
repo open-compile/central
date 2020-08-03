@@ -422,9 +422,9 @@ IR_ITER visitIdentifierStmt(TREE *tree, IR_ITER parent, int level,
     IRNODE_IDX identifier_node = tree->Create_node(OPC_GOTO_OUT);
     tree->Node(identifier_node)->Set_label_num(GOTO_OUT_BREAK);
     IR_ITER id_stmt = tree->Insert_stmt_to_block(parent, identifier_node);
-  } else /* continue */ {
+  } else if (stmt->name == "continue") {
     IRNODE_IDX identifier_node = tree->Create_node(OPC_GOTO_OUT);
-    //TODO:
+    tree->Node(identifier_node)->Set_label_num(GOTO_OUT_CONTINUE);
     IR_ITER id_stmt = tree->Insert_stmt_to_block(parent, identifier_node);
   }
   return parent;
