@@ -24,8 +24,8 @@ ISA_REGISTER_CLASS REGISTER_CLASS_vec[ISA_REGISTER_CLASS_MAX + 1] = {
 ISA_REGISTER_CLASS_INFO ISA_REGISTER_CLASS_info[] = {
   // isa  sz  min      max s  ms  name          reg_name
   { 0x00,  0,   0,   0, 0, 0, "UNDEFINED", { 0 } },
-  { 0x01, 64,   0,  15, 1, 0, "integer",
-                                           { "%rax", "%rbx", "%rbp", "%rsp", "%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9", "%r10", "%r11", "%r12",
+  { 0x01, 32,   0,  15, 1, 0, "integer",
+                                           { "%r0", "%r1", "%r2", "%rsp", "%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9", "%r10", "%r11", "%r12",
                                              "%r13", "%r14", "%r15" } },
   //  { "r1", "r2", "r3", "r4", "r5", "r6", "r7", "%rcx", "%r8", "%r9", "%r10", "%r11", "%r12",
   //    "r1", "%r14", "%r15" } },

@@ -419,6 +419,8 @@ public:
 typedef CFG_BB_BASE<CGOP>    CGBB;
 typedef CFG_BASE<CGOP>       CG_CFG;
 
+extern std::vector<TN>              _global_tn_vec;
+
 class CGIR {
 private:
   // CGIR_Table
@@ -434,7 +436,6 @@ private:
   ST_IDX                      _current_sym;
   DATA_LAYOUT                *_current_layout;
   TREE                        *tree;
-  std::vector<TN>              _global_tn_vec;
 public:
   CG_CFG    *Get_function(ST_IDX func_sym) {
     if(trees.find(func_sym) == trees.end()) {

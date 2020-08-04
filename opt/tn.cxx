@@ -8,6 +8,8 @@
 #include "options.h"
 #include "cg_main.h"
 
+std::vector<TN>              _global_tn_vec;
+
 #define POINTER_SIZE 4
 
 /*
@@ -35,7 +37,7 @@ namespace TN_CONTEXT {
   static TN *v32_ded_tns[REGISTER_MAX + 1];
   static TN *i1_ded_tns[REGISTER_MAX + 1];
   static TN *i2_ded_tns[REGISTER_MAX + 1];
-  static TN *i4_ded_tns[REGISTER_MAX + 1];
+  TN *i4_ded_tns[REGISTER_MAX + 1];
 
   TN *RA_TN    = NULL;
   TN *SP_TN    = NULL;
@@ -171,58 +173,22 @@ Init_Dedicated_TNs(void) {
   ISA_REGISTER_CLASS rclass;
   REGISTER           reg;
   TN_IDX             tnum = 0;
-
+  Create_Dedicated_TN((ISA_REGISTER_CLASS_integer),  0);
   FOR_ALL_ISA_REGISTER_CLASS(rclass) {
     for (reg = REGISTER_MIN;
          reg <= REGISTER_CLASS_last_register(rclass);
          reg++) {
-      ++tnum;
       ded_tns[rclass][reg] = Create_Dedicated_TN(rclass, reg);
     }
   }
-
   Last_Distinct_Dedicated_TN = tnum;
-
-  /* Initialize the dedicated integer register TNs: */
-  Zero_TN  = ded_tns[REGISTER_CLASS_zero][REGISTER_zero];
-  Ep_TN    = ded_tns[REGISTER_CLASS_ep][REGISTER_ep];
-  SP_TN    = ded_tns[REGISTER_CLASS_sp][REGISTER_sp];
-  FP_TN    = ded_tns[REGISTER_CLASS_fp][REGISTER_fp];
-  RA_TN    = ded_tns[REGISTER_CLASS_ra][REGISTER_ra];
-  Pfs_TN   = ded_tns[REGISTER_CLASS_pfs][REGISTER_pfs];
-  True_TN  = ded_tns[REGISTER_CLASS_true][REGISTER_true];
-  FZero_TN = ded_tns[REGISTER_CLASS_fzero][REGISTER_fzero];
-  FOne_TN  = ded_tns[REGISTER_CLASS_fone][REGISTER_fone];
-
-  for (reg = REGISTER_MIN;
-       reg <= REGISTER_CLASS_last_register(ISA_REGISTER_CLASS_float);
-       reg++) {
-    ++tnum;
-    f4_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_float, reg);
-    Set_TN_size(f4_ded_tns[reg], 4);
-    ++tnum;
-    v16_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_float, reg);
-    Set_TN_size(v16_ded_tns[reg], 16);
-    ++tnum;
-    v32_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_float, reg);
-    Set_TN_size(v32_ded_tns[reg], 32);
-  }
-
   for (reg = REGISTER_MIN;
        reg <= REGISTER_CLASS_last_register(ISA_REGISTER_CLASS_integer);
        reg++) {
-    ++tnum;
-    i1_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_integer, reg);
-    Set_TN_size(i1_ded_tns[reg], 1);
-    ++tnum;
-    i2_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_integer, reg);
-    Set_TN_size(i2_ded_tns[reg], 2);
-    ++tnum;
     i4_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_integer, reg);
     Set_TN_size(i4_ded_tns[reg], 4);
   }
-
-  Last_Dedicated_TN = tnum;
+  Last_Dedicated_TN = Cgir()->Get_tn_table().size();
 }
 
 
@@ -238,26 +204,6 @@ Init_Dedicated_TNs(void) {
 TN *
 Build_Dedicated_TN (ISA_REGISTER_CLASS rclass, REGISTER reg, INT size)
 {
-  // check for F4 tns and 16-byte vector tns
-  if (rclass == ISA_REGISTER_CLASS_float
-      && size != DEFAULT_RCLASS_SIZE(rclass) )
-  {
-    switch(size) {
-      case 4:  return f4_ded_tns[reg];
-      case 16: return v16_ded_tns[reg];
-      case 32: return v32_ded_tns[reg];
-    }
-  }
-  // check for I4 tns
-  if (rclass == ISA_REGISTER_CLASS_integer
-      && size != DEFAULT_RCLASS_SIZE(rclass) )
-  {
-    switch(size) {
-      case 1: return i1_ded_tns[reg];
-      case 2: return i2_ded_tns[reg];
-    }
-  }
-
   if(rclass == ISA_REGISTER_CLASS_integer) {
     return i4_ded_tns[reg];
   }
