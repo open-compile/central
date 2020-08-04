@@ -152,9 +152,6 @@ struct CG_OPRAND {
   operator int() {
     return tn;
   }
-  CG_OPRAND(UINT32 tn_id) {
-    tn = tn_id;
-  }
   CG_OPRAND(UINT32 &tn_id) {
     tn = tn_id;
   }

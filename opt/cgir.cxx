@@ -973,8 +973,8 @@ UINT32 CGIR::Count_needed_register(CGOP *oper, UINT32 cgop_id,
   AssertThat(cgoper.tn != 0, ("TN does not exist on CGOP_id %d, cur_bb = %d, opr_pos = %d",
              cgop_id, cur_bb, opr_pos));
   AssertThat(cgoper.tn < Get_tn_table().size(),
-             ("TN exceed the table length, on CGOP_id %d, cur_bb = %d, opr_pos = %d",
-              cgop_id, cur_bb, opr_pos));
+             ("TN %d exceed the table length %d, on CGOP_id %d, cur_bb = %d, opr_pos = %d",
+              cgoper.tn, Get_tn_table().size(), cgop_id, cur_bb, opr_pos));
   TN *tn = TN_tn(cgoper.tn);
   if (TN_is_symbol(tn) || TN_is_label(tn) || TN_is_preallocated(tn) ||
       TN_is_constant(tn)  || TN_is_dedicated(tn)) {
