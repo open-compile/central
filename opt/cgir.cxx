@@ -510,8 +510,8 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
     // Tracings
     if (TR_LRA()) {
       fprintf(TFile, " --------- Processing BB : %d ---------  \n", i);
-      _tn_freq_map.clear();
     }
+    _tn_freq_map.clear();
     // If there is a label to it, emit the label
     UINT32 stmt_id = 0;
     for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++, stmt_id++) {
@@ -540,29 +540,30 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
     // This is actually global register allocation.
     REGISTER_SET used = 0;
     REGISTER_SET_EmptyP(used);
-    UINT32 used_cnt = 1; // Use r0 for return value
+    UINT32 next_register = 1; // Use r0 for return value
     for (auto tn_freq : _tn_freq_map) {
       TN_IDX tid = tn_freq.first;
       TN *tn = TN_tn(tid);
       // Allocate one-by-one
-      Is_Trace(TR_LRA(), (TFile, "LRA: Assigning reg %d to TN : %d\n", used_cnt, tid));
-      Set_TN_register(tn, used_cnt);
-      Cfg()->BB(i)->Get_dedicate_regs().push_back(used_cnt);
-      Set_TN_is_preallocated(tn);
-      Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
       vector<UINT32> &ded = Cfg()->BB(i)->Get_dedicate_regs();
       if (TN_is_gra_cannot_split(tn)){
         // PREG, must spill here.
         Spill_tn(tid, tn);
       } else {
-//        while (std::find(ded.begin(), ded.end(), used_cnt) != ded.end() &&
-//               used_cnt < 8) {
-//          used_cnt++;
-//        }
-//        if (used_cnt >= 8) {
-//          /* Spill all now. */
+        if (next_register >= 8) {
+          /* Spill all now. */
           Spill_tn(tid, tn);
-//        }
+        } else {
+          Is_Trace(TR_LRA(), (TFile, "LRA: Assigning reg %d to TN : %d\n", next_register, tid));
+          Cfg()->BB(i)->Get_dedicate_regs().push_back(next_register);
+          Set_TN_is_preallocated(tn);
+          Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
+          Set_TN_register(tn, next_register);
+          while (std::find(ded.begin(), ded.end(), next_register) != ded.end() &&
+                 next_register < 8) {
+            next_register++;
+          }
+        }
       }
     }
   }
