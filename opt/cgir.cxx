@@ -284,6 +284,9 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
   cur_bb = Cfg()->Add_bb(cur_bb);
   Add_store_formals(entry, cur_bb);
 
+  // Create new BB.
+  cur_bb = Cfg()->Add_bb(cur_bb);
+
   // Do nothing
   IR_ITER root = tree->Get_root();
   AssertThat(root != nullptr, ("root should not be empty"));
@@ -1182,7 +1185,7 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
 
   CFG_BB_IDX to_reg_bb = Cfg()->Add_bb(to_mem_bb);
   // Create a new BB for loading to r0 to r3.
-  for (UINT32 i = 0; i < 3 && i < call_args; i++) {
+  for (UINT32 i = 0; i < 4 && i < call_args; i++) {
     IR_ITER expr = tree->Get_operand(stmt, i);
     Cfg()->BB(to_reg_bb)->Dedicate_reg(i);
     INT32 sp_ofst = -callargs_size - CALL_PUSH_SIZE + (i * 4);
@@ -1292,6 +1295,8 @@ void CGIR::Add_store_formals(IR_ITER entry, CFG_BB_IDX bb) {
   ST_IDX cur_func = File()->Scopes()->Current()->st_idx;
   TY_IDX ty = ST_ty(cur_func);
   vector<ST_IDX> &sym_on_reg = Layout()->Get_sym_on_formal_reg();
+  AssertThat(sym_on_reg.size() <= 4,
+             ("There is at most 4 var on formal reg. yet = %d", sym_on_reg.size()));
   for(UINT32 i = 0; i < sym_on_reg.size(); i++) {
     ST_IDX sym   = sym_on_reg[i];
     TN *from_reg = Gen_Register_TN(ISA_REGISTER_CLASS_integer, MTYPE_size(MTYPE_I4));

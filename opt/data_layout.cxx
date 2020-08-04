@@ -23,7 +23,7 @@ void DATA_LAYOUT::Allocate_formal(ST_IDX idx, UINT32 i) {
   var_allocated.push_back(idx);
   // First four params in register and storable on the local area.
   UINT32 ofst_from_fme_to_symbol = 0;
-  if (var_on_formal.size() <= 4) {
+  if (var_on_formal_reg.size() < 4) {
     var_on_stack.push_back(idx);
     q_var_on_stack.insert(idx);
     ofst_from_fme_to_symbol = local_size_allocated;

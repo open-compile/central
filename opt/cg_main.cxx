@@ -127,13 +127,19 @@ void Emit_section_code(FILE *out, FILE_MANAGER *file) {
  * @param file
  */
 void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
-  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Emitting function ST_IDX = %d, name = %s \n",  func->proc_sym, ST_name(func->proc_sym)));
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO),
+           (out, "# Emitting function ST_IDX = %d, name = %s \n", func->proc_sym, ST_name(
+             func->proc_sym)));
   file->Scopes()->Goto_function(func->proc_sym);
+  Cgir()->Set_current_cgir(Cgir()->Get_function(func->proc_sym), func->proc_sym);
   // Inside the function now, emitting all symtab info
-  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Function has %d non-trivial symbols\n", file->Tables()->Sym()->Length(&(func->scope)) - 1));
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO),
+           (out, "# Function has %d non-trivial symbols\n",
+             file->Tables()->Sym()->Length(&(func->scope)) - 1));
   for (UINT32 i = 1; i < file->Tables()->Sym()->Length(&(func->scope)); i++) {
     ST_IDX one = (i << 8) | LOCAL_SYMTAB;
-    fprintf(out, "# Id: 0x%08x, Symbol : %s, Type: %d \n", one, ST_name(one), ST_ty(one));
+    fprintf(out, "# Id: 0x%08x, Symbol : %s, Type: %d, Ofst: %d\n", one,
+            ST_name(one), ST_ty(one), Cgir()->Layout()->Get_sym_sp_ofst(one));
     // Find INITO matching this.
     INITO_IDX inito_idx = ST_st(one)->getInitoIdx();
     // Generate initv
@@ -151,7 +157,6 @@ void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
   fprintf(out, ".global %s\n", func_name);
   fprintf(out, "%s: \n", func_name);
   // Letting Cgir to point to current function.
-  Cgir()->Set_current_cgir(Cgir()->Get_function(func->proc_sym), func->proc_sym);
   Cgir()->Emit_tree(func, out, file);
   // TODO: Use CGIR's emission instead.
 }
