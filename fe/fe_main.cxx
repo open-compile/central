@@ -760,9 +760,11 @@ INT64 Evaluate_const_expr(shared_ptr<NExpression> sharedPtr) {
 }
 
 
-ST_IDX visitArrayDecl(UINT32 level, const shared_ptr<NIdentifier> &varname,
-                      const shared_ptr<NIdentifier> &vartype, TY_IDX i4_idx,
-                      const SYM_SCLASS &sclass) {
+ST_IDX visitArrayDecl(UINT32 level,
+                      shared_ptr<NIdentifier> varname,
+                      shared_ptr<NIdentifier> vartype,
+                      TY_IDX i4_idx,
+                      SYM_SCLASS sclass) {
   ST_IDX                              sym_idx;
   STR_IDX                             anon_array = File()->Save_string(varname->name.c_str());//数组名
   ARB_IDX                             arb_idx[vartype->arraySize->size()];
@@ -770,7 +772,7 @@ ST_IDX visitArrayDecl(UINT32 level, const shared_ptr<NIdentifier> &varname,
   int                                 j          = vartype->arraySize->size();//维数
   for (ExpressionList::const_iterator it         = vartype->arraySize->cbegin(); it != vartype->arraySize->cend(); it++, i++) {
     if ((*it)->getTypeName() == "NInteger") {
-      auto val = reinterpret_cast<const std::__1::shared_ptr<NInteger> &> (*it);
+      auto val = reinterpret_cast<const std::shared_ptr<NInteger> &> (*it);
       arb_idx[i] = File()->Create_array_bound_const(val->value, MTYPE_size(MTYPE_I4), j--,
                                                     i == 0 ? ARB_FIRST_DIMEN : (i == vartype->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
     } else if ((*it)->getTypeName() == "NIdentifier") {
@@ -780,7 +782,7 @@ ST_IDX visitArrayDecl(UINT32 level, const shared_ptr<NIdentifier> &varname,
                                                       i == 0 ? ARB_FIRST_DIMEN : (i == vartype->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
       } else {
         auto expr = (*it);
-        const std::__1::shared_ptr<NIdentifier> &val = reinterpret_cast<const std::__1::shared_ptr<NIdentifier> &>(expr);
+        const std::shared_ptr<NIdentifier> &val = reinterpret_cast<const std::shared_ptr<NIdentifier> &>(expr);
         ST_IDX sym = File()->Find_symbol_by_name(val->name.c_str());
         arb_idx[i] = File()->Create_array_bound_var(sym, MTYPE_size(MTYPE_I4),
                                                     j--,
