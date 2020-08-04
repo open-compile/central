@@ -40,7 +40,7 @@ static FILE* yyparse_file_ptr;
 "float"                 SAVE_TOKEN; Debug_puts("TYFLOAT"); return TYFLOAT;
 "char"                  SAVE_TOKEN; Debug_puts("TYCHAR"); return TYCHAR;
 "bool"                  SAVE_TOKEN; Debug_puts("TYBOOL"); return TYBOOL;
-"string"                SAVE_TOKEN; Debug_puts("TYSTRING"); return TYSTRING;
+"stringsplus"           SAVE_TOKEN; Debug_puts("TYSTRING"); return TYSTRING;
 "void"                  SAVE_TOKEN; Debug_puts("TYVOID"); return TYVOID;
 "const"                 SAVE_TOKEN; Debug_puts("TRBRACE"); return TCONST;
 "extern"                SAVE_TOKEN; Debug_puts("TEXTERN"); return TEXTERN;
