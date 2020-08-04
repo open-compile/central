@@ -850,7 +850,7 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
     // 数组声明, global
     sclass = SYMC_FILE_STATIC;
     if (vartype->isArray) {
-      visitArrayDecl(level, varname, vartype, i4_idx, sclass);
+      sym_idx = visitArrayDecl(level, varname, vartype, i4_idx, sclass);
     } else {
       sym_idx = File()->Create_var(var_name_saved, i4_idx, 1, SYMC_FILE_STATIC,
                                    SYME_INTERNAL, SYM_CLASS_VAR);
