@@ -693,7 +693,7 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
   TY_IDX i4_idx = MTYPE_to_ty(MTYPE_I4);
   ST_IDX sym_idx = File()->Find_symbol_by_name(varname->name.c_str());
   // Check if symbol exists, if so, use the previous one.
-  if (sym_idx != 0) {
+  if (sym_idx != 0 && !(ST_sclass(sym_idx) == SYMC_FILE_STATIC && level == LOCAL_SYMTAB)) {
     // Variable redeclare
     Is_Trace(Tracing(COMPONENT_FE, TRACE_WARN),
              (TFile, "Variable redeclare: %s\n", varname->name.c_str()));
