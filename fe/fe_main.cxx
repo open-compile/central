@@ -486,7 +486,7 @@ IR_ITER visitArrayAssignmentStmt(TREE *tree, IR_ITER parent, int level,
 
   // 插入加载的各维度结点
   for (auto it = array_index->expressions->begin(); it != array_index->expressions->end(); it++, i++) {
-    auto temp = it->get();
+    auto temp = (*it);
     IR_ITER dimension = visitExpression(tree, temp_array_node, level,
                                         reinterpret_cast<const shared_ptr<struct NExpression> &>(temp));
     tree->Set_operand(temp_array_node, i, dimension);
@@ -625,7 +625,7 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     // 插入加载的各维度结点
     for (auto it = val->expressions->begin();
          it != val->expressions->end(); it++, i++) {
-      auto    temp      = it->get();
+      auto    temp      = *it;
       IR_ITER dimension = visitExpression(tree, temp_array_node, level,
                                           reinterpret_cast<const shared_ptr<struct NExpression> &>(temp));
       tree->Set_operand(temp_array_node, i, dimension);
@@ -701,13 +701,13 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
       int i = 0;
       int j = vartype.get()->arraySize->size();//维数
       for (auto it = vartype.get()->arraySize->begin(); it != vartype.get()->arraySize->end(); it++, i++) {
-        if (it->get()->getTypeName() == "NInteger") {
-          auto expr = it->get();
+        if ((*it)->getTypeName() == "NInteger") {
+          auto expr = (*it);
           const shared_ptr<NInteger> & val = reinterpret_cast<const shared_ptr<NInteger> &>(expr);
           arb_idx[i] = File()->Create_array_bound_const(val->value, MTYPE_size(MTYPE_I4), j--,
                                                         i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
-        } else if (it->get()->getTypeName() == "NIdentifier") {
-          auto expr = it->get();
+        } else if ((*it)->getTypeName() == "NIdentifier") {
+          auto expr = (*it);
           const shared_ptr<NIdentifier> & val = reinterpret_cast<const shared_ptr<NIdentifier> &>(expr);
           ST_IDX sym = File()->Find_symbol_by_name(val->name.c_str());
           arb_idx[i] = File()->Create_array_bound_var(sym, MTYPE_size(MTYPE_I4), j--,
@@ -744,8 +744,8 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
           auto val = reinterpret_cast<const shared_ptr<NInteger> &> (*it);
           arb_idx[i] = File()->Create_array_bound_const(val->value, MTYPE_size(MTYPE_I4), j--,
                                                         i == 0 ? ARB_FIRST_DIMEN : (i == vartype->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
-        } else if (it->get()->getTypeName() == "NIdentifier") {
-          auto expr = it->get();
+        } else if ((*it)->getTypeName() == "NIdentifier") {
+          auto expr = (*it);
           const shared_ptr<NIdentifier> & val = reinterpret_cast<const shared_ptr<NIdentifier> &>(expr);
           ST_IDX sym = File()->Find_symbol_by_name(val->name.c_str());
           arb_idx[i] = File()->Create_array_bound_var(sym, MTYPE_size(MTYPE_I4), j--,
@@ -777,7 +777,7 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
       auto vals = reinterpret_cast<shared_ptr<NInitializeExpr> &>(rhs);
       if (vals->children->empty()) {
         for (auto it = vals->values->begin(); it != vals->values->end(); it++) {
-          auto temp = it->get();
+          auto temp = (*it);
           auto val  = reinterpret_cast<shared_ptr<NInteger> &>(temp);
           initv.Set_val(val->value);
           if (val->value == 0) {
