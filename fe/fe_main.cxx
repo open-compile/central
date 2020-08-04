@@ -845,17 +845,24 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
       } else {
         AssertThat(level == LOCAL_SYMTAB, ("Incorrect level"));
         // assignment is present, create stmts to do this.
-        IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
-        tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
-        tree->Get_node(assignment_node)->Set_load_offset(0);
-        IR_ITER stid_stmt = tree->Insert_stmt_to_block(block_iter,
-                                                       assignment_node);
-        IR_ITER rhs_expr  = visitExpression(tree, stid_stmt, level, rhs);
-        AssertThat(
-          rhs_expr != block_iter && rhs_expr != stid_stmt &&
-          rhs_expr != nullptr,
-          ("Invalid expr conversion result"));
-        tree->Set_operand(stid_stmt, 0, rhs_expr);
+//        IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
+//        tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
+//        tree->Get_node(assignment_node)->Set_load_offset(0);
+//        IR_ITER stid_stmt = tree->Insert_stmt_to_block(block_iter,
+//                                                       assignment_node);
+//        IR_ITER rhs_expr  = visitExpression(tree, stid_stmt, level, rhs);
+//        AssertThat(
+//          rhs_expr != block_iter && rhs_expr != stid_stmt &&
+//          rhs_expr != nullptr,
+//          ("Invalid expr conversion result"));
+//        tree->Set_operand(stid_stmt, 0, rhs_expr);
+        auto rhs_int = reinterpret_cast<const shared_ptr<NInteger> &>(rhs);
+        std::vector<INITV> initvs; // 一个INITO的所有INITV
+        INITV initv;
+        initv.Set_kind(INITVKIND_VAL);
+        initv.Set_val(rhs_int->value);
+        initvs.push_back(initv);
+        File()->Create_inito(sym_idx, initvs, level);
       }
     }
   }

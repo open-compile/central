@@ -134,6 +134,17 @@ void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
   for (UINT32 i = 1; i < file->Tables()->Sym()->Length(&(func->scope)); i++) {
     ST_IDX one = (i << 8) | LOCAL_SYMTAB;
     fprintf(out, "# Id: 0x%08x, Symbol : %s, Type: %d \n", one, ST_name(one), ST_ty(one));
+    // Find INITO matching this.
+    INITO_IDX inito_idx = ST_st(one)->getInitoIdx();
+    // Generate initv
+    INITO *inito = INITO_inito(inito_idx);
+    for (UINT32 j = 0; j < inito->Size(); j++) {
+      if (inito->Value(j)->kind == INITVKIND_VAL) {
+        fprintf(out, ".val %lld\n", inito->Value(j)->Val());
+      } else if (inito->Value(j)->kind == INITVKIND_PAD) {
+        fprintf(out, ".zero %lld\n", inito->Value(j)->Val());
+      }
+    }
   }
   // Dump the instructions
   const char *func_name = ST_name(func->proc_sym);
