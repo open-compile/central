@@ -1024,7 +1024,7 @@ public:
   LABEL_IDX Create_label(STR_IDX name, UINT32 flags, LABEL_KIND lbk);
   ST_IDX Create_var(STR_IDX string, TY_IDX idx, UINT8 level,
                     SYM_SCLASS sclass, SYM_ECLASS eclass, SYM_CLASS symclass);
-  INITO_IDX Create_inito(ST_IDX st_idx, std::vector<INITV> &initv);
+  INITO_IDX Create_inito(ST_IDX st_idx, std::vector<INITV> &initv, UINT8 level);
 
   STR_IDX Save_string(const char *string); // Save a null-term-string to string tab
   void Print(FILE *f);

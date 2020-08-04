@@ -789,7 +789,7 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
           }
           initvs.push_back(initv);
         }
-        File()->Create_inito(sym_idx, initvs);
+        File()->Create_inito(sym_idx, initvs, level);
       } else { // 多维数组
         for (auto it1 = vals->children->begin(); it1 != vals->children->end(); it1++) {
           auto temp0 = it1->get();
@@ -816,7 +816,7 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
             initvs.push_back(initv);
           }
         }
-        File()->Create_inito(sym_idx, initvs);
+        File()->Create_inito(sym_idx, initvs, level);
       }
       return block_iter;
     } else {
@@ -827,7 +827,7 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
         initv.Set_kind(INITVKIND_VAL);
         initv.Set_val(rhs_int->value);
         initvs.push_back(initv);
-        File()->Create_inito(sym_idx, initvs);
+        File()->Create_inito(sym_idx, initvs, level);
       } else {
         AssertThat(level == LOCAL_SYMTAB, ("Incorrect level"));
         // assignment is present, create stmts to do this.

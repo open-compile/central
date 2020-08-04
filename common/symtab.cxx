@@ -75,7 +75,10 @@ void FILE_SYMTAB::Print(FILE *f) {
   this->Pu()->Print(f);
   fprintf(f, "\n%s+ File-level Program Unit Info Table\n%s", DBAR, DBAR);
   this->Pu_info()->Print(f);
+  fprintf(f, "\n%s+ File-level Inito Table\n%s", DBAR, DBAR);
+  this->Inito()->Print(f);
   fprintf(f, "\n%s+ End of file level symtabs\n%s", DBAR, DBAR);
+
   //  Is_Trace(Tracing(COMPONENT_BE, TRACE_INVOCATION),
   //           ("PU st_idx: %d\n", ));
 }
@@ -409,8 +412,8 @@ ST_IDX FILE_MANAGER::Create_var(STR_IDX str, TY_IDX idx, UINT8 level,
   return sym;
 }
 
-INITO_IDX FILE_MANAGER::Create_inito(ST_IDX st_idx, std::vector<INITV> &initvs) {
-  INITO_IDX inito_idx = Tables()->Inito()->Add(LOCAL_SYMTAB);
+INITO_IDX FILE_MANAGER::Create_inito(ST_IDX st_idx, std::vector<INITV> &initvs, UINT8 level) {
+  INITO_IDX inito_idx = Tables()->Inito()->Add(level);
   INITO *inito = INITO_inito(inito_idx);
   inito->Set_sym(st_idx);
   ST_st(st_idx)->setInitoIdx(inito_idx);
