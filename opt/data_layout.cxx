@@ -63,6 +63,8 @@ void DATA_LAYOUT::Allocate_file_statics(void) {
   AssertThat(false, ("not impl."));
 }
 
+const int FUNC_PUSH_SIZE = 28 + 8;
+
 void DATA_LAYOUT::Initialize_frame(SCOPE *scope, ST_IDX func) {
   // Add 8 byte calling convention
   _func = func;
@@ -70,6 +72,8 @@ void DATA_LAYOUT::Initialize_frame(SCOPE *scope, ST_IDX func) {
   preg_sp             = File()->Create_preg(File()->Save_string(".preg_fp"), 11);
   ST_TABLE    *sym    = File()->Tables()->Sym();
   UINT32      args_met  = 0;
+  // Allocate for LR and FP at the end of the stack.
+  formal_size_allocated = FUNC_PUSH_SIZE;
   for (UINT32 i       = 0; i < sym->Length(scope); i++) {
     ST_IDX sym_idx = (i << 8) | LOCAL_SYMTAB;
     if (ST_sclass(sym_idx) == SYMC_FORMAL) {
@@ -80,13 +84,11 @@ void DATA_LAYOUT::Initialize_frame(SCOPE *scope, ST_IDX func) {
       Allocate_object(sym_idx);
     }
   }
-  // Allocate for LR and FP at the end of the stack.
-  formal_size_allocated += 8;
 }
 
 UINT32 DATA_LAYOUT::Calculate_stack_frame_size() {
   // Make it align to 8 bytes
-  frame_size = local_size_allocated + formal_size_allocated;
+  frame_size = local_size_allocated + FUNC_PUSH_SIZE + formal_size_allocated;
   if (frame_size % 8 != 0) {
     _padding = 8 - (frame_size % 8);
     frame_size += _padding;
@@ -154,6 +156,22 @@ void DATA_LAYOUT::Print(FILE * file) {
           DBAR, ST_name(_func), DBAR);
 }
 
+/**
+ * Get symbol offset from SP.
+ *            <----- new SP
+ * // PAD
+ * // LOCAL
+ * // SPILL
+ *           <---- SP offset needed from here.
+ * // MIDDLE(PUSH) 28
+ * // 4
+ *           <---- new FP
+ * // 4
+ *           <---- old SP, FP
+ * // ARGS
+ * @param obj_sym
+ * @return
+ */
 UINT32 DATA_LAYOUT::Get_sym_sp_ofst(ST_IDX obj_sym) const {
   AssertThat(var_ofst.find(obj_sym) != var_ofst.end(),
              ("Not found in ofst map. Not allocated? %s", ST_name(obj_sym)));
@@ -162,7 +180,8 @@ UINT32 DATA_LAYOUT::Get_sym_sp_ofst(ST_IDX obj_sym) const {
   if (ST_sclass(obj_sym) == SYMC_FORMAL &&
       std::find(var_on_formal_reg.begin(), var_on_formal_reg.end(), obj_sym)
                == var_on_formal_reg.end()) {
-    return var_ofst.at(obj_sym) + _padding + local_size_allocated;
+    UINT32 formal_begin = _padding + local_size_allocated;
+    return var_ofst.at(obj_sym) + formal_begin;
   }
   return var_ofst.at(obj_sym) + _padding;
 }
@@ -178,6 +197,10 @@ UINT32 DATA_LAYOUT::Get_sym_reg_num(ST_IDX sym) {
 
 vector<ST_IDX> &DATA_LAYOUT::Get_sym_on_formal_reg() {
   return var_on_formal_reg;
+}
+
+UINT32 DATA_LAYOUT::Get_local_pad_size() {
+  return local_size_allocated + _padding;
 }
 
 

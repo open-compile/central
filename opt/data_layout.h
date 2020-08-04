@@ -87,8 +87,8 @@ public:
   void Print(FILE *file = stderr);
   UINT32 Frame_final_size();
   UINT32 Get_sym_reg_num(ST_IDX sym);
-
   vector<ST_IDX> &Get_sym_on_formal_reg();
+  UINT32 Get_local_pad_size();
 };
 
 #endif //OCC_DATA_LAYOUT_H

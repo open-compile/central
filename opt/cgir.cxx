@@ -250,16 +250,10 @@ CGIR::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb) {
                                tree->Get_node(stmt)->Get_preg_num());
     res = TN_tn_idx(tn_res);
   } else {
-    TN      *tn_res   = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
     TN      *func_val = Gen_Register_TN(ISA_REGISTER_CLASS_integer, 4);
     Set_TN_register(func_val, 0);
     Set_TN_is_preallocated(func_val);
-    CGOP    *cgop     = new CGOP(CGOPC_ADD, cur_bb,
-                                 TN_tn_idx(func_val),
-                                 TN_tn_idx(tn_res),
-                                 TN_tn_idx(Gen_Literal_TN(0, 4)),
-                                 0);
-    Cfg()->BB(cur_bb)->Add_stmt(cgop);
+    TN      *tn_res   = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, func_val);
   }
   Handle_ret(cur_bb);
 }
@@ -786,6 +780,7 @@ void CGIR::Exp_op(OPCODE opcode, CFG_BB_IDX cur_bb,
     Cfg()->BB(cur_bb)->Add_stmt(stmt_ins);
   } else {
     CGOP *stmt_ins = new CGOP(cgop, cur_bb, TN_tn_idx(result), TN_tn_idx(op1), 0, 0);
+    Cfg()->BB(cur_bb)->Add_stmt(stmt_ins);
   }
 }
 

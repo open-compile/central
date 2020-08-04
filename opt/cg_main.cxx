@@ -194,21 +194,26 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
       }
       fprintf(out, "\n");
     }
-
+    const int FUNC_PUSH_SIZE = 28 + 8;
+    const int SP_EXTRA = FUNC_PUSH_SIZE - 4;
     // function prologue
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & BB_FLAG_ENTRY) {
       Is_Trace(TR_EMIT(), (out, "#  ---  function prologue ---   \n"));
-      fprintf(out, "\tpush\t{fp, r4-r10, lr}\n"
-                   "\tadd\tfp, sp, #4\n"
-                   "\tsub\tsp, sp, #%d\n", (Layout()->Frame_final_size() - 8));
+      fprintf(out, "\tpush\t{fp, lr}\n" // 8bytes
+                   "\tpush\t{r4-r10}\n" // 28bytes
+                   "\tadd\tfp, sp, #%d\n"
+                   "\tsub\tsp, sp, #%d\n",
+                   SP_EXTRA,
+                   (Layout()->Get_local_pad_size()));
     }
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & BB_FLAG_EXIT) {
       // Finishing function
       Is_Trace(TR_EMIT(), (out, "#  ---  function epilog ---   \n"));
-      fprintf(out, "\tsub\tsp, fp, #4\n");
-      fprintf(out, "\tpop\t{fp, r4-r10, pc}\n");
+      fprintf(out, "\tsub\tsp, fp, #%d\n", SP_EXTRA);
+      fprintf(out, "\tpop\t{r4-r10}\n"
+                   "\tpop\t{fp, pc}\n");
     }
     Is_Trace(TR_EMIT(), (out, "#  -------- Begin Code ---------- \n"));
     // If there is a label to it, emit the label
