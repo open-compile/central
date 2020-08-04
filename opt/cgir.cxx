@@ -543,10 +543,10 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
       Set_TN_is_preallocated(tn);
       Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
       vector<UINT32> &ded = Cfg()->BB(i)->Get_dedicate_regs();
-      while(std::find(ded.begin(), ded.end(), used_cnt) != ded.end() && used_cnt < 4) {
+      while(std::find(ded.begin(), ded.end(), used_cnt) != ded.end() && used_cnt < 8) {
         used_cnt ++;
       }
-      if (used_cnt >= 4) {
+      if (used_cnt >= 8) {
         // We could put the spill on r8.
         // Now we have at least the R9 to process
         Is_Trace(TR_LRA(),
@@ -979,17 +979,18 @@ UINT32 CGIR::Count_needed_register(CGOP *oper, UINT32 cgop_id,
   if (TN_is_symbol(tn) || TN_is_label(tn) || TN_is_preallocated(tn) ||
       TN_is_constant(tn)  || TN_is_dedicated(tn)) {
     if (TN_is_dedicated(tn) || TN_is_preallocated(tn)) {
-      UINT32 reg_id;
-      if (TN_register_class(tn) == REGISTER_CLASS_ra && TN_is_dedicated(tn)) {
+      UINT32 reg_id = 1024;
+      if (TN_register_class(tn) == REGISTER_CLASS_v0 &&
+          TN_register(tn) == REGISTER_v0) {
         reg_id = 0;
-      } else if (TN_is_preallocated(tn) && TN_register(tn) >= 0) {
+      } else if (TN_is_preallocated(tn) && TN_register(tn) >= 0 && TN_register(tn) < 1024) {
         reg_id = TN_register(tn);
-      } else {
-        AssertThat(false, ("Condition unexpected."));
       }
-      vector<UINT32> &ded = Cfg()->BB(cur_bb)->Get_dedicate_regs();
-      if (std::find(ded.begin(), ded.end(), reg_id) == ded.end()) {
-        ded.push_back(reg_id);
+      if (reg_id != 1024) {
+        vector<UINT32> &ded = Cfg()->BB(cur_bb)->Get_dedicate_regs();
+        if (std::find(ded.begin(), ded.end(), reg_id) == ded.end()) {
+          ded.push_back(reg_id);
+        }
       }
     }
     Is_Trace(TR_LRA(), (TFile, "Found tn %d no need to allocate \n", cgoper));

@@ -361,6 +361,7 @@ BOOL OPCODE_is_bin_arith(OPCODE opc) {
     case OPR_MPY:
     case OPR_SUB:
     case OPR_DIV:
+    case OPR_MOD:
       return true;
     default:
       return false;

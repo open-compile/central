@@ -21,6 +21,8 @@ Opt_lower_while_do(IR_ITER &stmt, const PU_INFO *func, TREE *tree,
 
 IR_ITER Opt_lower_array_expr(IR_ITER &expr, TREE *tree);
 
+IR_ITER Opt_lower_mod_op(const IR_ITER &expr, TREE *tree);
+
 using std::vector;
 using std::map;
 
@@ -305,6 +307,10 @@ Opt_lower_bin_op(IR_ITER expr, TREE *tree, PU_INFO *func, FILE_MANAGER *file,
       tree->Get_node(opr_node)->Set_const_val(lhs * rhs);
       break; // not optimizing anything
     }
+    case OPR_MOD: {
+      tree->Get_node(opr_node)->Set_const_val(lhs % rhs);
+      break; // not optimizing anything
+    }
     default:
       return expr;
   }
@@ -341,21 +347,8 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
     }
   }
   if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_MOD &&
-      level == LEVEL_LOW) {
-    /*
-     * MOD
-     *  A
-     *  B
-     * ->
-     * SUB
-     *   A
-     *   MPY
-     *    B
-     *    DIV
-     *     A
-     *     B
-     * */
-
+      level == LEVEL_MID) {
+    return Opt_lower_mod_op(expr, tree);
   }
   if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_LAND &&
       level == LEVEL_LOW) {
@@ -492,6 +485,42 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
   }
   // Nothing to do.
   return expr;
+}
+
+
+
+/*
+ * MOD
+ *  A
+ *  B
+ * ->
+ * SUB
+ *   A
+ *   MPY
+ *    B
+ *    DIV
+ *     A
+ *     B
+ * */
+IR_ITER Opt_lower_mod_op(const IR_ITER &expr, TREE *tree) {
+  AssertThat(tree->Number_of_children(expr) == 2,
+             ("Not a valid MOD operator, got kid = %d", tree->Number_of_children(
+               expr)));
+  IR_ITER lhs = tree->Get_operand(expr, 0);
+  IR_ITER rhs = tree->Get_operand(expr, 1);
+  IRNODE_IDX sub_node = tree->Create_node(OPC_I4I4SUB);
+  IRNODE_IDX mpy_node = tree->Create_node(OPC_I4I4MPY);
+  IRNODE_IDX div_node = tree->Create_node(OPC_I4I4DIV);
+  IR_ITER sub_expr = tree->Insert_temp_node(sub_node);
+  IR_ITER mpy_expr = tree->Set_operand(sub_expr, 0, mpy_node);
+  IR_ITER new_a1 = tree->Internal_tree().insert_subtree(mpy_expr, lhs);
+  IR_ITER div_expr = tree->Set_operand(mpy_expr, 0, div_node);
+  IR_ITER new_b1 = tree->Internal_tree().insert_subtree(div_expr, rhs);
+  IR_ITER new_a2_expr = tree->Set_operand(div_expr, 0, div_node);
+  IR_ITER new_b2_expr = tree->Set_operand(div_expr, 1, div_node);
+  IR_ITER new_a2 = tree->Replace_recursive(new_a2_expr, lhs);
+  IR_ITER new_b2 = tree->Replace_recursive(new_b2_expr, rhs);
+  return sub_expr;
 }
 
 IR_ITER Opt_lower_array_expr(IR_ITER &expr, TREE *tree) {
