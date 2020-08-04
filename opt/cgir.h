@@ -419,7 +419,7 @@ public:
 typedef CFG_BB_BASE<CGOP>    CGBB;
 typedef CFG_BASE<CGOP>       CG_CFG;
 
-extern std::vector<TN>              _global_tn_vec;
+extern std::vector<TN *>              _global_tn_vec;
 
 class CGIR {
 private:
@@ -532,7 +532,7 @@ public:
   TN *Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res);
 
   void Handle_ret(CFG_BB_IDX cur_bb);
-  vector<TN>  &Get_tn_table() {  return _global_tn_vec;  };
+  vector<TN *>  &Get_tn_table() {  return _global_tn_vec;  };
 
   UINT32 TN_tab_size();
 

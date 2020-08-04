@@ -8,7 +8,7 @@
 #include "options.h"
 #include "cg_main.h"
 
-std::vector<TN>              _global_tn_vec;
+std::vector<TN *>              _global_tn_vec;
 
 #define POINTER_SIZE 4
 
@@ -72,12 +72,13 @@ using namespace TN_CONTEXT;
 
 TN *Gen_TN() {
   UINT32 sz = Cgir()->Get_tn_table().size();
-  Cgir()->Get_tn_table().push_back(TN(sz));
-  Cgir()->Get_tn_table()[sz].Set_idx(sz);
-  AssertThat(Cgir()->Get_tn_table()[sz].Get_tn_idx() == sz, ("Generation failed somehow."));
-  AssertThat(TN_tn(Cgir()->Get_tn_table()[sz].Get_tn_idx()) ==
-             &(Cgir()->Get_tn_table()[sz]), ("Generation failed somehow."));
-  return &(Cgir()->Get_tn_table()[sz]);
+  TN *ntn = new TN(sz);
+  Cgir()->Get_tn_table().push_back(ntn);
+  Cgir()->Get_tn_table()[sz]->Set_idx(sz);
+  AssertThat(Cgir()->Get_tn_table()[sz]->Get_tn_idx() == sz, ("Generation failed somehow."));
+  AssertThat(TN_tn(Cgir()->Get_tn_table()[sz]->Get_tn_idx()) ==
+             Cgir()->Get_tn_table()[sz], ("Generation failed somehow."));
+  return Cgir()->Get_tn_table()[sz];
 }
 
 TN_IDX Gen_TN(MTYPE_ID mtype) {
@@ -92,7 +93,7 @@ TN_IDX Gen_TN(MTYPE_ID mtype) {
 TN *TN_tn(TN_IDX tn_idx) {
   AssertThat(Cgir()->Get_tn_table().size() > tn_idx,
              ("TN_IDX = %d is out of max range = %d", tn_idx, Cgir()->Get_tn_table().size()));
-  return &(Cgir()->Get_tn_table()[tn_idx]);
+  return Cgir()->Get_tn_table()[tn_idx];
 }
 
 namespace TNS {
