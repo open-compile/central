@@ -778,7 +778,7 @@ void CGIR::Emit_operand(CGOP *oper, CGOPR_KIND kind, UINT32 ch_id, FILE* out) {
              ("Should not be empty, cgopc = %s", Get_cg_opc_info(
                oper->getOpcode())->getName()));
   if (CGOPR_R == kind) {
-    TN *tn = TN_tn(cgoper.tn);
+    TN *tn = TN_tn(cgoper);
     if (TN_is_symbol(tn)) {
       ST_IDX sym = TN_var(tn);
       AssertThat(ST_sclass(sym) == SYMC_FILE_STATIC,
@@ -814,7 +814,7 @@ void CGIR::Emit_operand(CGOP *oper, CGOPR_KIND kind, UINT32 ch_id, FILE* out) {
       fprintf(out, "r%d ", reg_id);
     }
   } else if (CGOPR_IMM == kind) {
-    UINT32 val = TN_value(TN_tn(cgoper.tn));
+    UINT32 val = TN_value(TN_tn(cgoper));
     fprintf(out, "#%d ", val);
   } else {
     AssertThat(false, ("not implemented."));
@@ -969,13 +969,13 @@ UINT32 CGIR::Count_needed_register(CGOP *oper, UINT32 cgop_id,
     return 0;
   }
   CG_OPRAND cgoper;
-  cgoper.tn = oper->getResOpnd()[opr_pos].tn;
-  AssertThat(cgoper.tn != 0, ("TN does not exist on CGOP_id %d, cur_bb = %d, opr_pos = %d",
+  cgoper = oper->getResOpnd()[opr_pos];
+  AssertThat(cgoper != 0, ("TN does not exist on CGOP_id %d, cur_bb = %d, opr_pos = %d",
              cgop_id, cur_bb, opr_pos));
-  AssertThat(cgoper.tn < Get_tn_table().size(),
+  AssertThat(cgoper < Get_tn_table().size(),
              ("TN %d exceed the table length %d, on CGOP_id %d, cur_bb = %d, opr_pos = %d",
-              cgoper.tn, Get_tn_table().size(), cgop_id, cur_bb, opr_pos));
-  TN *tn = TN_tn(cgoper.tn);
+              cgoper, Get_tn_table().size(), cgop_id, cur_bb, opr_pos));
+  TN *tn = TN_tn(cgoper);
   if (TN_is_symbol(tn) || TN_is_label(tn) || TN_is_preallocated(tn) ||
       TN_is_constant(tn)  || TN_is_dedicated(tn)) {
     if (TN_is_dedicated(tn) || TN_is_preallocated(tn)) {
@@ -992,14 +992,14 @@ UINT32 CGIR::Count_needed_register(CGOP *oper, UINT32 cgop_id,
         ded.push_back(reg_id);
       }
     }
-    Is_Trace(TR_LRA(), (TFile, "Found tn %d no need to allocate \n", cgoper.tn));
+    Is_Trace(TR_LRA(), (TFile, "Found tn %d no need to allocate \n", cgoper));
     return 0;
   } else {
     // There is a need for R-A.
-    Is_Trace(TR_LRA(), (TFile, "Found tn %d to allocate \n", cgoper.tn));
+    Is_Trace(TR_LRA(), (TFile, "Found tn %d to allocate \n", cgoper));
     AssertThat(TN_register(tn) == 0,
                ("TN: %d, Should not be allocated already. %d",
-                cgoper.tn, TN_register(tn)));
+                cgoper, TN_register(tn)));
     TN_IDX tid = TN_tn_idx(tn);
     UINT32 old_freq = 0;
     if (_tn_freq_map.find(tid) != _tn_freq_map.end()) {
@@ -1019,8 +1019,8 @@ UINT32 CGIR::Count_needed_register(CGOP *oper, UINT32 cgop_id,
 void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
                             UINT32 opnd, BOOL is_write) {
   // Process a possible write that may create spilling.
-  AssertThat(oper->getResOpnd()[opnd].tn != 0, ("incorrect tn found"));
-  TN_IDX tid = oper->getResOpnd()[opnd].tn;
+  AssertThat(oper->getResOpnd()[opnd] != 0, ("incorrect tn found"));
+  TN_IDX tid = oper->getResOpnd()[opnd];
   TN *tn = TN_tn(tid);
   if (TN_flags(tn) & TN_SPILL) {
     // There is a spill.

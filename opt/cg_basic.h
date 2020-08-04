@@ -144,24 +144,7 @@ public:
   UINT32       section_offset;
 };
 
-struct CG_OPRAND {
-  union {
-    UINT32  tn;
-    UINT32  immediate;
-  };
-  operator int() {
-    return tn;
-  }
-  CG_OPRAND(UINT32 &tn_id) {
-    tn = tn_id;
-  }
-  CG_OPRAND(const UINT32 &tn_id) {
-    tn = tn_id;
-  }
-  CG_OPRAND() {
-    tn = 0;
-  }
-};
+typedef UINT32 CG_OPRAND;
 
 // CGOP flags.
 enum CGOPF {
@@ -186,12 +169,12 @@ private:
   CFG_BB_IDX   unroll_bb;
   UINT32       orig_id;
   UINT8        which_unroll;
-  CG_OPRAND    res_opnd[5];
+  UINT32       res_opnd[5];
 
 public:
   CGOP (CGOPC opc, CFG_BB_IDX bb_idx,
-        CG_OPRAND op1, CG_OPRAND op2,
-        CG_OPRAND op3, CG_OPRAND op4) {
+        UINT32 op1, UINT32 op2,
+        UINT32 op3, UINT32 op4) {
     opcode = opc;
     results = ISA_OPCODE_results(opc);
     operands = ISA_OPCODE_operands(opc);
@@ -202,6 +185,7 @@ public:
     res_opnd[1] = op2;
     res_opnd[2] = op3;
     res_opnd[3] = op4;
+    res_opnd[4] = 0;
   }
 
   CGOPC getOpcode() const {
@@ -224,11 +208,11 @@ public:
     return index_in_bb;
   }
 
-  const CG_OPRAND *getResOpnd() const {
+  const UINT32 *getResOpnd() const {
     return res_opnd;
   }
 
-  void setResOpnd(UINT8 id, CG_OPRAND opr) {
+  void setResOpnd(UINT8 id, UINT32 opr) {
     res_opnd[id] = opr;
   }
 
