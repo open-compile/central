@@ -833,40 +833,22 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
   TY_IDX i4_idx = MTYPE_to_ty(MTYPE_I4);
   ST_IDX sym_idx = File()->Find_symbol_by_name(varname->name.c_str());
   // Check if symbol exists, if so, use the previous one.
-  if (sym_idx != 0 && !(ST_sclass(sym_idx) == SYMC_FILE_STATIC && level == LOCAL_SYMTAB)) {
+  if (sym_idx != 0 &&
+     !(ST_sclass(sym_idx) == SYMC_FORMAL && level == GLOBAL_SYMTAB) &&
+     !(ST_sclass(sym_idx) == SYMC_AUTO   && level == GLOBAL_SYMTAB) &&
+     !(ST_sclass(sym_idx) == SYMC_FILE_STATIC && level == LOCAL_SYMTAB)) {
     // Variable redeclare
     Is_Trace(Tracing(COMPONENT_FE, TRACE_WARN),
              (TFile, "Variable redeclare: %s\n", varname->name.c_str()));
     return block_iter;
   }
   STR_IDX var_name_saved = File()->Save_string(varname->name.c_str());
+  SYM_SCLASS sclass = SYMC_AUTO;
   if (level <= GLOBAL_SYMTAB) {
     // 数组声明, global
+    sclass = SYMC_FILE_STATIC;
     if (vartype->isArray) {
-      STR_IDX anon_array = File()->Save_string(varname->name.c_str());//数组名
-      ARB_IDX arb_idx[vartype.get()->arraySize->size()];
-      int i = 0;
-      int j = vartype.get()->arraySize->size();//维数
-      for (auto it = vartype.get()->arraySize->begin(); it != vartype.get()->arraySize->end(); it++, i++) {
-        if ((*it)->getTypeName() == "NInteger") {
-          const shared_ptr<NInteger> & val = reinterpret_cast<const shared_ptr<NInteger> &>(*it);
-          arb_idx[i] = File()->Create_array_bound_const(val->value, MTYPE_size(MTYPE_I4), j--,
-                                                        i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
-        } else if ((*it)->getTypeName() == "NIdentifier") {
-          const shared_ptr<NIdentifier> & val = reinterpret_cast<const shared_ptr<NIdentifier> &>(*it);
-          ST_IDX sym = File()->Find_symbol_by_name(val->name.c_str());
-          arb_idx[i] = File()->Create_array_bound_var(sym, MTYPE_size(MTYPE_I4), j--,
-                                                      i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
-        }
-      }
-      TY_IDX array_ty[vartype.get()->arraySize->size()];
-      for (int k = 0; k < vartype.get()->arraySize->size(); ++k) {
-        array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
-                                              k == 0 ? i4_idx : array_ty[k-1], arb_idx[--i]);
-      }
-      sym_idx = File()->Create_var(anon_array, array_ty[vartype.get()->arraySize->size() - 1], 1, SYMC_FILE_STATIC,
-                                   SYME_INTERNAL, SYM_CLASS_VAR);
-      sym_idx = visitArrayDecl(level, varname, vartype, i4_idx, SYMC_FILE_STATIC);
+      visitArrayDecl(level, varname, vartype, i4_idx, sclass);
     } else {
       sym_idx = File()->Create_var(var_name_saved, i4_idx, 1, SYMC_FILE_STATIC,
                                    SYME_INTERNAL, SYM_CLASS_VAR);
@@ -875,7 +857,7 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
   } else {
     AssertThat(level == 2, ("Invalid level = %d", level));
     AssertThat(tree != NULL && block_iter != NULL, ("Null visit context in visitVarDecl"));
-    SYM_SCLASS sclass = SYMC_AUTO;
+    sclass = SYMC_AUTO;
     if (is_formal) {
       sclass = SYMC_FORMAL;
     }
