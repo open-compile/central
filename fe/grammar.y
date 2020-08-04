@@ -35,7 +35,7 @@
 %type <block> program stmts block block_or_single_stmt
 %type <stmt> stmt var_decl func_decl basic_stmt struct_decl if_stmt for_stmt while_stmt
 %type <token> comparison and_comparison or_comparison
-%type <var_decl> basic_var_def
+%type <var_decl> basic_var_def basic_non_init_def single_var_decl
 
 %left TLOR
 %left ORDING_COMP
@@ -98,7 +98,7 @@ typename : primary_typename { $$ = $1; }
 	 | struct_typename { $$ = $1; }
 	 | TCONST typename { $$ = $2; $2->is_const = true; }
 
-basic_var_def : ident {
+basic_non_init_def : ident {
        NIdentifier *ident = new NIdentifier("int");
        ident->isType = true;
        $$ = new NVariableDeclaration(
@@ -116,15 +116,18 @@ basic_var_def : ident {
 	$1->type->isArray = true;
 	$$ = $1;
      }
-     | basic_var_def TEQUAL expr {
-	$1->assignmentExpr = shared_ptr<NExpression>($3);
-	$$ = $1;
-     }
-     | basic_var_def TEQUAL TLBRACE init_expr TRBRACE {
+     ;
+
+basic_var_def : basic_non_init_def
+ | basic_var_def TEQUAL expr {
+   	$1->assignmentExpr = shared_ptr<NExpression>($3);
+   	$$ = $1;
+}
+| basic_var_def TEQUAL TLBRACE init_expr TRBRACE {
 	$1->assignmentExpr = shared_ptr<NExpression>($4);
 	$$ = $1;
-     }
-     ;
+}
+;
 
 var_decl : typename basic_var_def {
 	$$ = $2;
@@ -137,14 +140,19 @@ var_decl : typename basic_var_def {
 }
 ;
 
+single_var_decl : typename basic_non_init_def {
+	$$ = $2;
+	((NVariableDeclaration *) $2)->type->setName($1->name);
+}
+
 func_decl : typename ident TLPAREN func_decl_args TRPAREN block
 				{ $$ = new NFunctionDeclaration(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($2), shared_ptr<VariableList>($4), shared_ptr<NBlock>($6));  }
 			| TEXTERN typename ident TLPAREN func_decl_args TRPAREN { $$ = new NFunctionDeclaration(shared_ptr<NIdentifier>($2), shared_ptr<NIdentifier>($3), shared_ptr<VariableList>($5), nullptr, true); }
 
 func_decl_args : /* blank */ { $$ = new VariableList(); }
-							 | var_decl { $$ = new VariableList(); $$->push_back(shared_ptr<NVariableDeclaration>($<var_decl>1)); }
-							 | func_decl_args TCOMMA var_decl { $1->push_back(shared_ptr<NVariableDeclaration>($<var_decl>3)); }
-							 ;
+		 | single_var_decl { $$ = new VariableList(); $$->push_back(shared_ptr<NVariableDeclaration>($<var_decl>1)); }
+		 | func_decl_args TCOMMA single_var_decl { $1->push_back(shared_ptr<NVariableDeclaration>($<var_decl>3)); }
+		 ;
 
 ident : TIDENTIFIER { $$ = new NIdentifier(*$1); delete $1; }
 			;
@@ -222,7 +230,7 @@ or_comparison: TLOR
 		;
 
 block_or_single_stmt : block { $$ = $1; }
-		     | basic_stmt {
+		     | stmt {
 		       $$ = new NBlock();
 		       $$->child->push_back(shared_ptr<NStatement>($1));
 		     }
@@ -230,11 +238,7 @@ block_or_single_stmt : block { $$ = $1; }
 
 if_stmt : TIF expr block_or_single_stmt { $$ = new NIfStatement(shared_ptr<NExpression>($2), shared_ptr<NBlock>($3)); }
 		| TIF expr block_or_single_stmt TELSE block_or_single_stmt { $$ = new NIfStatement(shared_ptr<NExpression>($2), shared_ptr<NBlock>($3), shared_ptr<NBlock>($5)); }
-		| TIF expr block_or_single_stmt TELSE if_stmt {
-			auto blk = new NBlock(); 
-			blk->child->push_back(shared_ptr<NStatement>($5));
-			$$ = new NIfStatement(shared_ptr<NExpression>($2), shared_ptr<NBlock>($3), shared_ptr<NBlock>(blk)); 
-		}
+		;
 
 for_stmt : TFOR TLPAREN expr TSEMICOLON expr TSEMICOLON expr TRPAREN block { $$ = new NForStatement(shared_ptr<NBlock>($9), shared_ptr<NExpression>($3), shared_ptr<NExpression>($5), shared_ptr<NExpression>($7)); }
 		
