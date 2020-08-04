@@ -504,6 +504,7 @@ IR_ITER visitAssignmentStmt(TREE *tree, IR_ITER parent, int level,
   AssertThat(rhs != nullptr, ("Rhs should not be null"));
 
   ST_IDX sym_idx = File()->Find_symbol_by_name(varname->name.c_str());
+  AssertThat(sym_idx != 0, ("Cannot find symbol to assign to."));
   TY_IDX var_type = ST_ty(sym_idx);
   AssertThat(var_type == MTYPE_to_ty(MTYPE_I4),
              ("Previous defined symbol (%d) has a strange type = %d",
@@ -680,6 +681,14 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
                      const shared_ptr<NVariableDeclaration>& vardecl) {
   Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
            (TFile, "Visit Var Decl\n"));
+  // Iterate over all children.
+  if (vardecl->Get_decls().size() > 0) {
+    for (UINT32 i = 0; i < vardecl->Get_decls().size(); i++) {
+      visitVarDecl(tree, block_iter, level, is_formal, vardecl->Get_decls()[i]);
+    }
+  }
+
+  // finish the children, process this var decl.
   std::shared_ptr<NIdentifier> varname = vardecl->id;
   std::shared_ptr<NIdentifier> vartype = vardecl->type;
   std::shared_ptr<NExpression> rhs = vardecl->assignmentExpr;

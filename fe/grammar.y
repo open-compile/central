@@ -35,7 +35,7 @@
 %type <block> program stmts block block_or_single_stmt
 %type <stmt> stmt var_decl func_decl basic_stmt struct_decl if_stmt for_stmt while_stmt
 %type <token> comparison and_comparison or_comparison
-%type <var_decl> basic_var_decl
+%type <var_decl> basic_var_def
 
 %left TLOR
 %left ORDING_COMP
@@ -98,37 +98,44 @@ typename : primary_typename { $$ = $1; }
 	 | struct_typename { $$ = $1; }
 	 | TCONST typename { $$ = $2; $2->is_const = true; }
 
-basic_var_decl : typename ident { $$ = new NVariableDeclaration(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($2), nullptr); }
-	| basic_var_decl TLBRACKET TINTEGER TRBRACKET {
-          		$1->type->arraySize->push_back(make_shared<NInteger>(atol($3->c_str())));
-          		$1->type->isArray = true;
-          		$$ = $1;
-        }
-        | basic_var_decl TLBRACKET TRBRACKET {
-			$1->type->arraySize->push_back(make_shared<NIdentifier>("no-val"));
-			$1->type->isArray = true;
-			$$ = $1;
-	}
-	| basic_var_decl TLBRACKET expr TRBRACKET {
-			$1->type->arraySize->push_back(shared_ptr<NExpression>($3));
-			$1->type->isArray = true;
-			$$ = $1;
-        }
-        ;
+basic_var_def : ident {
+       NIdentifier *ident = new NIdentifier("int");
+       ident->isType = true;
+       $$ = new NVariableDeclaration(
+	     shared_ptr<NIdentifier>(ident),
+	     shared_ptr<NIdentifier>($1),
+	     nullptr);
+     }
+     | basic_var_def TLBRACKET TRBRACKET {
+	$1->type->arraySize->push_back(make_shared<NIdentifier>("no-val"));
+	$1->type->isArray = true;
+	$$ = $1;
+     }
+     | basic_var_def TLBRACKET expr TRBRACKET {
+	$1->type->arraySize->push_back(shared_ptr<NExpression>($3));
+	$1->type->isArray = true;
+	$$ = $1;
+     }
+     | basic_var_def TEQUAL expr {
+	$1->assignmentExpr = shared_ptr<NExpression>($3);
+	$$ = $1;
+     }
+     | basic_var_def TEQUAL TLBRACE init_expr TRBRACE {
+	$1->assignmentExpr = shared_ptr<NExpression>($4);
+	$$ = $1;
+     }
+     ;
 
-var_decl : basic_var_decl { $$ = $1; }
-	 | basic_var_decl TEQUAL expr {
-	 	$1->assignmentExpr = shared_ptr<NExpression>($3);
-	 	$$ = $1;
-	 }
-	 | basic_var_decl TEQUAL TLBRACKET call_args TRBRACKET {
-		 $$ = new NArrayInitialization(shared_ptr<NVariableDeclaration>($1), shared_ptr<ExpressionList>($4));
-	 }
-	 | basic_var_decl TEQUAL TLBRACE init_expr TRBRACE {
-	 	$1->assignmentExpr = shared_ptr<NExpression>($4);
-                $$ = $1;
-	 }
-	 ;
+var_decl : typename basic_var_def {
+	$$ = $2;
+	((NVariableDeclaration *) $2)->type->setName($1->name);
+	((NVariableDeclaration *) $2)->type->isType = true;
+}
+| var_decl TCOMMA basic_var_def {
+	$$ = $1;
+	((NVariableDeclaration *) $1)->Add_decl(shared_ptr<NVariableDeclaration>($3));
+}
+;
 
 func_decl : typename ident TLPAREN func_decl_args TRPAREN block
 				{ $$ = new NFunctionDeclaration(shared_ptr<NIdentifier>($1), shared_ptr<NIdentifier>($2), shared_ptr<VariableList>($4), shared_ptr<NBlock>($6));  }

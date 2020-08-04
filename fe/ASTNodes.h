@@ -16,6 +16,8 @@ using std::endl;
 using std::string;
 using std::shared_ptr;
 using std::make_shared;
+using std::vector;
+using std::stack;
 
 class NBlock;
 
@@ -162,6 +164,10 @@ public:
 
   string getTypeName() const override {
     return "NIdentifier";
+  }
+
+  void setName(std::string name) {
+    this->name = name;
   }
 
   Json::Value jsonGen() const override {
@@ -464,6 +470,7 @@ public:
   const shared_ptr<NIdentifier> type;
   shared_ptr<NIdentifier> id;
   shared_ptr<NExpression> assignmentExpr = nullptr;
+  std::vector<shared_ptr<NVariableDeclaration>> others;
 
   NVariableDeclaration() {}
 
@@ -478,6 +485,14 @@ public:
 
   string getTypeName() const override {
     return "NVariableDeclaration";
+  }
+
+  void Add_decl(shared_ptr<NVariableDeclaration> decl) {
+    this->others.push_back(decl);
+  }
+
+  vector< shared_ptr<NVariableDeclaration> > &Get_decls() {
+    return this->others;
   }
 
   void print(string prefix) const override {
