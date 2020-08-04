@@ -968,8 +968,10 @@ UINT32 CGIR::Count_needed_register(CGOP *oper, UINT32 cgop_id,
     Is_Trace(TR_LRA(), (TFile, "Found kind != r, no need to allocate \n"));
     return 0;
   }
-  CG_OPRAND cgoper = oper->getResOpnd()[opr_pos];
-  AssertThat(cgoper.tn != 0, ("TN does not exist"));
+  CG_OPRAND cgoper;
+  cgoper.tn = oper->getResOpnd()[opr_pos].tn;
+  AssertThat(cgoper.tn != 0, ("TN does not exist on CGOP_id %d, cur_bb = %d, opr_pos = %d",
+             cgop_id, cur_bb, opr_pos));
   AssertThat(cgoper.tn < Get_tn_table().size(),
              ("TN exceed the table length, on CGOP_id %d, cur_bb = %d, opr_pos = %d",
               cgop_id, cur_bb, opr_pos));

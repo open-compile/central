@@ -155,6 +155,12 @@ struct CG_OPRAND {
   CG_OPRAND(UINT32 tn_id) {
     tn = tn_id;
   }
+  CG_OPRAND(UINT32 &tn_id) {
+    tn = tn_id;
+  }
+  CG_OPRAND(const UINT32 &tn_id) {
+    tn = tn_id;
+  }
   CG_OPRAND() {
     tn = 0;
   }
