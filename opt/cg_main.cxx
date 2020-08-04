@@ -194,7 +194,7 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & BB_FLAG_ENTRY) {
       Is_Trace(TR_EMIT(), (out, "#  ---  function prologue ---   \n"));
-      fprintf(out, "\tpush\t{fp, lr}\n"
+      fprintf(out, "\tpush\t{fp, r4-r10, lr}\n"
                    "\tadd\tfp, sp, #4\n"
                    "\tsub\tsp, sp, #%d\n", (Layout()->Frame_final_size() - 8));
     }
@@ -203,7 +203,7 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
       // Finishing function
       Is_Trace(TR_EMIT(), (out, "#  ---  function epilog ---   \n"));
       fprintf(out, "\tsub\tsp, fp, #4\n");
-      fprintf(out, "\tpop\t{fp, pc}\n");
+      fprintf(out, "\tpop\t{fp, r4-r10, pc}\n");
     }
     Is_Trace(TR_EMIT(), (out, "#  -------- Begin Code ---------- \n"));
     // If there is a label to it, emit the label
@@ -273,16 +273,23 @@ INT32 Emit_section_data(FILE *out, FILE_MANAGER *manager) {
       AssertThat(TY_size(ty) != 0,
         ("Cannot initialize a symbol that has "
          "incomplete type, sym = <%s, or 0x%08x>", ST_name(new_idx), new_idx));
+      UINT32 size = TY_size(ty);
+      UINT32 filled_size = 0;
       // Find INITO matching this.
       INITO_IDX inito_idx = ST_st(new_idx)->getInitoIdx();
       // Generate initv
       INITO *inito = INITO_inito(inito_idx);
       for (UINT32 i = 0; i < inito->Size(); i++) {
         if (inito->Value(i)->kind == INITVKIND_VAL) {
-          fprintf(out, ".val %lld\n", inito->Value(i)->Val());
+          fprintf(out, ".word %lld\n", inito->Value(i)->Val());
+          filled_size += 4;
         } else if (inito->Value(i)->kind == INITVKIND_PAD) {
           fprintf(out, ".zero %lld\n", inito->Value(i)->Val());
+          filled_size += inito->Value(i)->Val();
         }
+      }
+      if (size > filled_size) {
+        fprintf(out, ".zero %u\n", size - filled_size);
       }
     }
   }

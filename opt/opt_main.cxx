@@ -465,11 +465,14 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
                ("Must be a LDID or preg retval"));
     IR_ITER use_stmt = tree->Get_parent_in_block(expr);
     IR_ITER block = tree->Get_parent(use_stmt);
-    AssertThat(tree->Number_of_children(comma_blk) == 1,
-               ("Should have only one call. node = %d", *comma_blk));
+    AssertThat(tree->Number_of_children(comma_blk) == 2,
+               ("Should have only one call + 1 stid. node = %d", *comma_blk));
     IR_ITER call_stmt = tree->Get_operand(comma_blk, 0);
+    IR_ITER stid_stmt = tree->Get_operand(comma_blk, 1);
     AssertThat(tree->Node(call_stmt)->Opcode() == OPC_I4CALL,
                ("Should be a I4 call. node = %d", *call_stmt));
+    AssertThat(tree->Node(stid_stmt)->Opcode() == OPC_I4STID,
+               ("Should be a I4 STID. node = %d", *call_stmt));
     if (tree->Node(use_stmt)->Opcode() == OPC_IF ||
         tree->Node(use_stmt)->Opcode() == OPC_WHILE_DO) {
       // a conditional evaluation ...
@@ -478,6 +481,7 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
                        "conditional evaluation. on %lld", *use_stmt));
     }
     tree->Internal_tree().insert_subtree(use_stmt, call_stmt);
+    tree->Internal_tree().insert_subtree(use_stmt, stid_stmt);
     IRNODE_IDX new_node = tree->Create_node(OPC_I4LDID);
     tree->Node(new_node)->Set_symbol_idx(tree->Node(comma_ldid)->Get_symbol_idx());
     tree->Node(new_node)->Set_preg_num(tree->Node(comma_ldid)->Get_preg_num());

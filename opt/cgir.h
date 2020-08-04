@@ -428,6 +428,7 @@ private:
   map<ST_IDX, DATA_LAYOUT*>    layout;
   map<TN_IDX, UINT32>         _tn_freq_map;
   map<TN_IDX, vector<UINT64> >_tn_live_range;
+  map<PREG_IDX, TN_IDX>        _preg_to_tn;
   IR_TN_MAP                    ir_to_tn_map;
   TN_IR_MAP                    tn_to_ir_map;
   // Memory Layout
@@ -496,16 +497,6 @@ public:
                 TN *base_tn,
                 ST_IDX sym, INT64 ofst_val, CFG_BB_IDX bb_idx,
                 VARIANT variant);
-  void Exp_Ldst (
-        OPCODE opcode,
-        TN *tn,
-        ST_IDX sym,
-        INT64 ofst,
-        BOOL indirect_call,
-        BOOL is_store,
-        BOOL is_load,
-        CFG_BB_IDX ops,
-        VARIANT variant);
 
   void Emit_label(PU_INFO *func, FILE *out, UINT32 label_idx);
   void Emit_operand(CGOP *oper, CGOPR_KIND k, UINT32 ch_id, FILE*out);
@@ -537,6 +528,8 @@ public:
   UINT32 TN_tab_size();
 
   void Add_store_formals(IR_ITER entry, CFG_BB_IDX bb);
+
+  void Spill_tn(TN_IDX tid, TN *tn);
 };
 
 

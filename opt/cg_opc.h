@@ -33,3 +33,5 @@ CGOPDEF( CGOPC_AND   , 1,   2,  true,   CGOPR_R,  CGOPR_R,  CGOPR_R,   "and" ,  
 CGOPDEF( CGOPC_ORR   , 1,   2,  true,   CGOPR_R,  CGOPR_R,  CGOPR_R,   "orr" ,  CGOPK_NONE  )
 CGOPDEF( CGOPC_MVN   , 1,   1,  true,   CGOPR_R,  CGOPR_R,  CGOPR_N,   "mvn" ,  CGOPK_NONE  ) // move with negation -> NOT
 CGOPDEF( CGOPC_NOP   , 0,   0,  false,  CGOPR_N,  CGOPR_N,  CGOPR_N,   "nop" ,  CGOPK_NONE  )
+CGOPDEF( CGOPC_PUSHR , 0,   0,  false,  CGOPR_N,  CGOPR_N,  CGOPR_N,   "push {r1 - r3}" ,  CGOPK_NONE )
+CGOPDEF( CGOPC_POPR  , 0,   0,  false,  CGOPR_N,  CGOPR_N,  CGOPR_N,   "pop  {r1 - r3}" ,  CGOPK_NONE )

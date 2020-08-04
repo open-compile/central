@@ -339,15 +339,25 @@ IR_ITER visitMethodCall(TREE *tree, IR_ITER parent, int level, BOOL is_expr,
   IR_ITER ret_stmt;
   if (is_expr) {
     // Create a COMMA + block
-    IRNODE_IDX comma_idx = tree->Create_node(OPC_COMMA);
-    IRNODE_IDX block_idx = tree->Create_node(OPC_BLOCK);
-    IRNODE_IDX ldid_idx = tree->Create_node(OPC_I4LDID);
+    IRNODE_IDX comma_idx   = tree->Create_node(OPC_COMMA);
+    IRNODE_IDX block_idx   = tree->Create_node(OPC_BLOCK);
+    IRNODE_IDX stid_idx    = tree->Create_node(OPC_I4STID);
+    IRNODE_IDX ldid_idx    = tree->Create_node(OPC_I4LDID);
+    IRNODE_IDX ld_ret_node = tree->Create_node(OPC_I4LDID);
     ret_stmt = tree->Insert_temp_node(comma_idx);
     IR_ITER block_expr = tree->Set_operand(ret_stmt, 0, block_idx);
     call_stmt = tree->Insert_stmt_to_block(block_expr, call_node);
+    IR_ITER stid_expr =  tree->Insert_stmt_to_block(block_expr, stid_idx);
     IR_ITER ldid_expr = tree->Set_operand(ret_stmt, 1, ldid_idx);
-    PREG_IDX preg = File()->Create_preg(File()->Save_string(".return_preg"), 0);
+    IR_ITER ld_ret_expr = tree->Set_operand(stid_expr, 0, ld_ret_node);
+    PREG_IDX preg = File()->Create_preg(File()->Save_string(".ret_medium"), 0);
+    PREG_IDX preg_ret = File()->Create_preg(File()->Save_string(".return_val"), 1);
     tree->Node(ldid_expr)->Set_symbol_idx(File()->Get_preg_sym(MTYPE_I4, preg));
+    tree->Node(ldid_expr)->Set_preg_num(preg);
+    tree->Node(stid_expr)->Set_symbol_idx(File()->Get_preg_sym(MTYPE_I4, preg));
+    tree->Node(stid_expr)->Set_preg_num(preg);
+    tree->Node(ld_ret_expr)->Set_symbol_idx(File()->Get_preg_sym(MTYPE_I4, preg));
+    tree->Node(ld_ret_expr)->Set_preg_num(preg_ret);
   } else {
     call_stmt = tree->Insert_stmt_to_block(parent, call_node);
     ret_stmt = call_stmt;
@@ -957,24 +967,17 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
           File()->Create_inito(sym_idx, initvs, level);
         }
         // assignment is present, create stmts to do this.
-//        IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
-//        tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
-//        tree->Get_node(assignment_node)->Set_load_offset(0);
-//        IR_ITER stid_stmt = tree->Insert_stmt_to_block(block_iter,
-//                                                       assignment_node);
-//        IR_ITER rhs_expr  = visitExpression(tree, stid_stmt, level, rhs);
-//        AssertThat(
-//          rhs_expr != block_iter && rhs_expr != stid_stmt &&
-//          rhs_expr != nullptr,
-//          ("Invalid expr conversion result"));
-//        tree->Set_operand(stid_stmt, 0, rhs_expr);
-        auto rhs_int = reinterpret_cast<const shared_ptr<NInteger> &>(rhs);
-        std::vector<INITV> initvs; // 一个INITO的所有INITV
-        INITV initv;
-        initv.Set_kind(INITVKIND_VAL);
-        initv.Set_val(rhs_int->value);
-        initvs.push_back(initv);
-        File()->Create_inito(sym_idx, initvs, level);
+        IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
+        tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);
+        tree->Get_node(assignment_node)->Set_load_offset(0);
+        IR_ITER stid_stmt = tree->Insert_stmt_to_block(block_iter,
+                                                       assignment_node);
+        IR_ITER rhs_expr  = visitExpression(tree, stid_stmt, level, rhs);
+        AssertThat(
+          rhs_expr != block_iter && rhs_expr != stid_stmt &&
+          rhs_expr != nullptr,
+          ("Invalid expr conversion result"));
+        tree->Set_operand(stid_stmt, 0, rhs_expr);
       }
     }
   }

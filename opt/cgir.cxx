@@ -379,8 +379,13 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
 }
 
 TN *CGIR::PREG_to_TN(TY_IDX preg_ty, PREG_NUM preg_num) {
-  AssertThat(false, ("PREG to TN is not implemented"));
-  return nullptr;
+  TN_IDX tn_idx = Gen_TN(MTYPE_I4);
+  Set_TN_is_gra_cannot_split(TN_tn(tn_idx));
+  if (_preg_to_tn.find(preg_num) != _preg_to_tn.end()) {
+    return TN_tn(_preg_to_tn[preg_num]);
+  }
+  _preg_to_tn.insert(std::make_pair(preg_num, tn_idx));
+  return TN_tn(tn_idx);
 }
 
 TN *CGIR::PREG_to_ST_TN(ST_IDX sym_idx, PREG_NUM preg_num) {
@@ -392,6 +397,7 @@ TN *CGIR::PREG_to_ST_TN(ST_IDX sym_idx, PREG_NUM preg_num) {
 void CGIR::Set_current_cgir(CG_CFG *cgir, ST_IDX sym) {
   _current = cgir;
   _current_sym = sym;
+  _preg_to_tn.clear();
   tree = PU_INFO_pu_info(File()->Tables()->Get_pu_info_by_st_idx(sym))->entry;
   Set_current_layout(layout[sym]);
 }
@@ -545,29 +551,18 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
       Set_TN_is_preallocated(tn);
       Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
       vector<UINT32> &ded = Cfg()->BB(i)->Get_dedicate_regs();
-      while(std::find(ded.begin(), ded.end(), used_cnt) != ded.end() && used_cnt < 8) {
-        used_cnt ++;
-      }
-      if (used_cnt >= 8) {
-        // We could put the spill on r8.
-        // Now we have at least the R9 to process
-        Is_Trace(TR_LRA(),
-                 (TFile, "Need to spill the TN %d \n", tid));
-        // Make TN = ... to Var(.spill) = ...
-        Set_TN_register(tn, 0); // not allocating right now, wait for second pass.
-        Set_TN_is_preallocated(tn);
-        // Allocate spill space.
-        // Create var, create object space.
-        ST_IDX sym = 0; //File()->Find_symbol_by_name(".spill");
-        char   name_str[100];
-        sprintf(name_str, ".spill_%d", tid);
-        STR_IDX name = File()->Save_string(name_str);
-        sym = File()->Create_var(name, MTYPE_to_ty(MTYPE_I4), LOCAL_SYMTAB,
-                                 SYMC_AUTO, SYME_INTERNAL, SYM_CLASS_VAR);
-        Layout()->Allocate_object(sym); // re-allocate this.
-        Set_TN_flags(tn, TN_SPILL);
-        Set_TN_spill(tn, sym);
-        Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
+      if (TN_is_gra_cannot_split(tn)){
+        // PREG, must spill here.
+        Spill_tn(tid, tn);
+      } else {
+//        while (std::find(ded.begin(), ded.end(), used_cnt) != ded.end() &&
+//               used_cnt < 8) {
+//          used_cnt++;
+//        }
+//        if (used_cnt >= 8) {
+//          /* Spill all now. */
+          Spill_tn(tid, tn);
+//        }
       }
     }
   }
@@ -612,6 +607,27 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
       }
     }
   }
+}
+
+void CGIR::Spill_tn(TN_IDX tid, TN *tn) {// We could put the spill on r8.
+// Now we have at least the R9 to process
+  Is_Trace(TR_LRA(),
+           (TFile, "Need to spill the TN %d \n", tid));
+  // Make TN = ... to Var(.spill) = ...
+  Set_TN_register(tn, 0); // not allocating right now, wait for second pass.
+  Set_TN_is_preallocated(tn);
+  // Allocate spill space.
+// Create var, create object space.
+  ST_IDX sym = 0; //File()->Find_symbol_by_name(".spill");
+  char   name_str[100];
+  sprintf(name_str, ".spill_%d", tid);
+  STR_IDX name = File()->Save_string(name_str);
+  sym = File()->Create_var(name, MTYPE_to_ty(MTYPE_I4), LOCAL_SYMTAB,
+                           SYMC_AUTO, SYME_INTERNAL, SYM_CLASS_VAR);
+  Layout()->Allocate_object(sym); // re-allocate this.
+  Set_TN_flags(tn, TN_SPILL);
+  Set_TN_spill(tn, sym);
+  Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
 }
 
 void CGIR::Print(FILE *file) {
@@ -672,16 +688,35 @@ CGIR::Exp_LDST (
   TN *src_res  = src_res_tn;
   INT64 offset_from_base = ofst_val;
   CGOPC top = CGOPC_STR;
-  AssertThat(base != nullptr || ofst_val == 0, ("There should be no existing ofst, yet = %d", ofst_val));
+  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
+           (TFile, "Exp_LDST sym = %u, ofst = %lld\n", sym, ofst_val));
   if (base != nullptr) {
     // ISTORE or ILOAD case, where base and offset are known.
     // nothing to do.
   } else if (sym != 0 && ST_symclass(sym) == SYM_CLASS_PREG) {
-    base = Gen_Register_TN(ISA_REGISTER_CLASS_integer, MTYPE_size(MTYPE_I4));
-    PREG_IDX pgid = ST_st(sym)->offset;
-    Set_TN_is_preallocated(base);
-    Set_TN_register(base, PREG_preg(pgid)->desire_reg_num);
-    top = CGOPC_ADD;
+    // Either return-val or just a intermediate number.
+    PREG_IDX pgid = ofst_val;
+    AssertThat(pgid != 0, ("Preg number should not be zero."));
+    PREG *preg = PREG_preg(pgid);
+    if (preg->getDesireRegNum() == 1) {
+      // This is return val.
+      base = Gen_Register_TN(ISA_REGISTER_CLASS_integer, MTYPE_size(MTYPE_I4));
+      Set_TN_is_preallocated(base);
+      Set_TN_register(base, 0);
+      top = CGOPC_ADD;
+    } else {
+      // Just another TN.
+      base = PREG_to_TN(ST_ty(sym), ofst_val);
+      top = CGOPC_ADD;
+    }
+    if (opc == OPC_I4STID) {
+      // Reverse the base and res_src.
+      TN *mid = base;
+      base = src_res;
+      src_res = mid;
+    }
+
+    offset_from_base = 0;
   } else if (sym != 0 && ST_sclass(sym) != SYMC_AUTO && ST_sclass(sym) != SYMC_FORMAL) {
     // Create a LDR first
     base = TN_tn(Gen_TN(MTYPE_I4));
@@ -719,21 +754,6 @@ CGIR::Exp_LDST (
     AssertThat(false, ("Offset too large, need other ways to do this. "
                        "\nNot implmented Exp_LDST situation"));
   }
-}
-
-void
-CGIR::Exp_Ldst (
-  OPCODE opcode,
-  TN *tn,
-  ST_IDX sym,
-  INT64 ofst,
-  BOOL indirect_call,
-  BOOL is_store,
-  BOOL is_load,
-  CFG_BB_IDX bb_idx,
-  VARIANT variant)
-{
-
 }
 
 void CGIR::Exp_op(OPCODE opcode, CFG_BB_IDX cur_bb,
@@ -944,7 +964,7 @@ CGOPC_INFO *CGIR::Get_cg_opc_info(CGOPC cgopc) {
 
 LABEL_IDX CGIR::Get_addr_label(ST_IDX sym) {
   char *targ = (char*) malloc(sizeof(".taddr_") + strlen(ST_name(sym)) + 2);
-  sprintf(targ, ".taddr_%s", ST_name(sym));
+  sprintf(targ, ".taddr_%d_%s", File()->Scopes()->Current()->getSt(), ST_name(sym));
   for (UINT32 i       = 1; i < File()->Tables()->Label()->Length(File()->Scopes()->Current()); i++) {
     LABEL_IDX lbl = (LABEL_IDX) (i << 8) + LOCAL_SYMTAB;
     if (LABEL_label(lbl)->Get_temp_sym() == sym) {
@@ -1115,6 +1135,7 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
   UINT32 callargs_size    = 0; // including the first four param.
   UINT32 abi_callarg_size = 0; // not including the first four param.
   UINT32 arg_id           = 0;
+  const UINT32 CALL_PUSH_SIZE = 12;
   for (TYLIST_IDX ty_list = TY_tylist_id(callee_proto) + 1; ;
        arg_id ++,
        ty_list++) {
@@ -1150,7 +1171,7 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
     IR_ITER expr = tree->Get_operand(stmt, i);
     TN *result = TN_tn(Gen_TN(MTYPE_I4));
     Expand_Expr(expr, stmt, to_mem_bb, result);
-    INT32 sp_ofst = -callargs_size + (i * 4);
+    INT32 sp_ofst = -callargs_size - CALL_PUSH_SIZE + (i * 4);
     // SP related store
     Exp_LDST(OPC_I4STID, MTYPE_I4,
              result,
@@ -1163,7 +1184,7 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
   for (UINT32 i = 0; i < 3 && i < call_args; i++) {
     IR_ITER expr = tree->Get_operand(stmt, i);
     Cfg()->BB(to_reg_bb)->Dedicate_reg(i);
-    INT32 sp_ofst = -callargs_size + (i * 4);
+    INT32 sp_ofst = -callargs_size - CALL_PUSH_SIZE + (i * 4);
     // SP related store
     TN *dedic = TN_tn(Gen_TN(MTYPE_I4));
     Set_TN_is_preallocated(dedic);
@@ -1176,6 +1197,8 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
 
   if (call_args > 0) {
     // Adjust SP, sub the arguments.
+    CGOP *push_sp   = new CGOP(CGOPC_PUSHR, cur_bb, 0, 0, 0, 0);
+    Cfg()->BB(to_reg_bb)->Add_stmt(push_sp);
     CGOP *adjust_sp = new CGOP(CGOPC_SUBS, cur_bb,
                                TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_sp,
                                                             REGISTER_sp, 4)),
@@ -1202,6 +1225,8 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
                                  TN_tn_idx(Gen_Literal_TN(abi_callarg_size, 4)),
                                  0);
     Cfg()->BB(after_call_bb)->Add_stmt(readjust_sp);
+    CGOP *pop_sp   = new CGOP(CGOPC_POPR, cur_bb, 0, 0, 0, 0);
+    Cfg()->BB(after_call_bb)->Add_stmt(pop_sp);
   }
   return after_call_bb;
 }

@@ -103,10 +103,12 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   // Prepare files
   if(Tracing(COMPONENT_DRIVER, TRACE_INFO)) {
     std::cout << "Files count: " << file_vec.size() << std::endl;
-    for (auto it = file_vec.begin(); it != file_vec.end(); it++) {
+  }
+  for (auto it = file_vec.begin(); it != file_vec.end(); it++) {
+    if(Tracing(COMPONENT_DRIVER, TRACE_INFO)) {
       std::cout << "File specified: " << *it << std::endl;
-      conf.files.push_back(*it);
     }
+    conf.files.push_back(*it);
   }
 
   if (file_vec.size() <= 0) {

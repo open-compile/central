@@ -557,16 +557,24 @@ LABEL_IDX FILE_MANAGER::Get_func_exit_label() {
 }
 
 ST_IDX FILE_MANAGER::Get_preg_sym(MTYPE_ID mt, PREG_IDX regid) {
+  ST_TABLE    *symtab = File()->Tables()->Sym();
+  TY_IDX ty = MTYPE_to_ty(mt);
+  for (UINT32 i       = 0; i < symtab->Length(); i++) {
+    ST_IDX sym = (i << 8) + GLOBAL_SYMTAB;
+    if (ST_symclass(sym) == SYM_CLASS_PREG && ty == MTYPE_to_ty(mt)) {
+      return sym; // Single one.
+    }
+  }
   ST_IDX sym = Tables()->Sym()->Add(GLOBAL_SYMTAB);
   AssertThat(sym > 0 && (sym & 0xff) == GLOBAL_SYMTAB, ("Incorrect var symidx generated = %u", sym));
   ST *st = ST_st(sym);
   st->name_idx = Save_string(".predef_preg");
-  st->type = MTYPE_to_ty(mt);
-  st->export_class = SYME_INTERNAL;
-  st->sym_class = SYM_CLASS_PREG;
+  st->type          = ty;
+  st->export_class  = SYME_INTERNAL;
+  st->sym_class     = SYM_CLASS_PREG;
   st->storage_class = SYMC_UNKNOWN;
-  st->offset = regid;
-  st->attr = (SYM_ATTR) 0;
+  st->offset        = regid;
+  st->attr          = (SYM_ATTR) 0;
   return sym;
 }
 
