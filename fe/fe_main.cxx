@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <fstream>
+#include "symtab_access.h"
 #include "ASTNodes.h"
 #include "options.h"
 #include "stdarg.h"
@@ -68,6 +69,14 @@ void Create_internal_functions() {
                                                    *param_ret_vec);
 
   STR_IDX func_name = File()->Save_string("getint");
+  File()->Create_var(func_name, one_ret,
+                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
+
+  func_name = File()->Save_string("starttime");
+  File()->Create_var(func_name, one_ret,
+                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
+
+  func_name = File()->Save_string("stoptime");
   File()->Create_var(func_name, one_ret,
                      GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
 
@@ -675,6 +684,137 @@ MTYPE_ID Get_rtype_by_token(FEOPCODE op) {
   return MTYPE_V;
 }
 
+
+INT64 Evaluate_const_expr(shared_ptr<NExpression> sharedPtr) {
+  INT64 cur_val = 0;
+  if (sharedPtr->getTypeName() == "NBinaryOperator") {
+    shared_ptr<NBinaryOperator> bin_op = reinterpret_cast<const shared_ptr<NBinaryOperator> &>(sharedPtr);
+    INT64                       lhs    = Evaluate_const_expr(bin_op->lhs);
+    if (lhs == 0) {
+      return 0;
+    }
+    INT64                       rhs    = Evaluate_const_expr(bin_op->rhs);
+    switch (bin_op->op) {
+      case TPLUS:
+        cur_val = lhs + rhs;
+        break;
+      case TMINUS:
+        cur_val = lhs - rhs;
+        break;
+      case TDIV:
+        cur_val = lhs / rhs;
+        break;
+      case TMUL:
+        cur_val = lhs * rhs;
+        break;
+      case TMOD:
+        cur_val = lhs % rhs;
+        break;
+      default:
+        AssertThat(false, ("Cannot handle situation op : %d", bin_op->op));
+    }
+  } else if (sharedPtr->getTypeName() == "NIdentifier"){
+    shared_ptr<NIdentifier> bin_op = reinterpret_cast<const shared_ptr<NIdentifier> &>(sharedPtr);
+    ST_IDX sym = File()->Find_symbol_by_name(bin_op->name.c_str());
+    if (sym != 0 && ST_st(sym)->getInitoIdx() != 0) {
+      INITO *inito = INITO_inito(ST_st(sym)->getInitoIdx());
+      AssertThat(inito->Size() > 0, ("No value in inito found."));
+      cur_val = inito->Value(0)->Val();
+    } else {
+      Is_Trace(Tracing(COMPONENT_FE, TRACE_WARN),
+               (TFile, "Cannot find predef value for sym : %d", sym));
+    }
+  } else if (sharedPtr->getTypeName() == "NUnaryOperator"){
+    shared_ptr<NUnaryOperator> bin_op = reinterpret_cast<const shared_ptr<NUnaryOperator> &>(sharedPtr);
+    INT32 lhs = 0;
+    INT64 rhs = Evaluate_const_expr(bin_op->rhs);
+    if (rhs == 0) {
+      return 0;
+    }
+    switch (bin_op->op) {
+      case TPLUS:
+        cur_val = lhs + rhs;
+        break;
+      case TMINUS:
+        cur_val = lhs - rhs;
+        break;
+      case TDIV:
+        cur_val = lhs / rhs;
+        break;
+      case TMUL:
+        cur_val = lhs * rhs;
+        break;
+      case TMOD:
+        cur_val = lhs % rhs;
+        break;
+      default:
+        AssertThat(false, ("Cannot handle situation op : %d", bin_op->op));
+    }
+  } else if (sharedPtr->getTypeName() == "NInteger"){
+    shared_ptr<NInteger> bin_op = reinterpret_cast<const shared_ptr<NInteger> &>(sharedPtr);
+    cur_val =  bin_op->value;
+  } else {
+    cur_val = 0;
+  }
+  return cur_val;
+}
+
+
+ST_IDX visitArrayDecl(UINT32 level, const shared_ptr<NIdentifier> &varname,
+                      const shared_ptr<NIdentifier> &vartype, TY_IDX i4_idx,
+                      const SYM_SCLASS &sclass) {
+  ST_IDX                              sym_idx;
+  STR_IDX                             anon_array = File()->Save_string(varname->name.c_str());//数组名
+  ARB_IDX                             arb_idx[vartype->arraySize->size()];
+  int                                 i          = 0;
+  int                                 j          = vartype->arraySize->size();//维数
+  for (ExpressionList::const_iterator it         = vartype->arraySize->cbegin(); it != vartype->arraySize->cend(); it++, i++) {
+    if ((*it)->getTypeName() == "NInteger") {
+      auto val = reinterpret_cast<const std::__1::shared_ptr<NInteger> &> (*it);
+      arb_idx[i] = File()->Create_array_bound_const(val->value, MTYPE_size(MTYPE_I4), j--,
+                                                    i == 0 ? ARB_FIRST_DIMEN : (i == vartype->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
+    } else if ((*it)->getTypeName() == "NIdentifier") {
+      INT64 const_val = Evaluate_const_expr(*it);
+      if (const_val > 0) {
+        arb_idx[i] = File()->Create_array_bound_const(const_val, MTYPE_size(MTYPE_I4), j--,
+                                                      i == 0 ? ARB_FIRST_DIMEN : (i == vartype->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
+      } else {
+        auto expr = (*it);
+        const std::__1::shared_ptr<NIdentifier> &val = reinterpret_cast<const std::__1::shared_ptr<NIdentifier> &>(expr);
+        ST_IDX sym = File()->Find_symbol_by_name(val->name.c_str());
+        arb_idx[i] = File()->Create_array_bound_var(sym, MTYPE_size(MTYPE_I4),
+                                                    j--,
+                                                    i == 0 ? ARB_FIRST_DIMEN : (
+                                                      i ==
+                                                      vartype.get()->arraySize->size() -
+                                                      1 ? ARB_LAST_DIMEN : 0));
+      }
+    } else {
+      INT64 const_val = Evaluate_const_expr(*it);
+      if (const_val > 0) {
+        arb_idx[i] = File()->Create_array_bound_const(const_val, MTYPE_size(MTYPE_I4), j--,
+                                                      i == 0 ? ARB_FIRST_DIMEN : (i == vartype->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
+      } else {
+        arb_idx[i] = File()->Create_array_bound_var(0, MTYPE_size(MTYPE_I4),
+                                                    j--,
+                                                    i == 0 ? ARB_FIRST_DIMEN : (
+                                                      i ==
+                                                      vartype.get()->arraySize->size() -
+                                                      1 ? ARB_LAST_DIMEN : 0));
+      }
+    }
+  }
+  TY_IDX array_ty[vartype->arraySize->size()];
+  for (int k                                     = 0; k < vartype->arraySize->size(); ++k) {
+    array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
+                                          k == 0 ? i4_idx : array_ty[k-1], arb_idx[--i]);
+  }
+  sym_idx = File()->Create_var(anon_array, array_ty[vartype->arraySize->size() - 1], level, sclass,
+                               SYME_INTERNAL, SYM_CLASS_VAR);
+  return sym_idx;
+}
+
+
 IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL is_formal,
                      const shared_ptr<NVariableDeclaration>& vardecl) {
   Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO),
@@ -693,39 +833,22 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
   TY_IDX i4_idx = MTYPE_to_ty(MTYPE_I4);
   ST_IDX sym_idx = File()->Find_symbol_by_name(varname->name.c_str());
   // Check if symbol exists, if so, use the previous one.
-  if (sym_idx != 0 && !(ST_sclass(sym_idx) == SYMC_FILE_STATIC && level == LOCAL_SYMTAB)) {
+  if (sym_idx != 0 &&
+     !(ST_sclass(sym_idx) == SYMC_FORMAL && level == GLOBAL_SYMTAB) &&
+     !(ST_sclass(sym_idx) == SYMC_AUTO   && level == GLOBAL_SYMTAB) &&
+     !(ST_sclass(sym_idx) == SYMC_FILE_STATIC && level == LOCAL_SYMTAB)) {
     // Variable redeclare
     Is_Trace(Tracing(COMPONENT_FE, TRACE_WARN),
              (TFile, "Variable redeclare: %s\n", varname->name.c_str()));
     return block_iter;
   }
   STR_IDX var_name_saved = File()->Save_string(varname->name.c_str());
+  SYM_SCLASS sclass = SYMC_AUTO;
   if (level <= GLOBAL_SYMTAB) {
     // 数组声明, global
+    sclass = SYMC_FILE_STATIC;
     if (vartype->isArray) {
-      STR_IDX anon_array = File()->Save_string(varname->name.c_str());//数组名
-      ARB_IDX arb_idx[vartype.get()->arraySize->size()];
-      int i = 0;
-      int j = vartype.get()->arraySize->size();//维数
-      for (auto it = vartype.get()->arraySize->begin(); it != vartype.get()->arraySize->end(); it++, i++) {
-        if ((*it)->getTypeName() == "NInteger") {
-          const shared_ptr<NInteger> & val = reinterpret_cast<const shared_ptr<NInteger> &>(*it);
-          arb_idx[i] = File()->Create_array_bound_const(val->value, MTYPE_size(MTYPE_I4), j--,
-                                                        i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
-        } else if ((*it)->getTypeName() == "NIdentifier") {
-          const shared_ptr<NIdentifier> & val = reinterpret_cast<const shared_ptr<NIdentifier> &>(*it);
-          ST_IDX sym = File()->Find_symbol_by_name(val->name.c_str());
-          arb_idx[i] = File()->Create_array_bound_var(sym, MTYPE_size(MTYPE_I4), j--,
-                                                      i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
-        }
-      }
-      TY_IDX array_ty[vartype.get()->arraySize->size()];
-      for (int k = 0; k < vartype.get()->arraySize->size(); ++k) {
-        array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
-                                              k == 0 ? i4_idx : array_ty[k-1], arb_idx[--i]);
-      }
-      sym_idx = File()->Create_var(anon_array, array_ty[vartype.get()->arraySize->size() - 1], 1, SYMC_FILE_STATIC,
-                                   SYME_INTERNAL, SYM_CLASS_VAR);
+      visitArrayDecl(level, varname, vartype, i4_idx, sclass);
     } else {
       sym_idx = File()->Create_var(var_name_saved, i4_idx, 1, SYMC_FILE_STATIC,
                                    SYME_INTERNAL, SYM_CLASS_VAR);
@@ -734,36 +857,13 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
   } else {
     AssertThat(level == 2, ("Invalid level = %d", level));
     AssertThat(tree != NULL && block_iter != NULL, ("Null visit context in visitVarDecl"));
-    SYM_SCLASS sclass = SYMC_AUTO;
+    sclass = SYMC_AUTO;
     if (is_formal) {
       sclass = SYMC_FORMAL;
     }
     // 数组声明
     if (vartype->isArray) {
-      STR_IDX anon_array = File()->Save_string(varname->name.c_str());//数组名
-      ARB_IDX arb_idx[vartype->arraySize->size()];
-      int i = 0;
-      int j = vartype->arraySize->size();//维数
-      for (ExpressionList::const_iterator it = vartype->arraySize->cbegin(); it != vartype->arraySize->cend(); it++, i++) {
-        if ((*it)->getTypeName() == "NInteger") {
-          auto val = reinterpret_cast<const shared_ptr<NInteger> &> (*it);
-          arb_idx[i] = File()->Create_array_bound_const(val->value, MTYPE_size(MTYPE_I4), j--,
-                                                        i == 0 ? ARB_FIRST_DIMEN : (i == vartype->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
-        } else if ((*it)->getTypeName() == "NIdentifier") {
-          auto expr = (*it);
-          const shared_ptr<NIdentifier> & val = reinterpret_cast<const shared_ptr<NIdentifier> &>(expr);
-          ST_IDX sym = File()->Find_symbol_by_name(val->name.c_str());
-          arb_idx[i] = File()->Create_array_bound_var(sym, MTYPE_size(MTYPE_I4), j--,
-                                                      i == 0 ? ARB_FIRST_DIMEN : (i == vartype.get()->arraySize->size() - 1 ? ARB_LAST_DIMEN : 0));
-        }
-      }
-      TY_IDX array_ty[vartype->arraySize->size()];
-      for (int k = 0; k < vartype->arraySize->size(); ++k) {
-        array_ty[k] = File()->Create_array_ty(anon_array, TY_FLAG_INTERNAL,
-                                              k == 0 ? i4_idx : array_ty[k-1], arb_idx[--i]);
-      }
-      sym_idx = File()->Create_var(anon_array, array_ty[vartype->arraySize->size() - 1], level, sclass,
-                                   SYME_INTERNAL, SYM_CLASS_VAR);
+      sym_idx = visitArrayDecl(level, varname, vartype, i4_idx, sclass);
     } else {
       sym_idx = File()->Create_var(var_name_saved, i4_idx, level, sclass,
                                    SYME_INTERNAL, SYM_CLASS_VAR);
@@ -844,6 +944,16 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
         File()->Create_inito(sym_idx, initvs, level);
       } else {
         AssertThat(level == LOCAL_SYMTAB, ("Incorrect level"));
+        if (vartype->isConst() && rhs->getTypeName() == "NInteger") {
+          INT64 val = Evaluate_const_expr(rhs);
+          auto rhs_int = reinterpret_cast<const shared_ptr<NInteger> &>(rhs);
+          std::vector<INITV> initvs; // 一个INITO的所有INITV
+          INITV initv;
+          initv.Set_kind(INITVKIND_VAL);
+          initv.Set_val(rhs_int->value);
+          initvs.push_back(initv);
+          File()->Create_inito(sym_idx, initvs, level);
+        }
         // assignment is present, create stmts to do this.
 //        IRNODE_IDX assignment_node = tree->Create_node(OPC_I4STID);
 //        tree->Get_node(assignment_node)->Set_symbol_idx(sym_idx);

@@ -96,7 +96,6 @@ struct_typename : TSTRUCT ident {
 
 typename : primary_typename { $$ = $1; }
 	 | struct_typename { $$ = $1; }
-	 | TCONST typename { $$ = $2; $2->is_const = true; }
 
 basic_non_init_def : ident {
        NIdentifier *ident = new NIdentifier("int");
@@ -123,16 +122,25 @@ basic_var_def : basic_non_init_def
    	$1->assignmentExpr = shared_ptr<NExpression>($3);
    	$$ = $1;
 }
+| basic_var_def TEQUAL TLBRACE TRBRACE {
+	$1->assignmentExpr = shared_ptr<NExpression>(new NInitializeExpr());
+	$$ = $1;
+}
 | basic_var_def TEQUAL TLBRACE init_expr TRBRACE {
 	$1->assignmentExpr = shared_ptr<NExpression>($4);
 	$$ = $1;
 }
 ;
 
-var_decl : typename basic_var_def {
+var_decl :
+typename basic_var_def {
 	$$ = $2;
 	((NVariableDeclaration *) $2)->type->setName($1->name);
 	((NVariableDeclaration *) $2)->type->isType = true;
+}
+| TCONST var_decl {
+	$$ = $2;
+	((NVariableDeclaration *) $2)->type->is_const = true;
 }
 | var_decl TCOMMA basic_var_def {
 	$$ = $1;
