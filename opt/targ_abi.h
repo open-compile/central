@@ -97,9 +97,8 @@ typedef struct {
 
 typedef enum {
   ABI_PROPERTIES_ABI_n32,
-  ABI_PROPERTIES_ABI_n64,
   ABI_PROPERTIES_ABI_UNDEFINED,
-  ABI_PROPERTIES_ABI_MAX=1
+  ABI_PROPERTIES_ABI_MAX=0
 } ABI_PROPERTIES_ABI;
 
 extern ABI_PROPERTIES_ABI ABI_PROPERTIES_ABI_Value;
@@ -112,7 +111,7 @@ inline const char *ABI_PROPERTY_Reg_Name(
   ISA_REGISTER_CLASS rc,
   INT reg)
 {
-  extern const ABI_PROPERTIES *ABI_PROPERTIES_target_props;
+  extern ABI_PROPERTIES *ABI_PROPERTIES_target_props;
   return ABI_PROPERTIES_target_props->reg_names[rc][reg];
 }
 
@@ -120,7 +119,7 @@ inline BOOL ABI_PROPERTY_Is_allocatable(
   ISA_REGISTER_CLASS rc,
   INT reg)
 {
-  extern const ABI_PROPERTIES *ABI_PROPERTIES_target_props;
+  extern ABI_PROPERTIES *ABI_PROPERTIES_target_props;
   return (  ABI_PROPERTIES_target_props->reg_flags[rc][reg]
             & ABI_PROPERTY_allocatable) != 0;
 }
@@ -129,7 +128,7 @@ inline BOOL ABI_PROPERTY_Is_callee(
   ISA_REGISTER_CLASS rc,
   INT reg)
 {
-  extern const ABI_PROPERTIES *ABI_PROPERTIES_target_props;
+  extern ABI_PROPERTIES *ABI_PROPERTIES_target_props;
   return (  ABI_PROPERTIES_target_props->reg_flags[rc][reg]
             & ABI_PROPERTY_callee) != 0;
 }
@@ -138,7 +137,7 @@ inline BOOL ABI_PROPERTY_Is_caller(
   ISA_REGISTER_CLASS rc,
   INT reg)
 {
-  extern const ABI_PROPERTIES *ABI_PROPERTIES_target_props;
+  extern ABI_PROPERTIES *ABI_PROPERTIES_target_props;
   return (  ABI_PROPERTIES_target_props->reg_flags[rc][reg]
             & ABI_PROPERTY_caller) != 0;
 }
@@ -147,7 +146,7 @@ inline BOOL ABI_PROPERTY_Is_func_arg(
   ISA_REGISTER_CLASS rc,
   INT reg)
 {
-  extern const ABI_PROPERTIES *ABI_PROPERTIES_target_props;
+  extern ABI_PROPERTIES *ABI_PROPERTIES_target_props;
   return (  ABI_PROPERTIES_target_props->reg_flags[rc][reg]
             & ABI_PROPERTY_func_arg) != 0;
 }
@@ -156,7 +155,7 @@ inline BOOL ABI_PROPERTY_Is_func_val(
   ISA_REGISTER_CLASS rc,
   INT reg)
 {
-  extern const ABI_PROPERTIES *ABI_PROPERTIES_target_props;
+  extern ABI_PROPERTIES *ABI_PROPERTIES_target_props;
   return (  ABI_PROPERTIES_target_props->reg_flags[rc][reg]
             & ABI_PROPERTY_func_val) != 0;
 }
@@ -165,7 +164,7 @@ inline BOOL ABI_PROPERTY_Is_stack_ptr(
   ISA_REGISTER_CLASS rc,
   INT reg)
 {
-  extern const ABI_PROPERTIES *ABI_PROPERTIES_target_props;
+  extern ABI_PROPERTIES *ABI_PROPERTIES_target_props;
   return (  ABI_PROPERTIES_target_props->reg_flags[rc][reg]
             & ABI_PROPERTY_stack_ptr) != 0;
 }
@@ -174,7 +173,7 @@ inline BOOL ABI_PROPERTY_Is_frame_ptr(
   ISA_REGISTER_CLASS rc,
   INT reg)
 {
-  extern const ABI_PROPERTIES *ABI_PROPERTIES_target_props;
+  extern ABI_PROPERTIES *ABI_PROPERTIES_target_props;
   return (  ABI_PROPERTIES_target_props->reg_flags[rc][reg]
             & ABI_PROPERTY_frame_ptr) != 0;
 }
@@ -183,7 +182,7 @@ inline BOOL ABI_PROPERTY_Is_static_link(
   ISA_REGISTER_CLASS rc,
   INT reg)
 {
-  extern const ABI_PROPERTIES *ABI_PROPERTIES_target_props;
+  extern ABI_PROPERTIES *ABI_PROPERTIES_target_props;
   return (  ABI_PROPERTIES_target_props->reg_flags[rc][reg]
             & ABI_PROPERTY_static_link) != 0;
 }
@@ -192,7 +191,7 @@ inline BOOL ABI_PROPERTY_Is_ret_addr(
   ISA_REGISTER_CLASS rc,
   INT reg)
 {
-  extern const ABI_PROPERTIES *ABI_PROPERTIES_target_props;
+  extern ABI_PROPERTIES *ABI_PROPERTIES_target_props;
   return (  ABI_PROPERTIES_target_props->reg_flags[rc][reg]
             & ABI_PROPERTY_return_addr) != 0;
 }

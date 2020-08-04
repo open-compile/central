@@ -71,6 +71,8 @@ using namespace TN_CONTEXT;
 TN *Gen_TN() {
   UINT32 sz = Cgir()->Get_tn_table().size();
   Cgir()->Get_tn_table().push_back(TN(sz));
+  Cgir()->Get_tn_table()[sz].Set_idx(sz);
+  AssertThat(Cgir()->Get_tn_table()[sz].Get_tn_idx() == sz, ("Generation failed somehow."));
   AssertThat(TN_tn(Cgir()->Get_tn_table()[sz].Get_tn_idx()) ==
              &(Cgir()->Get_tn_table()[sz]), ("Generation failed somehow."));
   return &(Cgir()->Get_tn_table()[sz]);
@@ -80,7 +82,9 @@ TN_IDX Gen_TN(MTYPE_ID mtype) {
   TN *tn = Gen_TN();
   tn->Set_type(mtype);
   tn->Set_size(MTYPE_size(mtype));
-  return TN_tn_idx(tn);
+  UINT32 tn_id = TN_tn_idx(tn);
+  AssertThat(tn_id > 0 && tn_id < 40960, ("Incorrect range of tn_idx = %u", tn_id));
+  return tn_id;
 }
 
 TN *TN_tn(TN_IDX tn_idx) {
@@ -312,11 +316,7 @@ void TN::Print(FILE *file) {
   }
   if (TN_is_register(this)) {
     fprintf(file, "register = %d, class = %d ", TN_register(this), TN_register_class(this));
-    if (TN_register_class(this) == REGISTER_CLASS_ra) {
-      fprintf(file, "(ra)");
-    } else if (TN_register_class(this) == REGISTER_CLASS_sp) {
-      fprintf(file, "(sp)");
-    } else if (TN_register_class(this) == REGISTER_CLASS_fp) {
+    if (TN_register_class(this) == REGISTER_CLASS_fp) {
       fprintf(file, "(fp)");
     }
   }
@@ -334,6 +334,10 @@ void TN::Dup_from(TN *pTn) {
 
 void TN::Set_type(MTYPE_ID id) {
 
+}
+
+void TN::Set_idx(UINT32 i) {
+  tn_idx = i;
 }
 
 

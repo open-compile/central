@@ -109,6 +109,8 @@ public:
   void Set_relocs(UINT8 relocs) { TN::relocs = relocs;  }
   UINT8 Get_size() const        { return size;  }
   void Set_size(UINT8 size)     { TN::size = size;  }
+
+  void Set_idx(UINT32 i);
 };
 
 enum {
@@ -149,6 +151,7 @@ enum {
 
 static inline TN_IDX TN_tn_idx(TN *tn) {
   AssertThat(tn != NULL, ("Tn is null"));
+  AssertThat(tn->tn_idx > 0 && tn->tn_idx < 40960, ("Tn idx is invalid."));
   return tn->tn_idx;
 }
 
