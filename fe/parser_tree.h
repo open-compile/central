@@ -1,6 +1,6 @@
 
-#ifndef __ASTNODES_H__
-#define __ASTNODES_H__
+#ifndef __OCC_PARSER_TREE_H__
+#define __OCC_PARSER_TREE_H__
 
 #include <iostream>
 #include <vector>

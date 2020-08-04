@@ -192,7 +192,7 @@
 /* Copy the first part of user declarations.  */
 #line 1 "grammar.y"
 
-	#include "ASTNodes.h"
+	#include "parser_tree.h"
 	#include "basic.h"
 	#include <stdio.h>
 	#define register

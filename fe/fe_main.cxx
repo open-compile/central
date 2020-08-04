@@ -5,7 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include "symtab_access.h"
-#include "ASTNodes.h"
+#include "parser_tree.h"
 #include "options.h"
 #include "stdarg.h"
 #include "ir.h"
