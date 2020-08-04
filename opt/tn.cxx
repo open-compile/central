@@ -194,14 +194,6 @@ Init_Dedicated_TNs(void) {
   FZero_TN = ded_tns[REGISTER_CLASS_fzero][REGISTER_fzero];
   FOne_TN  = ded_tns[REGISTER_CLASS_fone][REGISTER_fone];
 
-  /* allocate gp tn.  this may use a caller saved register, so
-   * we don't use the one allocated for $gp above.
-   */
-#ifdef ABI_PROPERTY_global_ptr
-  GP_TN = Create_Dedicated_TN (REGISTER_CLASS_gp, REGISTER_gp);
-  tnum++;
-#endif
-
   for (reg = REGISTER_MIN;
        reg <= REGISTER_CLASS_last_register(ISA_REGISTER_CLASS_float);
        reg++) {
@@ -263,8 +255,11 @@ Build_Dedicated_TN (ISA_REGISTER_CLASS rclass, REGISTER reg, INT size)
     switch(size) {
       case 1: return i1_ded_tns[reg];
       case 2: return i2_ded_tns[reg];
-      case 4: return i4_ded_tns[reg];
     }
+  }
+
+  if(rclass == ISA_REGISTER_CLASS_integer) {
+    return i4_ded_tns[reg];
   }
 
   AssertThat(ded_tns[rclass][reg] != NULL,

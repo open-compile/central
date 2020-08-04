@@ -808,6 +808,9 @@ Initialize_Register_Class(
     else if ( ABI_PROPERTY_Is_stack_ptr(rclass, isa_reg) ) {
       Set_CLASS_REG_PAIR_reg(CLASS_REG_PAIR_sp, reg);
       Set_CLASS_REG_PAIR_rclass(CLASS_REG_PAIR_sp, rclass);
+    } else if (ABI_PROPERTY_Is_func_val(rclass, isa_reg)) {
+      Set_CLASS_REG_PAIR_reg(CLASS_REG_PAIR_v0, reg);
+      Set_CLASS_REG_PAIR_rclass(CLASS_REG_PAIR_v0, rclass);
     }
   }
 
@@ -829,10 +832,8 @@ Initialize_Register_Class(
   /* There are multiple integer return regs -- v0 is the lowest
    * of the set.
    */
-  if ( rclass == ISA_REGISTER_CLASS_integer ) {
-    Set_CLASS_REG_PAIR_reg(CLASS_REG_PAIR_v0, REGISTER_SET_Choose(func_value));
-    Set_CLASS_REG_PAIR_rclass(CLASS_REG_PAIR_v0, rclass);
-  }
+  Set_CLASS_REG_PAIR_reg(CLASS_REG_PAIR_v0, 1);
+  Set_CLASS_REG_PAIR_rclass(CLASS_REG_PAIR_v0, ISA_REGISTER_CLASS_integer);
 }
 
 
