@@ -691,6 +691,33 @@ IR_ITER Opt_lower_stmt(IR_ITER stmt, PU_INFO *func, FILE_MANAGER *file,
       stmt = Opt_lower_if_stmt(stmt, func, tree, name_buf);
       break;
     }
+    case OPR_TRUEBR:
+    case OPR_FALSEBR: {
+      // Add NE 0 if there is only one kid
+      if (level != LEVEL_VLOW) break;
+      OPCODE opc = tree->Node(tree->Get_operand(stmt, 0))->Opcode();
+      OPERATOR opr = OPCODE_operator(opc);
+      switch (opr) {
+        case OPR_NE:
+        case OPR_EQ:
+        case OPR_LT:
+        case OPR_LE:
+        case OPR_GT:
+        case OPR_GE:
+          break;
+        default:
+          // Not a valid opr, need
+          AssertThat(tree->Number_of_children(stmt) == 1, ("not 1 child in true/falsebr"));
+          IR_ITER cond = tree->Get_operand(stmt, 0);
+          IRNODE_IDX new_ne = tree->Create_node(OPC_I4I4NE);
+          IRNODE_IDX const_zero = tree->Create_node(OPC_I4CONST);
+          IR_ITER temp_ne = tree->Insert_temp_node(new_ne);
+          IR_ITER temp_zero = tree->Set_operand(temp_ne, 0, const_zero);
+          IR_ITER new_cond = tree->Internal_tree().insert_subtree_after(temp_zero, cond);
+          IR_ITER new_pos = tree->Replace_recursive(cond, temp_ne);
+          break;
+      }
+    }
     default: {
       // do nothing about them.
     }
