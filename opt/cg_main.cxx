@@ -107,6 +107,7 @@ void Emit_section_code(FILE *out, FILE_MANAGER *file) {
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (TFile, "%sEmitting section: code\n%s", DBAR, DBAR));
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Debugging info enabled, writing file-level code section\n"));
   fprintf(out, ".text\n\n");
+  fprintf(out, ".global __aeabi_idiv \n");
   for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
     // Iterate over each pu_info (functions), dump each of the function
     PU_INFO *pu_info = file->Tables()->Pu_info()->Get(it);
@@ -147,7 +148,7 @@ void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
     INITO *inito = INITO_inito(inito_idx);
     for (UINT32 j = 0; j < inito->Size(); j++) {
       if (inito->Value(j)->kind == INITVKIND_VAL) {
-        fprintf(out, ".val %lld\n", inito->Value(j)->Val());
+        fprintf(out, ".word %lld\n", inito->Value(j)->Val());
       } else if (inito->Value(j)->kind == INITVKIND_PAD) {
         fprintf(out, ".zero %lld\n", inito->Value(j)->Val());
       }

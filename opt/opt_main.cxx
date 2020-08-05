@@ -23,6 +23,8 @@ IR_ITER Opt_lower_array_expr(IR_ITER &expr, TREE *tree);
 
 IR_ITER Opt_lower_mod_op(const IR_ITER &expr, TREE *tree);
 
+IR_ITER Opt_lower_div_op(IR_ITER &expr, TREE *tree);
+
 using std::vector;
 using std::map;
 
@@ -346,9 +348,11 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
       return res;
     }
   }
-  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_MOD &&
-      level == LEVEL_MID) {
+  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_MOD) {
     return Opt_lower_mod_op(expr, tree);
+  }
+  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_DIV) {
+    return Opt_lower_div_op(expr, tree);
   }
   if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_LAND &&
       level == LEVEL_LOW) {
@@ -458,7 +462,7 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
     return temp;
   }
   if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_COMMA &&
-      level == LEVEL_HIGH) {
+      level <= LEVEL_MID) {
     IR_ITER comma_blk = tree->Get_operand(expr, 0);
     IR_ITER comma_ldid = tree->Get_operand(expr, 1);
     AssertThat(tree->Node(comma_ldid)->Opcode() == OPC_I4LDID,
@@ -526,6 +530,45 @@ IR_ITER Opt_lower_mod_op(const IR_ITER &expr, TREE *tree) {
   IR_ITER new_b2 = tree->Replace_recursive(new_b2_expr, rhs);
   return sub_expr;
 }
+
+
+IR_ITER Opt_lower_div_op(IR_ITER &expr, TREE *tree) {
+  AssertThat(tree->Number_of_children(expr) == 2,
+             ("Not a valid MOD operator, got kid = %d", tree->Number_of_children(
+               expr)));
+  IR_ITER lhs = tree->Get_operand(expr, 0);
+  IR_ITER rhs = tree->Get_operand(expr, 1);
+
+  IRNODE_IDX call_node = tree->Create_node(OPC_I4CALL);
+  // Create a COMMA + block
+  IRNODE_IDX comma_idx   = tree->Create_node(OPC_COMMA);
+  IRNODE_IDX block_idx   = tree->Create_node(OPC_BLOCK);
+  IRNODE_IDX stid_idx    = tree->Create_node(OPC_I4STID);
+  IRNODE_IDX ldid_idx    = tree->Create_node(OPC_I4LDID);
+  IRNODE_IDX ld_ret_node = tree->Create_node(OPC_I4LDID);
+  IR_ITER ret_stmt = tree->Insert_temp_node(comma_idx);
+  IR_ITER block_expr = tree->Set_operand(ret_stmt, 0, block_idx);
+  IR_ITER call_stmt = tree->Insert_stmt_to_block(block_expr, call_node);
+  IR_ITER stid_expr =  tree->Insert_stmt_to_block(block_expr, stid_idx);
+  IR_ITER ldid_expr = tree->Set_operand(ret_stmt, 1, ldid_idx);
+  IR_ITER ld_ret_expr = tree->Set_operand(stid_expr, 0, ld_ret_node);
+  PREG_IDX preg = File()->Create_preg(File()->Save_string(".ret_medium"), 0);
+  PREG_IDX preg_ret = File()->Create_preg(File()->Save_string(".return_val"), 1);
+  tree->Node(ldid_expr)->Set_symbol_idx(File()->Get_preg_sym(MTYPE_I4, preg));
+  tree->Node(ldid_expr)->Set_preg_num(preg);
+  tree->Node(stid_expr)->Set_symbol_idx(File()->Get_preg_sym(MTYPE_I4, preg));
+  tree->Node(stid_expr)->Set_preg_num(preg);
+  tree->Node(ld_ret_expr)->Set_symbol_idx(File()->Get_preg_sym(MTYPE_I4, preg));
+  tree->Node(ld_ret_expr)->Set_preg_num(preg_ret);
+
+  ST_IDX sym = File()->Find_symbol_by_name("__aeabi_idiv");
+  tree->Node(call_node)->Set_symbol_idx(sym);
+  IR_ITER temp_lhs = tree->Set_operand(call_stmt, 0, call_node);
+  tree->Internal_tree().insert_subtree_after(temp_lhs, rhs);
+  tree->Replace_recursive(temp_lhs, lhs);
+  return ret_stmt;
+}
+
 
 IR_ITER Opt_lower_array_expr(IR_ITER &expr, TREE *tree) {
 /*

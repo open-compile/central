@@ -68,6 +68,13 @@ void Create_internal_functions() {
   TY_IDX void_ret_one_vec = File()->Create_func_ty(internal_func_name, 0, MTYPE_V, TY_FLAG::TY_ANONYMOUS,
                                                    *param_ret_vec);
 
+  param_ret_vec->clear();
+  param_ret_vec->push_back(ty_i4);
+  param_ret_vec->push_back(ty_i4);
+  param_ret_vec->push_back(ty_i4);
+  TY_IDX int_ret_two_param = File()->Create_func_ty(internal_func_name, 0, MTYPE_V, TY_FLAG::TY_ANONYMOUS,
+                                                   *param_ret_vec);
+
   STR_IDX func_name = File()->Save_string("getint");
   File()->Create_var(func_name, one_ret,
                      GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
@@ -100,6 +107,9 @@ void Create_internal_functions() {
   File()->Create_var(func_name, void_ret_one_parm,
                      GLOBAL_SYMTAB, SYMC_EXTERN, SYME_INTERNAL, SYM_CLASS_FUNC);
 
+  func_name = File()->Save_string("__aeabi_idiv");
+  File()->Create_var(func_name, int_ret_two_param,
+                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
 
 //  int getint();
 //  int getch();
