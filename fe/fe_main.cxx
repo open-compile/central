@@ -757,7 +757,7 @@ INT64 Evaluate_const_expr(shared_ptr<NExpression> sharedPtr) {
       cur_val = inito->Value(0)->Val();
     } else {
       Is_Trace(Tracing(COMPONENT_FE, TRACE_WARN),
-               (TFile, "Cannot find predef value for sym : %d", sym));
+               (TFile, "Cannot find predef value for sym : %d\n", sym));
     }
   } else if (sharedPtr->getTypeName() == "NUnaryOperator"){
     shared_ptr<NUnaryOperator> bin_op = reinterpret_cast<const shared_ptr<NUnaryOperator> &>(sharedPtr);
@@ -912,7 +912,7 @@ IR_ITER visitVarDecl(TREE *tree, const IR_ITER &block_iter, UINT32 level, BOOL i
       // NInitializeExpr, inito creation
       Is_Trace(level == LOCAL_SYMTAB &&
                Tracing(COMPONENT_FE, TRACE_WARN),
-               (TFile, "INITO creation in LOCAL not implemented."));
+               (TFile, "INITO creation in LOCAL not implemented.\n"));
 
       std::vector<INITV> initvs;// 一个INITO的所有INITV
       INITV initv;

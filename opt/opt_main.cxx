@@ -489,7 +489,7 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
       // a conditional evaluation ...
       Is_Trace(Tracing(COMPONENT_FE, TRACE_WARN),
                (TFile, "WARNING: The generated code ignores "
-                       "conditional evaluation. on %lld", *use_stmt));
+                       "conditional evaluation. on %lld\n", *use_stmt));
     }
     tree->Internal_tree().insert_subtree(use_stmt, call_stmt);
     tree->Internal_tree().insert_subtree(use_stmt, stid_stmt);
