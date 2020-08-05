@@ -64,8 +64,9 @@ void Create_internal_functions() {
 
   param_ret_vec->clear();
   param_ret_vec->push_back(ty_v);
+  param_ret_vec->push_back(ty_i4);
   param_ret_vec->push_back(ty_ivec);
-  TY_IDX void_ret_one_vec = File()->Create_func_ty(internal_func_name, 0, MTYPE_V, TY_FLAG::TY_ANONYMOUS,
+  TY_IDX void_ret_one_parm_one_vec = File()->Create_func_ty(internal_func_name, 0, MTYPE_V, TY_FLAG::TY_ANONYMOUS,
                                                    *param_ret_vec);
 
   param_ret_vec->clear();
@@ -96,7 +97,7 @@ void Create_internal_functions() {
                      GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
 
   func_name = File()->Save_string("putarray");
-  File()->Create_var(func_name, void_ret_one_vec,
+  File()->Create_var(func_name, void_ret_one_parm_one_vec,
                      GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
 
   func_name = File()->Save_string("_sysy_starttime");
