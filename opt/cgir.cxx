@@ -1021,7 +1021,7 @@ CGOPC_INFO *CGIR::Get_cg_opc_info(CGOPC cgopc) {
 }
 
 LABEL_IDX CGIR::Get_addr_label(ST_IDX sym) {
-  char *targ = (char*) malloc(sizeof(".taddr_") + strlen(ST_name(sym)) + 2);
+  char *targ = (char*) malloc(sizeof(".taddr_") + strlen(ST_name(sym)) + 100);
   sprintf(targ, ".taddr_%d_%s", File()->Scopes()->Current()->getSt(), ST_name(sym));
   for (UINT32 i       = 1; i < File()->Tables()->Label()->Length(File()->Scopes()->Current()); i++) {
     LABEL_IDX lbl = (LABEL_IDX) (i << 8) + LOCAL_SYMTAB;
