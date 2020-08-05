@@ -752,9 +752,10 @@ CGIR::Exp_LDST (
     // Create a LDR first
     base = TN_tn(Gen_TN(MTYPE_I4));
     LABEL_IDX lbl = Get_addr_label(sym);
-    Cfg()->BB(bb_idx)->Add_stmt(
-      new CGOP(CGOPC_LDRLBL, node_id, bb_idx, TN_tn_idx(base),
-               TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0));
+    CGOP      *node = new CGOP(CGOPC_LDRLBL, node_id, bb_idx, TN_tn_idx(base),
+                               TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0);
+    Cfg()->BB(bb_idx)->Add_stmt(node);
+    _last_created.push_back(node);
   } else {
     base = Build_Dedicated_TN(REGISTER_CLASS_sp,
                               REGISTER_sp,
@@ -789,22 +790,32 @@ CGIR::Exp_LDST (
   } else {
     // Somehow calculate a middle number,
     TN *middle_base = TN_tn(Gen_TN(MTYPE_I4));
-    Cfg()->BB(bb_idx)->Add_stmt(
-      new CGOP(CGOPC_MOV, node_id, bb_idx, TN_tn_idx(middle_base),
-               TN_tn_idx(Gen_Literal_TN((offset_from_base) & 0xFFFF, 2)), 0, 0));
+    CGOP *mov_1     = new CGOP(CGOPC_MOV, node_id, bb_idx,
+                               TN_tn_idx(middle_base),
+                               TN_tn_idx(
+                                 Gen_Literal_TN((offset_from_base) & 0xFFFF,
+                                                2)), 0, 0);
+    Cfg()->BB(bb_idx)->Add_stmt(mov_1);
+    _last_created.push_back(mov_1);
     if (((offset_from_base >> 16) & 0xFFFF) != 0) {
-      Cfg()->BB(bb_idx)->Add_stmt(
-        new CGOP(CGOPC_MOVT, node_id, bb_idx, TN_tn_idx(middle_base),
-                 TN_tn_idx(Gen_Literal_TN((offset_from_base >> 16) & 0xFFFF, 2)), 0, 0));
+      CGOP *mov2 = new CGOP(CGOPC_MOVT, node_id, bb_idx, TN_tn_idx(middle_base),
+                            TN_tn_idx(
+                              Gen_Literal_TN((offset_from_base >> 16) & 0xFFFF,
+                                             2)), 0, 0);
+      Cfg()->BB(bb_idx)->Add_stmt(mov2);
+      _last_created.push_back(mov2);
     }
     CGOP *add_op = new CGOP(CGOPC_ADD, node_id, bb_idx, TN_tn_idx(middle_base),
              TN_tn_idx(base), TN_tn_idx(middle_base), 0);
+    _last_created.push_back(add_op);
     Cfg()->BB(bb_idx)->Add_stmt(add_op);
     TN_value(ofst) = 0;
     Cfg()->Get_exceed_map().insert(std::make_pair(TN_tn_idx(ofst), offset_from_base));
-    Cfg()->BB(bb_idx)->Add_stmt(
-      new CGOP(top, node_id, bb_idx, TN_tn_idx(src_res), TN_tn_idx(middle_base),
-               TN_tn_idx(ofst), 0));
+    CGOP *real_op = new CGOP(top, node_id, bb_idx, TN_tn_idx(src_res),
+                             TN_tn_idx(middle_base),
+                             TN_tn_idx(ofst), 0);
+    Cfg()->BB(bb_idx)->Add_stmt(real_op);
+    _last_created.push_back(real_op);
   }
 }
 
@@ -1110,6 +1121,7 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
       // haven't allocated
       Is_Trace(TR_LRA(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), REGISTER_spill));
       Set_TN_register(spill_tn, reg_num_to_use);
+      _last_created.clear();
       Exp_LDST(OPC_I4STID, MTYPE_I4,
                spill_tn,
                nullptr,
@@ -1117,23 +1129,45 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
                nullptr,
                cur_bb, V_BR_NONE);
       oper->setResOpnd(opnd, TN_tn_idx(spill_tn));
-      CGOP *rs = *(Cfg()->BB(cur_bb)->Last_stmt() - 1);
-      rs->setFlags(CGOPF_SPILL);
-      AssertThat(rs->getOpcode() == CGOPC_STR, ("Incorrect generated result"));
-      Cfg()->BB(cur_bb)->Get_work_list().push_back(CGTODO_ITEM<CGOP> (oper, rs, false));
+      for (INT32 i = _last_created.size() - 1; i >= 0; i--) {
+        CGOP *rs = _last_created[i];
+        if (rs->getOpcode() == CGOPC_ADD) {
+          // Probably a too long stack, in this sense, we need to allocate middle base.
+          TN_IDX middle_base = rs->getResOpnd()[0];
+          TN *middle = TN_tn(middle_base);
+          AssertThat(!TN_is_preallocated(middle) && !TN_is_dedicated(middle),
+                     ("Tn must be clean. %d", middle_base));
+          Set_TN_is_preallocated(middle);
+          Set_TN_register(middle, 10);
+        }
+        rs->setFlags(CGOPF_SPILL);
+        Cfg()->BB(cur_bb)->Get_work_list().push_back(
+          CGTODO_ITEM<CGOP>(oper, rs, false));
+      }
     } else {
       Is_Trace(TR_LRA(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), reg_num_to_use));
       Is_Trace(TR_LRA(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), reg_num_to_use));
       Set_TN_register(spill_tn, reg_num_to_use); // Making sure the two register are the same.
+      _last_created.clear();
       Exp_LDST(OPC_I4LDID, MTYPE_I4,
         spill_tn,
         nullptr,
         TN_spill(tn), 0, 0, cur_bb, V_BR_NONE);
-      CGOP *rs = Cfg()->BB(cur_bb)->Last_real_stmt();
-      rs->setFlags(CGOPF_SPILL);
       oper->setResOpnd(opnd, TN_tn_idx(spill_tn));
-      AssertThat(rs->getOpcode() == CGOPC_LDR, ("Incorrect generated result"));
-      Cfg()->BB(cur_bb)->Get_work_list().push_back(CGTODO_ITEM<CGOP> (oper, rs, true));
+      for (UINT32 i = 0; i < _last_created.size(); i++) {
+        CGOP *rs = _last_created[i];
+        if (rs->getOpcode() == CGOPC_ADD) {
+          // Probably a too long stack, in this sense, we need to allocate middle base.
+          TN_IDX middle_base = rs->getResOpnd()[0];
+          TN *middle = TN_tn(middle_base);
+          AssertThat(!TN_is_preallocated(middle) && !TN_is_dedicated(middle),
+                     ("Tn must be clean. %d", middle_base));
+          Set_TN_is_preallocated(middle);
+          Set_TN_register(middle, 0);
+        }
+        rs->setFlags(CGOPF_SPILL);
+        Cfg()->BB(cur_bb)->Get_work_list().push_back(CGTODO_ITEM<CGOP> (oper, rs, true));
+      }
     }
   }
 }

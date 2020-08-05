@@ -445,6 +445,7 @@ private:
   ST_IDX                      _current_sym;
   DATA_LAYOUT                *_current_layout;
   TREE                        *tree;
+  vector<CGOP *>               _last_created;
 public:
   CG_CFG    *Get_function(ST_IDX func_sym) {
     if(trees.find(func_sym) == trees.end()) {
