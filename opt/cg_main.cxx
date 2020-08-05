@@ -201,12 +201,26 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & BB_FLAG_ENTRY) {
       Is_Trace(TR_EMIT(), (out, "#  ---  function prologue ---   \n"));
-      fprintf(out, "\tpush\t{fp, lr}\n" // 8bytes
-                   "\tpush\t{r4-r10}\n" // 28bytes
-                   "\tadd\tfp, sp, #%d\n"
-                   "\tsub\tsp, sp, #%d\n",
-                   SP_EXTRA,
-                   (Layout()->Get_local_pad_size()));
+      if (Layout()->Get_local_pad_size() > (1 << 8)) {
+        // This is a large stack.
+        fprintf(out, "\tpush\t{fp, lr}\n" // 8bytes
+                     "\tpush\t{r4-r10}\n"); // 28bytes
+
+        fprintf(out, "\tmov\tr4, #%d\n", ((Layout()->Get_local_pad_size()) & 0xFFFF));
+        if (((Layout()->Get_local_pad_size()  >> 16) & 0xFFFF) != 0 ) {
+          fprintf(out, "\tmovt\tr4, #%d\n",
+                  ((Layout()->Get_local_pad_size() >> 16) & 0xFFFF));
+        }
+        fprintf(out, "\tadd\tfp, sp, #%d\n"
+                     "\tsub\tsp, sp, r4\n", SP_EXTRA);
+      } else {
+        fprintf(out, "\tpush\t{fp, lr}\n" // 8bytes
+                     "\tpush\t{r4-r10}\n" // 28bytes
+                     "\tadd\tfp, sp, #%d\n"
+                     "\tsub\tsp, sp, #%d\n",
+                SP_EXTRA,
+                (Layout()->Get_local_pad_size()));
+      }
     }
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & BB_FLAG_EXIT) {

@@ -785,14 +785,30 @@ CGIR::Exp_LDST (
     AssertThat(false, ("not impl ldst opcode = %s.", OPCODE_name(opc)));
   }
   AssertThat(TN_is_constant(ofst), ("Exp_LDST: Illegal offset TN"));
-  if (!TN_has_value(ofst) || TN_value(ofst) < (1 << 16)) {
+  if (!TN_has_value(ofst) || TN_value(ofst) < (1 << 8)) {
     AssertThat(src_res != nullptr && base != nullptr && ofst != nullptr, ("No operands should be null."));
     Cfg()->BB(bb_idx)->Add_stmt(
       new CGOP(top, node_id, bb_idx, TN_tn_idx(src_res), TN_tn_idx(base),
                TN_tn_idx(ofst), 0));
   } else {
-    AssertThat(false, ("Offset too large, need other ways to do this. "
-                       "\nNot implmented Exp_LDST situation"));
+    // Somehow calculate a middle number,
+    TN *middle_base = TN_tn(Gen_TN(MTYPE_I4));
+    Cfg()->BB(bb_idx)->Add_stmt(
+      new CGOP(CGOPC_MOV, node_id, bb_idx, TN_tn_idx(middle_base),
+               TN_tn_idx(Gen_Literal_TN((offset_from_base) & 0xFFFF, 2)), 0, 0));
+    if (((offset_from_base >> 16) & 0xFFFF) != 0) {
+      Cfg()->BB(bb_idx)->Add_stmt(
+        new CGOP(CGOPC_MOVT, node_id, bb_idx, TN_tn_idx(middle_base),
+                 TN_tn_idx(Gen_Literal_TN((offset_from_base >> 16) & 0xFFFF, 2)), 0, 0));
+    }
+    CGOP *add_op = new CGOP(CGOPC_ADD, node_id, bb_idx, TN_tn_idx(middle_base),
+             TN_tn_idx(base), TN_tn_idx(middle_base), 0);
+    Cfg()->BB(bb_idx)->Add_stmt(add_op);
+    TN_value(ofst) = 0;
+    Cfg()->Get_exceed_map().insert(std::make_pair(TN_tn_idx(ofst), offset_from_base));
+    Cfg()->BB(bb_idx)->Add_stmt(
+      new CGOP(top, node_id, bb_idx, TN_tn_idx(src_res), TN_tn_idx(middle_base),
+               TN_tn_idx(ofst), 0));
   }
 }
 
@@ -1350,8 +1366,16 @@ void CGIR::Add_store_formals(IR_ITER entry, CFG_BB_IDX bb) {
 void CGIR::Recalibrate_offset(PU_INFO *pInfo) {
   for (auto item : Cfg()->Get_recalibrate_map()) {
     TN *ofst_tn = TN_tn(item.first);
-    AssertThat(TN_is_constant(ofst_tn), ("Not a constant TN to calibrate"));
-    Set_TN_value(ofst_tn, Layout()->Get_sym_sp_ofst(item.second));
+    INT64 new_value = Layout()->Get_sym_sp_ofst(item.second);
+    if (Cfg()->Get_exceed_map().find(item.first) !=
+        Cfg()->Get_exceed_map().end()) {
+      // Oversided TN, use offset instead.
+      INT64 orig_val = Cfg()->Get_exceed_map()[item.first];
+      Set_TN_value(ofst_tn, new_value - orig_val);
+    } else {
+      AssertThat(TN_is_constant(ofst_tn), ("Not a constant TN to calibrate"));
+      Set_TN_value(ofst_tn, new_value);
+    }
   }
 }
 

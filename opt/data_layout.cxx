@@ -73,6 +73,7 @@ void DATA_LAYOUT::Initialize_frame(SCOPE *scope, ST_IDX func) {
   UINT32      args_met  = 0;
   // Allocate for LR and FP at the end of the stack.
   formal_size_allocated = FUNC_PUSH_SIZE;
+  vector<ST_IDX> arrays;
   for (UINT32 i       = 0; i < sym->Length(scope); i++) {
     ST_IDX sym_idx = (i << 8) | LOCAL_SYMTAB;
     if (ST_sclass(sym_idx) == SYMC_FORMAL) {
@@ -80,8 +81,15 @@ void DATA_LAYOUT::Initialize_frame(SCOPE *scope, ST_IDX func) {
       args_met ++;
     }
     if (ST_sclass(sym_idx) == SYMC_AUTO) {
-      Allocate_object(sym_idx);
+      if (TY_kind(ST_ty(sym_idx)) == KIND_ARRAY) {
+        arrays.push_back(sym_idx);
+      } else {
+        Allocate_object(sym_idx);
+      }
     }
+  }
+  for (ST_IDX it : arrays) {
+    Allocate_object(it);
   }
   _local_without_spill = local_size_allocated;
 }

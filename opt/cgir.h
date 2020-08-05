@@ -40,6 +40,7 @@ private:
   map<CFG_BB_IDX, set<CFG_BB_IDX> > edges;
   BB_VECTOR                         bb_list;
   map<TN_IDX, ST_IDX>              _recal_map;
+  map<TN_IDX, INT64>               _exceed_map;
 public:
   // iterators, accesses
   BB_ITER Begin() { return bb_list.begin(); }
@@ -78,6 +79,9 @@ public:
 
   void  Print(FILE *file = stderr);
   CFG_BB_IDX Add_bb(INT pred);
+  map<TN_IDX, INT64> & Get_exceed_map() {
+    return _exceed_map;
+  }
   map<TN_IDX, ST_IDX> & Get_recalibrate_map() {
     return _recal_map;
   }
