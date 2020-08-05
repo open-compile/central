@@ -278,7 +278,8 @@ IR_ITER TREE::Remove_node_recursive(IR_ITER pos) {
 IR_ITER TREE::Get_parent_in_block(IR_ITER stmt) {
   IR_ITER par = irtree.parent(stmt);
   IR_ITER elem = stmt;
-  while (Node(par)->Opcode() != OPC_BLOCK &&
+  while ((Node(par)->Opcode() != OPC_BLOCK ||
+          Node(Get_parent(par))->Opcode() == OPC_COMMA) &&
          Node(par)->Opcode() != OPC_FUNC_ENTRY) {
     elem = par;
     par = irtree.parent(par);

@@ -42,10 +42,13 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
 
   Opt_lower(File(), LEVEL_HIGH, conf);
   Opt_verify(File(), LEVEL_HIGH, conf);
+
+  Opt_lower(File(), LEVEL_HIGH, conf);
+  Opt_verify(File(), LEVEL_HIGH, conf);
   // Optimizations on High IR
 
   Opt_lower(File(), LEVEL_MID, conf);
-  Opt_verify(File(), LEVEL_HIGH, conf);
+  Opt_verify(File(), LEVEL_MID, conf);
   // Optimizations on Mid IR, SSA, DCE, CSE ...
 
   Opt_lower(File(), LEVEL_LOW, conf);
@@ -348,10 +351,12 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
       return res;
     }
   }
-  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_MOD) {
+  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_MOD &&
+      (level == LEVEL_MID || level == LEVEL_HIGH || level == LEVEL_VHIGH)) {
     return Opt_lower_mod_op(expr, tree);
   }
-  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_DIV) {
+  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_DIV &&
+     (level == LEVEL_MID || level == LEVEL_HIGH || level == LEVEL_VHIGH)) {
     return Opt_lower_div_op(expr, tree);
   }
   if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_LAND &&
@@ -461,15 +466,18 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
     IR_ITER temp = Opt_lower_array_expr(expr, tree);
     return temp;
   }
-  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_COMMA) {
+  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_COMMA &&
+      (level == LEVEL_MID || level == LEVEL_LOW)) {
     IR_ITER comma_blk = tree->Get_operand(expr, 0);
     IR_ITER comma_ldid = tree->Get_operand(expr, 1);
     AssertThat(tree->Node(comma_ldid)->Opcode() == OPC_I4LDID,
                ("Must be a LDID or preg retval"));
     IR_ITER use_stmt = tree->Get_parent_in_block(expr);
     IR_ITER block = tree->Get_parent(use_stmt);
-    AssertThat(tree->Number_of_children(comma_blk) == 2,
-               ("Should have only one call + 1 stid. node = %d", *comma_blk));
+    comma_blk = tree->Get_operand(expr, 0);
+    AssertThat(comma_blk.number_of_children() == 2,
+               ("Should have only one call + 1 stid. node = %d, yet child count = %d", *comma_blk,
+                comma_blk.number_of_children()));
     IR_ITER call_stmt = tree->Get_operand(comma_blk, 0);
     IR_ITER stid_stmt = tree->Get_operand(comma_blk, 1);
     AssertThat(tree->Node(call_stmt)->Opcode() == OPC_I4CALL,
@@ -537,7 +545,6 @@ IR_ITER Opt_lower_div_op(IR_ITER &expr, TREE *tree) {
                expr)));
   IR_ITER lhs = tree->Get_operand(expr, 0);
   IR_ITER rhs = tree->Get_operand(expr, 1);
-
   IRNODE_IDX call_node = tree->Create_node(OPC_I4CALL);
   // Create a COMMA + block
   IRNODE_IDX comma_idx   = tree->Create_node(OPC_COMMA);
@@ -563,8 +570,9 @@ IR_ITER Opt_lower_div_op(IR_ITER &expr, TREE *tree) {
   ST_IDX sym = File()->Find_symbol_by_name("__aeabi_idiv");
   tree->Node(call_node)->Set_symbol_idx(sym);
   IR_ITER temp_lhs = tree->Set_operand(call_stmt, 0, call_node);
-  tree->Internal_tree().insert_subtree_after(temp_lhs, rhs);
-  tree->Replace_recursive(temp_lhs, lhs);
+  IR_ITER new_lhs = tree->Internal_tree().insert_subtree_after(temp_lhs, lhs);
+  IR_ITER new_rhs = tree->Internal_tree().insert_subtree_after(temp_lhs, rhs);
+  tree->Remove_node_recursive(temp_lhs);
   return ret_stmt;
 }
 
