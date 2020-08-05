@@ -127,7 +127,7 @@ V_BR_XLE = 94,      /* Double extended  A <= B */
 V_BR_ALWAYS = 	95,	/* Unconditional branch */
 V_BR_NEVER = 	96,	/* Never branch */
 V_BR_LAST = 	97,	/* Last one defined, must < 128 */
-
+V_SOME_LAST = 0x7FFFFFFF,
 } VARIANT;
 
 /* V_BR_MASK *must* be 2^n - 1, and be at least as large as  */

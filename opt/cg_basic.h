@@ -170,6 +170,7 @@ private:
   UINT32       orig_id;
   UINT8        which_unroll;
   UINT32       res_opnd[5];
+  UINT32       _tree_node_id;
 
 public:
   CGOP (CGOPC opc, CFG_BB_IDX bb_idx,
@@ -186,6 +187,13 @@ public:
     res_opnd[2] = op3;
     res_opnd[3] = op4;
     res_opnd[4] = 0;
+    _tree_node_id = 0;
+  }
+  CGOP (CGOPC opc, UINT32 tree_node_id, CFG_BB_IDX bb_idx,
+        UINT32 op1, UINT32 op2,
+        UINT32 op3, UINT32 op4) :
+        CGOP (opc, bb_idx, op1, op2, op3, op4) {
+    _tree_node_id = tree_node_id;
   }
 
   CGOPC getOpcode() const {

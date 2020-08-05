@@ -55,10 +55,12 @@ CGIR::Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   CG_OPRAND res      = 0;
   OPCODE opcode      = tree->Get_node(stmt)->Opcode();
 
-  if (false /* PREG */) {
-    TN *tn_res = PREG_to_ST_TN(tree->Get_node(stmt)->Get_symbol_idx(), tree->Get_node(stmt)->Get_preg_num());
+  ST_IDX sym = tree->Node(stmt)->Get_symbol_idx();
+  INT64 ofst = tree->Node(stmt)->Get_load_offset();
+  if (ST_symclass(sym) == SYM_CLASS_PREG) {
+    TN *tn_res = PREG_to_TN(ST_ty(sym), ofst);
     res = TN_tn_idx(tn_res);
-    // TODO: Conversion may still be needed here.
+    Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, tn_res);
   } else {
     VARIANT variant = Memop_Variant(stmt);
     TN *tn_res = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
@@ -70,6 +72,7 @@ CGIR::Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb) {
              nullptr,
              tree->Get_node(stmt)->Get_symbol_idx(),
              tree->Get_node(stmt)->Get_load_offset(),
+             stmt,
              cur_bb,
              variant);
   }
@@ -94,12 +97,21 @@ CGIR::Handle_LDID(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
   } else {
     res = Gen_TN(MTYPE_I4);
   }
-  if (false /* PREG */) {
-    TN *tn_res = PREG_to_ST_TN(tree->Get_node(stmt)->Get_symbol_idx(),
-                               tree->Get_node(stmt)->Get_preg_num());
-    res = TN_tn_idx(tn_res);
-    // TODO: Conversion may still be needed here.
-    return tn_res;
+  ST_IDX sym = tree->Node(stmt)->Get_symbol_idx();
+  INT64 ofst = tree->Node(stmt)->Get_load_offset();
+  if (ST_symclass(sym) == SYM_CLASS_PREG) {
+    TN *current = PREG_to_TN(ST_ty(sym),
+                            ofst);
+    res = TN_tn_idx(current);
+    if (target_res != nullptr) {
+      // Transfer needed
+      TN_IDX final = TN_tn_idx(target_res);
+      CGOP *cgop = new CGOP(CGOPC_MOV, *stmt, cur_bb, final, res, 0, 0);
+      Cfg()->BB(cur_bb)->Add_stmt(cgop);
+    } else {
+      target_res = current;
+    }
+    return target_res;
   } else {
     VARIANT variant = Memop_Variant(stmt);
     TN *tn_res = TN_tn(res);
@@ -107,8 +119,9 @@ CGIR::Handle_LDID(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
              OPCODE_desc(opcode),
              tn_res,
              nullptr,
-             tree->Get_node(stmt)->Get_symbol_idx(),
-             tree->Get_node(stmt)->Get_load_offset(),
+             sym,
+             ofst,
+             stmt,
              cur_bb,
              variant);
     return tn_res;
@@ -151,6 +164,7 @@ CGIR::Handle_ILOAD(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
              base_tn,
              tree->Get_node(stmt)->Get_symbol_idx(),
              tree->Get_node(stmt)->Get_load_offset(),
+             stmt,
              cur_bb,
              variant);
     return tn_res;
@@ -190,6 +204,7 @@ CGIR::Handle_ISTORE(IR_ITER stmt, CFG_BB_IDX cur_bb) {
              base_tn,
              0,
              0,
+             stmt,
              cur_bb,
              variant);
     return tn_res;
@@ -214,7 +229,7 @@ CGIR::Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res) {
     // SP + OFST
     LABEL_IDX lbl = Get_addr_label(sym);
     Cfg()->BB(cur_bb)->Add_stmt(
-      new CGOP(CGOPC_LDRLBL, cur_bb, TN_tn_idx(target_res), TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0));
+      new CGOP(CGOPC_LDRLBL, *expr, cur_bb, TN_tn_idx(target_res), TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0));
   } else if (ST_sclass(sym) == SYMC_AUTO ||
     ST_sclass(sym) == SYMC_FORMAL) {
     TN *sp_tn = Build_Dedicated_TN(REGISTER_CLASS_sp,
@@ -222,7 +237,7 @@ CGIR::Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res) {
                               MTYPE_size(MTYPE_I4));
     INT64 offset_from_base = Layout()->Get_sym_sp_ofst(sym);
     Cfg()->BB(cur_bb)->Add_stmt(
-      new CGOP(CGOPC_ADD, cur_bb,
+      new CGOP(CGOPC_ADD, *expr, cur_bb,
                TN_tn_idx(target_res),
                TN_tn_idx(sp_tn),
                TN_tn_idx(Gen_Literal_TN(offset_from_base, 4)), 0));
@@ -255,12 +270,12 @@ CGIR::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb) {
     Set_TN_is_preallocated(func_val);
     TN      *tn_res   = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, func_val);
   }
-  Handle_ret(cur_bb);
+  Handle_ret(stmt, cur_bb);
 }
 
-void CGIR::Handle_ret(CFG_BB_IDX cur_bb) {
+void CGIR::Handle_ret(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   LABEL_IDX lbl   = File()->Get_func_exit_label();
-  CGOP      *cgop = new CGOP(CGOPC_B, cur_bb,
+  CGOP      *cgop = new CGOP(CGOPC_B, *stmt, cur_bb,
                                0, TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0);
   Cfg()->BB(cur_bb)->Add_stmt(cgop);
 }
@@ -309,7 +324,7 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
       }
       case OPR_RETURN: {
         CFG_BB_IDX next_bb = Cfg()->Add_bb();
-        Handle_ret(cur_bb);
+        Handle_ret(stmt, cur_bb);
         cur_bb = next_bb;
         cur_bb_stmt_processed = 0;
         break;
@@ -369,20 +384,31 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
   Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_EXIT);
   Cfg()->BB(cur_bb)->Set_label_id(File()->Get_func_exit_label());
   Cfg()->BB(cur_bb)->Add_stmt(
-    new CGOP(CGOPC_BX, cur_bb,
+    new CGOP(CGOPC_BX, 0, cur_bb,
              0,
              TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_ra, REGISTER_ra, 4)),
              0, 0));
 }
 
 TN *CGIR::PREG_to_TN(TY_IDX preg_ty, PREG_NUM preg_num) {
-  TN_IDX tn_idx = Gen_TN(MTYPE_I4);
-  Set_TN_is_gra_cannot_split(TN_tn(tn_idx));
+  AssertThat(preg_num != 0, ("Preg number should not be zero."));
   if (_preg_to_tn.find(preg_num) != _preg_to_tn.end()) {
     return TN_tn(_preg_to_tn[preg_num]);
   }
-  _preg_to_tn.insert(std::make_pair(preg_num, tn_idx));
-  return TN_tn(tn_idx);
+  PREG *preg = PREG_preg(preg_num);
+  TN_IDX base_idx = 0;
+  if (preg->getDesireRegNum() == 1) {
+    // This is return val.
+    TN *base = Gen_Register_TN(ISA_REGISTER_CLASS_integer, MTYPE_size(MTYPE_I4));
+    Set_TN_is_preallocated(base);
+    Set_TN_register(base, 0);
+    base_idx = TN_tn_idx(base);
+  } else {
+    base_idx = Gen_TN(MTYPE_I4);
+    Set_TN_is_gra_cannot_split(TN_tn(base_idx));
+  }
+  _preg_to_tn.insert(std::make_pair(preg_num, base_idx));
+  return TN_tn(base_idx);
 }
 
 TN *CGIR::PREG_to_ST_TN(ST_IDX sym_idx, PREG_NUM preg_num) {
@@ -411,9 +437,6 @@ TN *
 CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_expr\n"));
-  if (result == NULL) {
-    result = TN_tn(Gen_TN(MTYPE_I4));
-  }
   switch (OPCODE_operator(tree->Node(entry)->Opcode())) {
     case OPR_LDID: {
       return Handle_LDID(entry, cur_bb, result);
@@ -427,12 +450,15 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
     case OPR_CONST: {
       INT64 val = tree->Node(entry)->Get_const_val();
       AssertThat(val < (1ll << 32l), ("val should be with in range"));
+      if (result == NULL) {
+        result = TN_tn(Gen_TN(MTYPE_I4)); // rh1_res; // A trick to reduce # of register
+      }
       Cfg()->BB(cur_bb)->Add_stmt(
-          new CGOP(CGOPC_MOV, cur_bb, TN_tn_idx(result),
+          new CGOP(CGOPC_MOV, *entry, cur_bb, TN_tn_idx(result),
                  TN_tn_idx(Gen_Literal_TN((val) & 0xFFFF, 2)), 0, 0));
       if (((val >> 16) & 0xFFFF) != 0) {
         Cfg()->BB(cur_bb)->Add_stmt(
-          new CGOP(CGOPC_MOVT, cur_bb, TN_tn_idx(result),
+          new CGOP(CGOPC_MOVT, *entry, cur_bb, TN_tn_idx(result),
                    TN_tn_idx(Gen_Literal_TN((val >> 16) & 0xFFFF, 2)), 0, 0));
       }
       return result;
@@ -445,25 +471,26 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
     case OPR_MPY:
     case OPR_DIV: {
       CGOP *exp_res = nullptr;
-      TN *rh1_res = TN_tn(Gen_TN(MTYPE_I4));
-      Expand_Expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
+      TN *rh1_res = nullptr;
+      rh1_res = Expand_Expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
       // TODO: If rh2 is a constant, maybe we could do a BIN_OP r1, r2, #const kind of transform.
-      TN *rh2_res = TN_tn(Gen_TN(MTYPE_I4));
-      Expand_Expr(tree->Get_operand(entry, 1), entry, cur_bb, rh2_res);
+      TN *rh2_res = nullptr;
+      rh2_res = Expand_Expr(tree->Get_operand(entry, 1), entry, cur_bb, rh2_res);
+      AssertThat(rh1_res != nullptr && rh2_res != nullptr, ("Results cannot be null"));
       if (result == NULL) {
         result = TN_tn(Gen_TN(MTYPE_I4)); // rh1_res; // A trick to reduce # of register
       }
-      Exp_op2(tree->Node(entry)->Opcode(), cur_bb, result, rh1_res, rh2_res, &exp_res);
+      Exp_op2(*entry, tree->Node(entry)->Opcode(), cur_bb, result, rh1_res, rh2_res, &exp_res);
       return result;
     }
     case OPR_LNOT: {
       CGOP *exp_res = nullptr;
-      TN *rh1_res = TN_tn(Gen_TN(MTYPE_I4));
-      Expand_Expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
+      TN *rh1_res = Expand_Expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
+      AssertThat(rh1_res != nullptr, ("Result cannot be null"));
       if (result == NULL) {
         result = TN_tn(Gen_TN(MTYPE_I4)); // rh1_res; // A trick to reduce # of register
       }
-      Exp_op1(tree->Node(entry)->Opcode(), cur_bb, result, rh1_res, &exp_res);
+      Exp_op1(*entry, tree->Node(entry)->Opcode(), cur_bb, result, rh1_res, &exp_res);
       return result;
     }
     default:
@@ -680,9 +707,14 @@ CGIR::Exp_LDST (
   TN *base, // only for ILOAD/ISTORE
   ST_IDX sym,
   INT64 ofst_val,
+  IR_ITER node,
   CFG_BB_IDX bb_idx,
   VARIANT variant)
 {
+  UINT32 node_id = 0;
+  if (node != nullptr) {
+    node_id = *node;
+  }
   TN *src_res  = src_res_tn;
   INT64 offset_from_base = ofst_val;
   CGOPC top = CGOPC_STR;
@@ -720,7 +752,7 @@ CGIR::Exp_LDST (
     base = TN_tn(Gen_TN(MTYPE_I4));
     LABEL_IDX lbl = Get_addr_label(sym);
     Cfg()->BB(bb_idx)->Add_stmt(
-      new CGOP(CGOPC_LDRLBL, bb_idx, TN_tn_idx(base),
+      new CGOP(CGOPC_LDRLBL, node_id, bb_idx, TN_tn_idx(base),
                TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0));
   } else {
     base = Build_Dedicated_TN(REGISTER_CLASS_sp,
@@ -746,7 +778,7 @@ CGIR::Exp_LDST (
   AssertThat(TN_is_constant(ofst), ("Exp_LDST: Illegal offset TN"));
   if (!TN_has_value(ofst) || TN_value(ofst) < (1 << 16)) {
     Cfg()->BB(bb_idx)->Add_stmt(
-      new CGOP(top, bb_idx, TN_tn_idx(src_res), TN_tn_idx(base),
+      new CGOP(top, node_id, bb_idx, TN_tn_idx(src_res), TN_tn_idx(base),
                TN_tn_idx(ofst), 0));
   } else {
     AssertThat(false, ("Offset too large, need other ways to do this. "
@@ -754,7 +786,8 @@ CGIR::Exp_LDST (
   }
 }
 
-void CGIR::Exp_op(OPCODE opcode, CFG_BB_IDX cur_bb,
+void CGIR::Exp_op(UINT32 expr_id,
+                  OPCODE opcode, CFG_BB_IDX cur_bb,
                   TN *result, TN *op1, TN *op2, TN *op3,
                   VARIANT variant, CGOP **ops) {
   AssertThat(ops != NULL, ("Nowhere to put results"));
@@ -775,11 +808,11 @@ void CGIR::Exp_op(OPCODE opcode, CFG_BB_IDX cur_bb,
   AssertThat(op1 != NULL, ("OP1 should not be null."));
   if (op2 != nullptr) {
     AssertThat(op2 != NULL, ("OP2 should not be null."));
-    CGOP *stmt_ins = new CGOP(cgop, cur_bb, TN_tn_idx(result), TN_tn_idx(op1),
+    CGOP *stmt_ins = new CGOP(cgop, expr_id, cur_bb, TN_tn_idx(result), TN_tn_idx(op1),
                               TN_tn_idx(op2), 0);
     Cfg()->BB(cur_bb)->Add_stmt(stmt_ins);
   } else {
-    CGOP *stmt_ins = new CGOP(cgop, cur_bb, TN_tn_idx(result), TN_tn_idx(op1), 0, 0);
+    CGOP *stmt_ins = new CGOP(cgop, expr_id, cur_bb, TN_tn_idx(result), TN_tn_idx(op1), 0, 0);
     Cfg()->BB(cur_bb)->Add_stmt(stmt_ins);
   }
 }
@@ -937,8 +970,8 @@ CFG_BB_IDX CFG_BASE<NODE_TYPE>::Add_bb(INT pred) {
 }
 
 void CGOP::Print(FILE *file) {
-  fprintf(file, "[CGOP] opc = %s(%d), index:%d, res/opnd: [%u] [%u] [%u] [%u] \n",
-          ISA_OPCODE_name(getOpcode()), getOpcode(), getIndexInBb(),
+  fprintf(file, "[CGOP] node = %d, opc = %s(%d), index:%d, res/opnd: [%u] [%u] [%u] [%u] \n",
+          _tree_node_id, ISA_OPCODE_name(getOpcode()), getOpcode(), getIndexInBb(),
           (UINT32) res_opnd[0], (UINT32) res_opnd[1],
           (UINT32) res_opnd[2], (UINT32) res_opnd[3]);
 }
@@ -1057,7 +1090,9 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
       Exp_LDST(OPC_I4STID, MTYPE_I4,
                spill_tn,
                nullptr,
-               TN_spill(tn), 0, cur_bb, V_BR_NONE);
+               TN_spill(tn), 0,
+               nullptr,
+               cur_bb, V_BR_NONE);
       oper->setResOpnd(opnd, TN_tn_idx(spill_tn));
       CGOP *rs = *(Cfg()->BB(cur_bb)->Last_stmt() - 1);
       rs->setFlags(CGOPF_SPILL);
@@ -1075,7 +1110,7 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
       Exp_LDST(OPC_I4LDID, MTYPE_I4,
         spill_tn,
         nullptr,
-        TN_spill(tn), 0, cur_bb, V_BR_NONE);
+        TN_spill(tn), 0, 0, cur_bb, V_BR_NONE);
       CGOP *rs = Cfg()->BB(cur_bb)->Last_real_stmt();
       rs->setFlags(CGOPF_SPILL);
       oper->setResOpnd(opnd, TN_tn_idx(spill_tn));
@@ -1175,7 +1210,9 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
     Exp_LDST(OPC_I4STID, MTYPE_I4,
              result,
              Build_Dedicated_TN(REGISTER_CLASS_sp, REGISTER_sp, 4), 0,
-             sp_ofst, to_mem_bb, V_BR_NONE);
+             sp_ofst,
+             expr,
+             to_mem_bb, V_BR_NONE);
   }
 
   CFG_BB_IDX to_reg_bb = Cfg()->Add_bb(to_mem_bb);
@@ -1191,6 +1228,7 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
     Exp_LDST(OPC_I4LDID, MTYPE_I4,
              dedic,
              Build_Dedicated_TN(REGISTER_CLASS_sp, REGISTER_sp, 4), 0, sp_ofst,
+             expr,
              to_reg_bb, V_BR_NONE);
   }
 
@@ -1297,7 +1335,9 @@ void CGIR::Add_store_formals(IR_ITER entry, CFG_BB_IDX bb) {
     TN *from_reg = Gen_Register_TN(ISA_REGISTER_CLASS_integer, MTYPE_size(MTYPE_I4));
     Set_TN_is_preallocated(from_reg);
     Set_TN_register(from_reg, Layout()->Get_sym_reg_num(sym));
-    Exp_LDST(OPC_I4STID, MTYPE_I4, from_reg, nullptr, sym, 0, bb, V_BR_NONE);
+    Exp_LDST(OPC_I4STID, MTYPE_I4, from_reg, nullptr, sym, 0,
+             entry,
+             bb, V_BR_NONE);
   }
 }
 
