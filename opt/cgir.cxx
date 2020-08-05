@@ -1108,11 +1108,12 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
     TN *spill_tn = Gen_Register_TN(ISA_REGISTER_CLASS_integer, REG_SIZE_I);
     Set_TN_is_preallocated(spill_tn);
     Set_TN_flags(spill_tn, TN_SPILL_MEDIUM);
+    UINT32 reg_num_to_use = opnd == 0 ? 8 : ((opnd == 1) ?  10 : 11);
     if (is_write) { // this is dependent on the oper currently we're visiting.
       Is_Trace(TR_LRA(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), REGISTER_spill));
       // haven't allocated
       Is_Trace(TR_LRA(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), REGISTER_spill));
-      Set_TN_register(spill_tn, REGISTER_spill);
+      Set_TN_register(spill_tn, reg_num_to_use);
       Exp_LDST(OPC_I4STID, MTYPE_I4,
                spill_tn,
                nullptr,
@@ -1125,10 +1126,9 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
       AssertThat(rs->getOpcode() == CGOPC_STR, ("Incorrect generated result"));
       Cfg()->BB(cur_bb)->Get_work_list().push_back(CGTODO_ITEM<CGOP> (oper, rs, false));
     } else {
-      UINT8 register_num = (opnd <= 1) ? REGISTER_spill : REGISTER_spill_2;
-      Is_Trace(TR_LRA(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), register_num));
-      Is_Trace(TR_LRA(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), register_num));
-      Set_TN_register(spill_tn, register_num); // Making sure the two register are the same.
+      Is_Trace(TR_LRA(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), reg_num_to_use));
+      Is_Trace(TR_LRA(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), reg_num_to_use));
+      Set_TN_register(spill_tn, reg_num_to_use); // Making sure the two register are the same.
       Exp_LDST(OPC_I4LDID, MTYPE_I4,
         spill_tn,
         nullptr,

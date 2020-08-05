@@ -160,7 +160,7 @@ private:
 
   // Other related info
   CFG_BB_IDX   bb;
-  UINT32       _flags;        // flags related to the CGOP
+  UINT32       _flags = 0;        // flags related to the CGOP
   UINT32       index_in_bb;   // index inside the BB, unique in BB
   UINT16       variant;
   UINT16       spill_generated;
@@ -188,6 +188,7 @@ public:
     res_opnd[3] = op4;
     res_opnd[4] = 0;
     _tree_node_id = 0;
+    _flags = 0;
   }
   CGOP (CGOPC opc, UINT32 tree_node_id, CFG_BB_IDX bb_idx,
         UINT32 op1, UINT32 op2,

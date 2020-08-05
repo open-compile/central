@@ -62,7 +62,7 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
   Opt_lower(File(), LEVEL_CGIR, conf);
   Opt_verify(File(), LEVEL_CGIR, conf);
 
-  if(Tracing(COMPONENT_BE, TRACE_OPTIONS)) {
+  if(Tracing(COMPONENT_BE, TRACE_EMIT_CORE)) {
     // Dump the tree again after all optimizations
     Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
              (TFile, "Completed all lowering, dumping the IR again. \n"));
@@ -583,6 +583,19 @@ IR_ITER Opt_lower_array_expr(IR_ITER &expr, TREE *tree) {
  *
  * EXPR is usually CONST.
  *
+ *  ARR
+ *    5
+ *    6
+ *    7
+ *    8
+ *
+ *    1
+ *    2
+ *    3
+ *    4
+ *
+ *    *((1 * 6 + 2 ) * 7 + 3) * 8 + 4) * 4
+
  * ARRAY
  *   LDA
  *   EXPR size_dim1
@@ -594,54 +607,85 @@ IR_ITER Opt_lower_array_expr(IR_ITER &expr, TREE *tree) {
  *   ..
  *   EXPR ofst_dimn
  * ->
- * ADD
- *  MUL
- *    EXPR size_dim1
- *    EXPR ofst_dim1
- *  ADD
- *    MUL
- *    ADD
- *      MUL
- *      ADD
- *        MUL
+ *mul
+ * 4
+ * add
+ *  ofst_4
+ *  mul
+ *   size_4
+ *   add
+ *    ofst_3
+ *     mul
+ *      size_3
+ *      add
+ *       ofst_2
+ *       mul
+ *        size_2
+ *        afst1
  *
+ *  add
+ *    ofst_last
+ *    mul
+ *      size last
+ *      ofst 2
+ *  add
+ *    lda
+ *    mul
  * */
   AssertThat((tree->Number_of_children(expr) - 1) % 2 == 0,
    ("not an even number of exprs for dimension/ofst in ARRAY."));
   AssertThat((tree->Number_of_children(expr) - 1) / 2 > 0,
    ("There should be at least one dimension in ARRAY."));
-  UINT32      dims           = (tree->Number_of_children(expr) - 1) / 2;
-  IRNODE_IDX  final_add      = tree->Create_node(OPC_I4I4ADD);
-  IR_ITER     temp           = tree->Insert_temp_node(final_add);
-  IRNODE_IDX  offst_calc_add = tree->Create_node(OPC_I4I4ADD);
-  IR_ITER     last_add       = tree->Set_operand(temp, 0, offst_calc_add);
-  IR_ITER     dim_size       = tree->Internal_tree().
-    insert_subtree(last_add,
-                   tree->Get_operand(
-                     expr,
-                     0)); // move the LDA of first address.
-  for (UINT32 cur_dim        = 0; cur_dim < dims; cur_dim++) {
-    IRNODE_IDX mul      = tree->Create_node(OPC_I4I4MPY);
-    IR_ITER    temp_mul = tree->Set_operand(last_add, 0, mul);
-    IR_ITER    dim_temp = tree->Set_operand(temp_mul, 0, 0);
-    IR_ITER    dim_size = tree->Internal_tree().
-      insert_subtree_after(dim_temp,
-                           tree->Get_operand(
-                             expr,
-                             1 +
-                             cur_dim)); // move the size expr
-    IR_ITER    dim_ofst = tree->Internal_tree().
-      insert_subtree_after(dim_size,
+  UINT32        dims           = (tree->Number_of_children(expr) - 1) / 2;
+  IR_ITER       temp           = tree->Insert_temp_node(tree->Create_node(OPC_I4I4ADD));
+  IR_ITER       mul_ty_sz      = tree->Set_operand(temp, 0, tree->Create_node(OPC_I4I4MPY));
+  IR_ITER       mul_const_sz   = tree->Set_operand(mul_ty_sz, 0, tree->Create_node(OPC_I4CONST));
+  tree->Node(mul_const_sz)->Set_const_val(TY_size(MTYPE_to_ty(MTYPE_I4)));
+
+  IR_ITER       lda_node       = tree->Get_operand(expr, 0);
+  IR_ITER       new_lda_node   = tree->Internal_tree(). // temp's first param.
+    insert_subtree(mul_ty_sz, lda_node); // move the LDA of first address, mul's 1st op.
+
+  IR_ITER       last_add       = tree->Set_operand(mul_ty_sz, 1, tree->Create_node(OPC_I4I4ADD));
+  last_add  = tree->Set_operand(mul_ty_sz, 1, tree->Create_node(OPC_I4I4ADD));
+  // ADD
+  //  LDA
+  //  MUL
+  //   CONST 4
+  //   ADD <- last add
+  //
+  //   ADD <- last add
+  //     - OFST level n
+  //     - MUL 0 if ofst is the last ?, or MUL + size
+        //   - size_expr
+        //   - ADD
+        //  c0
+        //  c1
+        //  co0
+        //  co1
+  for (INT32  cur_dim = 0; cur_dim < dims; cur_dim++) {
+    INT32 dim_last_cnt = dims - cur_dim - 1; // ... 4,3,2,1,0
+    IR_ITER temp_mul = tree->Set_operand(last_add, 0,
+                                         tree->Create_node(OPC_I4I4MPY));
+    IR_ITER temp_dim_size = tree->Set_operand(temp_mul, 0, tree->Create_node(OPC_I4I4ADD));
+    IR_ITER dim_ofst = tree->Internal_tree().
+      insert_subtree(temp_mul,
                            tree->Get_operand(
                              expr,
                              1 +
                              dims +
-                             cur_dim)); // move the ofst expr
-    tree->Remove_node_recursive(dim_temp);
-    IRNODE_IDX next_add = tree->Create_node(OPC_I4I4ADD);
-    last_add = tree->Set_operand(last_add, 1, next_add);
+                             dim_last_cnt)); // move the size expr
+    IR_ITER dim_size = tree->Internal_tree().
+      insert_subtree(temp_dim_size,
+                           tree->Get_operand(
+                             expr,
+                             1 +
+                             dim_last_cnt)); // move the ofst expr
+    last_add = temp_dim_size;
   }
 
+  AssertThat(tree->Node(last_add)->Opcode() == OPC_I4I4ADD,
+             ("Should be an ADD op. = %d", *last_add));
   // Move the last MPY to its parent, which used to be an ADD.
   tree->Node(last_add)->Set_opcode(OPC_I4CONST);
   tree->Node(last_add)->Set_const_val(0);
