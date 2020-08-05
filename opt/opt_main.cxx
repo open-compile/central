@@ -461,8 +461,7 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
     IR_ITER temp = Opt_lower_array_expr(expr, tree);
     return temp;
   }
-  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_COMMA &&
-      level <= LEVEL_MID) {
+  if (OPCODE_operator(tree->Get_node(expr)->Opcode()) == OPR_COMMA) {
     IR_ITER comma_blk = tree->Get_operand(expr, 0);
     IR_ITER comma_ldid = tree->Get_operand(expr, 1);
     AssertThat(tree->Node(comma_ldid)->Opcode() == OPC_I4LDID,
