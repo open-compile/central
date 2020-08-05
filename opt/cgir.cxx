@@ -224,6 +224,10 @@ CGIR::Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res) {
   AssertThat(tree->Node(expr)->Get_symbol_idx() != 0,
              ("There should be a valid symbol bound to it."));
   ST_IDX sym = tree->Node(expr)->Get_symbol_idx();
+  if (target_res == nullptr) {
+    target_res = TN_tn(Gen_TN(MTYPE_I4));
+  }
+  AssertThat(target_res != NULL, ("Expand of expr should not return null."));
   if (ST_sclass(sym) == SYMC_FILE_STATIC) {
     // LOCAL VAR.
     // SP + OFST
@@ -782,6 +786,7 @@ CGIR::Exp_LDST (
   }
   AssertThat(TN_is_constant(ofst), ("Exp_LDST: Illegal offset TN"));
   if (!TN_has_value(ofst) || TN_value(ofst) < (1 << 16)) {
+    AssertThat(src_res != nullptr && base != nullptr && ofst != nullptr, ("No operands should be null."));
     Cfg()->BB(bb_idx)->Add_stmt(
       new CGOP(top, node_id, bb_idx, TN_tn_idx(src_res), TN_tn_idx(base),
                TN_tn_idx(ofst), 0));
