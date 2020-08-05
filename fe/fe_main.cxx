@@ -72,14 +72,6 @@ void Create_internal_functions() {
   File()->Create_var(func_name, one_ret,
                      GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
 
-  func_name = File()->Save_string("starttime");
-  File()->Create_var(func_name, one_ret,
-                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
-
-  func_name = File()->Save_string("stoptime");
-  File()->Create_var(func_name, one_ret,
-                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
-
   func_name = File()->Save_string("getch");
   File()->Create_var(func_name, one_ret,
                      GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
@@ -99,6 +91,15 @@ void Create_internal_functions() {
   func_name = File()->Save_string("putarray");
   File()->Create_var(func_name, void_ret_one_vec,
                      GLOBAL_SYMTAB, SYMC_EXTERN, SYME_EXTERNAL, SYM_CLASS_FUNC);
+
+  func_name = File()->Save_string("_sysy_starttime");
+  ST_IDX internal_func = File()->Create_var(func_name, void_ret_one_parm,
+                    GLOBAL_SYMTAB, SYMC_EXTERN, SYME_INTERNAL, SYM_CLASS_FUNC);
+
+  func_name = File()->Save_string("_sysy_stoptime");
+  File()->Create_var(func_name, void_ret_one_parm,
+                     GLOBAL_SYMTAB, SYMC_EXTERN, SYME_INTERNAL, SYM_CLASS_FUNC);
+
 
 //  int getint();
 //  int getch();
@@ -314,11 +315,17 @@ IR_ITER visitMethodCall(TREE *tree, IR_ITER parent, int level, BOOL is_expr,
   shared_ptr<ExpressionList> args = stmt->arguments;
   AssertThat(callee_name != nullptr,
              ("Invalid callee name"));
+  const char *real_name = callee_name->name.c_str();
+  if (strcmp(real_name, "starttime") == 0) {
+    real_name = "_sysy_starttime";
+  } else if (strcmp(real_name, "stoptime") == 0) {
+    real_name = "_sysy_stoptime";
+  }
 
-  ST_IDX func_sym = File()->Find_symbol_by_name(callee_name->name.c_str());
+  ST_IDX func_sym = File()->Find_symbol_by_name(real_name);
   // If func_sym does not exist, this should be a compile-time error.
   if (func_sym == 0) {
-    Comp_Failure("Cannot find function declaration for name = %s", callee_name->name.c_str());
+    Comp_Failure("Cannot find function declaration for name = %s", real_name);
   }
   AssertThat(ST_sclass(func_sym) == SYMC_TEXT ||
              ST_sclass(func_sym) == SYMC_EXTERN,
@@ -363,10 +370,18 @@ IR_ITER visitMethodCall(TREE *tree, IR_ITER parent, int level, BOOL is_expr,
     ret_stmt = call_stmt;
   }
   tree->Node(call_stmt)->Set_symbol_idx(func_sym);
-  for (UINT32 i = 0; i < args->size(); i++) {
-    IR_ITER call_opnd = visitExpression(tree, call_stmt, level, (*args)[i]);
-    AssertThat(call_opnd != parent && call_opnd != nullptr, ("Invalid expr conversion result"));
-    tree->Set_operand(call_stmt, i, call_opnd);
+  if (ST_eclass(func_sym) == SYME_INTERNAL) {
+    // stoptime / starttime.
+    IRNODE_IDX const_node = tree->Create_node(OPC_I4CONST);
+    tree->Set_operand(call_stmt, 0, const_node);
+    tree->Node(const_node)->Set_const_val(stmt->Get_lineno());
+  } else {
+    for (UINT32 i = 0; i < args->size(); i++) {
+      IR_ITER call_opnd = visitExpression(tree, call_stmt, level, (*args)[i]);
+      AssertThat(call_opnd != parent && call_opnd != nullptr,
+                 ("Invalid expr conversion result"));
+      tree->Set_operand(call_stmt, i, call_opnd);
+    }
   }
   return ret_stmt;
 }

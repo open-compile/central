@@ -169,7 +169,10 @@ numeric : TINTEGER { $$ = new NInteger(atol($1->c_str())); }
 	 | TDOUBLE { $$ = new NDouble(atof($1->c_str())); }
 	 | THEX { $$ = new NInteger(strtol($1->c_str(), NULL, 16)); }
 	 ;
-expr : 	 ident TLPAREN call_args TRPAREN { $$ = new NMethodCall(shared_ptr<NIdentifier>($1), shared_ptr<ExpressionList>($3)); }
+expr : 	 ident TLPAREN call_args TRPAREN {
+ 			$$ = new NMethodCall(shared_ptr<NIdentifier>($1), shared_ptr<ExpressionList>($3));
+ 			((NMethodCall *) $$)->Set_lineno(yyget_lineno());
+		 }
 		 | numeric
 		 | ident { $<ident>$ = $1; }
 		 | TLPAREN expr TRPAREN { $$ = $2; }

@@ -23,6 +23,7 @@ static FILE* yyparse_file_ptr;
 %}
 
 %option noyywrap
+%option yylineno
 
 %x C_COMMENT CL_COMMENT
 

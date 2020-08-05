@@ -578,12 +578,12 @@ static const yytype_uint16 yyrline[] =
       72,    73,    76,    76,    76,    77,    78,    79,    83,    84,
       85,    86,    87,    88,    89,    92,    97,    98,   100,   108,
      113,   120,   121,   125,   129,   136,   141,   145,   151,   156,
-     158,   160,   161,   162,   165,   168,   169,   170,   172,   173,
-     174,   175,   176,   177,   178,   179,   180,   181,   182,   183,
-     184,   185,   186,   188,   190,   192,   193,   196,   200,   204,
-     211,   213,   218,   219,   222,   228,   229,   230,   231,   231,
-     231,   231,   231,   231,   232,   232,   232,   235,   237,   240,
-     241,   247,   248,   251,   253,   255,   257,   258,   259
+     158,   160,   161,   162,   165,   168,   169,   170,   172,   176,
+     177,   178,   179,   180,   181,   182,   183,   184,   185,   186,
+     187,   188,   189,   191,   193,   195,   196,   199,   203,   207,
+     214,   216,   221,   222,   225,   231,   232,   233,   234,   234,
+     234,   234,   234,   234,   235,   235,   235,   238,   240,   243,
+     244,   250,   251,   254,   256,   258,   260,   261,   262
 };
 #endif
 
@@ -2002,96 +2002,99 @@ yyreduce:
 
   case 48:
 #line 172 "grammar.y"
-    { (yyval.expr) = new NMethodCall(shared_ptr<NIdentifier>((yyvsp[(1) - (4)].ident)), shared_ptr<ExpressionList>((yyvsp[(3) - (4)].exprvec))); ;}
+    {
+ 			(yyval.expr) = new NMethodCall(shared_ptr<NIdentifier>((yyvsp[(1) - (4)].ident)), shared_ptr<ExpressionList>((yyvsp[(3) - (4)].exprvec)));
+ 			((NMethodCall *) (yyval.expr))->Set_lineno(yyget_lineno());
+		 ;}
     break;
 
   case 50:
-#line 174 "grammar.y"
+#line 177 "grammar.y"
     { (yyval.ident) = (yyvsp[(1) - (1)].ident); ;}
     break;
 
   case 51:
-#line 175 "grammar.y"
+#line 178 "grammar.y"
     { (yyval.expr) = (yyvsp[(2) - (3)].expr); ;}
     break;
 
   case 52:
-#line 176 "grammar.y"
+#line 179 "grammar.y"
     { (yyval.expr) = (yyvsp[(1) - (1)].index); ;}
     break;
 
   case 53:
-#line 177 "grammar.y"
+#line 180 "grammar.y"
     { (yyval.expr) = new NStructMember(shared_ptr<NIdentifier>((yyvsp[(1) - (3)].ident)), shared_ptr<NIdentifier>((yyvsp[(3) - (3)].ident))); ;}
     break;
 
   case 54:
-#line 178 "grammar.y"
+#line 181 "grammar.y"
     { (yyval.expr) = new NUnaryOperator((yyvsp[(1) - (2)].token), shared_ptr<NExpression>((yyvsp[(2) - (2)].expr))); ;}
     break;
 
   case 55:
-#line 179 "grammar.y"
+#line 182 "grammar.y"
     { (yyval.expr) = new NUnaryOperator((yyvsp[(1) - (2)].token), shared_ptr<NExpression>((yyvsp[(2) - (2)].expr))); ;}
     break;
 
   case 56:
-#line 180 "grammar.y"
+#line 183 "grammar.y"
     { (yyval.expr) = new NUnaryOperator((yyvsp[(1) - (2)].token), shared_ptr<NExpression>((yyvsp[(2) - (2)].expr))); ;}
     break;
 
   case 57:
-#line 181 "grammar.y"
-    { (yyval.expr) = new NBinaryOperator(shared_ptr<NExpression>((yyvsp[(1) - (3)].expr)), (yyvsp[(2) - (3)].token), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
-    break;
-
-  case 58:
-#line 182 "grammar.y"
-    { (yyval.expr) = new NBinaryOperator(shared_ptr<NExpression>((yyvsp[(1) - (3)].expr)), (yyvsp[(2) - (3)].token), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
-    break;
-
-  case 59:
-#line 183 "grammar.y"
-    { (yyval.expr) = new NBinaryOperator(shared_ptr<NExpression>((yyvsp[(1) - (3)].expr)), (yyvsp[(2) - (3)].token), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
-    break;
-
-  case 60:
 #line 184 "grammar.y"
     { (yyval.expr) = new NBinaryOperator(shared_ptr<NExpression>((yyvsp[(1) - (3)].expr)), (yyvsp[(2) - (3)].token), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
     break;
 
-  case 61:
+  case 58:
 #line 185 "grammar.y"
     { (yyval.expr) = new NBinaryOperator(shared_ptr<NExpression>((yyvsp[(1) - (3)].expr)), (yyvsp[(2) - (3)].token), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
     break;
 
-  case 62:
+  case 59:
+#line 186 "grammar.y"
+    { (yyval.expr) = new NBinaryOperator(shared_ptr<NExpression>((yyvsp[(1) - (3)].expr)), (yyvsp[(2) - (3)].token), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
+    break;
+
+  case 60:
 #line 187 "grammar.y"
     { (yyval.expr) = new NBinaryOperator(shared_ptr<NExpression>((yyvsp[(1) - (3)].expr)), (yyvsp[(2) - (3)].token), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
     break;
 
+  case 61:
+#line 188 "grammar.y"
+    { (yyval.expr) = new NBinaryOperator(shared_ptr<NExpression>((yyvsp[(1) - (3)].expr)), (yyvsp[(2) - (3)].token), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
+    break;
+
+  case 62:
+#line 190 "grammar.y"
+    { (yyval.expr) = new NBinaryOperator(shared_ptr<NExpression>((yyvsp[(1) - (3)].expr)), (yyvsp[(2) - (3)].token), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
+    break;
+
   case 63:
-#line 189 "grammar.y"
+#line 192 "grammar.y"
     { (yyval.expr) = new NBinaryOperator(shared_ptr<NExpression>((yyvsp[(1) - (3)].expr)), (yyvsp[(2) - (3)].token), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
     break;
 
   case 64:
-#line 191 "grammar.y"
+#line 194 "grammar.y"
     { (yyval.expr) = new NBinaryOperator(shared_ptr<NExpression>((yyvsp[(1) - (3)].expr)), (yyvsp[(2) - (3)].token), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
     break;
 
   case 65:
-#line 192 "grammar.y"
+#line 195 "grammar.y"
     { (yyval.expr) = (yyvsp[(1) - (1)].expr); ;}
     break;
 
   case 66:
-#line 193 "grammar.y"
+#line 196 "grammar.y"
     { (yyval.expr) = new NLiteral(*(yyvsp[(1) - (1)].string)); delete (yyvsp[(1) - (1)].string); ;}
     break;
 
   case 67:
-#line 196 "grammar.y"
+#line 199 "grammar.y"
     {
 		(yyval.expr) = new NInitializeExpr() ;
            	((NInitializeExpr *)(yyval.expr))->Append(shared_ptr<NExpression>((yyvsp[(1) - (1)].expr)));
@@ -2099,7 +2102,7 @@ yyreduce:
     break;
 
   case 68:
-#line 200 "grammar.y"
+#line 203 "grammar.y"
     {
 		(yyval.expr) = (yyvsp[(1) - (3)].expr);
 		((NInitializeExpr *)(yyval.expr))->Append(shared_ptr<NExpression>((yyvsp[(3) - (3)].expr)));
@@ -2107,7 +2110,7 @@ yyreduce:
     break;
 
   case 69:
-#line 204 "grammar.y"
+#line 207 "grammar.y"
     {
 		(yyval.expr) = new NInitializeExpr() ;
         	((NInitializeExpr *)(yyval.expr))->Add_child(shared_ptr<NExpression>((yyvsp[(2) - (3)].expr)));
@@ -2115,12 +2118,12 @@ yyreduce:
     break;
 
   case 70:
-#line 212 "grammar.y"
+#line 215 "grammar.y"
     { (yyval.index) = new NArrayIndex(shared_ptr<NIdentifier>((yyvsp[(1) - (4)].ident)), shared_ptr<NExpression>((yyvsp[(3) - (4)].expr))); ;}
     break;
 
   case 71:
-#line 214 "grammar.y"
+#line 217 "grammar.y"
     { 	
 						(yyvsp[(1) - (4)].index)->expressions->push_back(shared_ptr<NExpression>((yyvsp[(3) - (4)].expr)));
 						(yyval.index) = (yyvsp[(1) - (4)].index);
@@ -2128,19 +2131,19 @@ yyreduce:
     break;
 
   case 72:
-#line 218 "grammar.y"
+#line 221 "grammar.y"
     { (yyval.expr) = new NAssignment(shared_ptr<NIdentifier>((yyvsp[(1) - (3)].ident)), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
     break;
 
   case 73:
-#line 219 "grammar.y"
+#line 222 "grammar.y"
     {
 				(yyval.expr) = new NArrayAssignment(shared_ptr<NArrayIndex>((yyvsp[(1) - (3)].index)), shared_ptr<NExpression>((yyvsp[(3) - (3)].expr)));
 			;}
     break;
 
   case 74:
-#line 222 "grammar.y"
+#line 225 "grammar.y"
     {
 				auto member = make_shared<NStructMember>(shared_ptr<NIdentifier>((yyvsp[(1) - (5)].ident)), shared_ptr<NIdentifier>((yyvsp[(3) - (5)].ident))); 
 				(yyval.expr) = new NStructAssignment(member, shared_ptr<NExpression>((yyvsp[(5) - (5)].expr))); 
@@ -2148,27 +2151,27 @@ yyreduce:
     break;
 
   case 75:
-#line 228 "grammar.y"
+#line 231 "grammar.y"
     { (yyval.exprvec) = new ExpressionList(); ;}
     break;
 
   case 76:
-#line 229 "grammar.y"
+#line 232 "grammar.y"
     { (yyval.exprvec) = new ExpressionList(); (yyval.exprvec)->push_back(shared_ptr<NExpression>((yyvsp[(1) - (1)].expr))); ;}
     break;
 
   case 77:
-#line 230 "grammar.y"
+#line 233 "grammar.y"
     { (yyvsp[(1) - (3)].exprvec)->push_back(shared_ptr<NExpression>((yyvsp[(3) - (3)].expr))); ;}
     break;
 
   case 89:
-#line 240 "grammar.y"
+#line 243 "grammar.y"
     { (yyval.block) = (yyvsp[(1) - (1)].block); ;}
     break;
 
   case 90:
-#line 241 "grammar.y"
+#line 244 "grammar.y"
     {
 		       (yyval.block) = new NBlock();
 		       (yyval.block)->child->push_back(shared_ptr<NStatement>((yyvsp[(1) - (1)].stmt)));
@@ -2176,48 +2179,48 @@ yyreduce:
     break;
 
   case 91:
-#line 247 "grammar.y"
+#line 250 "grammar.y"
     { (yyval.stmt) = new NIfStatement(shared_ptr<NExpression>((yyvsp[(2) - (3)].expr)), shared_ptr<NBlock>((yyvsp[(3) - (3)].block))); ;}
     break;
 
   case 92:
-#line 248 "grammar.y"
+#line 251 "grammar.y"
     { (yyval.stmt) = new NIfStatement(shared_ptr<NExpression>((yyvsp[(2) - (5)].expr)), shared_ptr<NBlock>((yyvsp[(3) - (5)].block)), shared_ptr<NBlock>((yyvsp[(5) - (5)].block))); ;}
     break;
 
   case 93:
-#line 251 "grammar.y"
+#line 254 "grammar.y"
     { (yyval.stmt) = new NForStatement(shared_ptr<NBlock>((yyvsp[(9) - (9)].block)), shared_ptr<NExpression>((yyvsp[(3) - (9)].expr)), shared_ptr<NExpression>((yyvsp[(5) - (9)].expr)), shared_ptr<NExpression>((yyvsp[(7) - (9)].expr))); ;}
     break;
 
   case 94:
-#line 253 "grammar.y"
+#line 256 "grammar.y"
     { (yyval.stmt) = new NForStatement(shared_ptr<NBlock>((yyvsp[(5) - (5)].block)), nullptr, shared_ptr<NExpression>((yyvsp[(3) - (5)].expr)), nullptr); ;}
     break;
 
   case 95:
-#line 255 "grammar.y"
+#line 258 "grammar.y"
     {(yyval.stmt) = new NStructDeclaration(shared_ptr<NIdentifier>((yyvsp[(2) - (5)].ident)), shared_ptr<VariableList>((yyvsp[(4) - (5)].varvec))); ;}
     break;
 
   case 96:
-#line 257 "grammar.y"
+#line 260 "grammar.y"
     { (yyval.varvec) = new VariableList(); ;}
     break;
 
   case 97:
-#line 258 "grammar.y"
+#line 261 "grammar.y"
     { (yyval.varvec) = new VariableList(); (yyval.varvec)->push_back(shared_ptr<NVariableDeclaration>((yyvsp[(1) - (1)].var_decl))); ;}
     break;
 
   case 98:
-#line 259 "grammar.y"
+#line 262 "grammar.y"
     { (yyvsp[(1) - (2)].varvec)->push_back(shared_ptr<NVariableDeclaration>((yyvsp[(2) - (2)].var_decl))); ;}
     break;
 
 
 /* Line 1267 of yacc.c.  */
-#line 2221 "grammar.cpp"
+#line 2224 "grammar.cpp"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -2431,6 +2434,6 @@ yyreturn:
 }
 
 
-#line 261 "grammar.y"
+#line 264 "grammar.y"
 
 

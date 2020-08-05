@@ -31,12 +31,17 @@ typedef std::vector<shared_ptr<NStatement>> StatementList;
 typedef std::vector<shared_ptr<NExpression>> ExpressionList;
 typedef std::vector<shared_ptr<NVariableDeclaration>> VariableList;
 
+extern int yyget_lineno();
+
 class Node {
 protected:
   const char m_DELIM = ':';
   const char *m_PREFIX = "--";
+  INT32 _lineno = 0;
 public:
-  Node() {}
+  Node() {
+    _lineno = yyget_lineno();
+  }
 
   virtual ~Node() {}
 
@@ -45,6 +50,12 @@ public:
   virtual void print(string prefix) const {}
 
   virtual Json::Value jsonGen() const { return Json::Value(); }
+  void Set_lineno(INT32 lineno) {
+    _lineno = lineno;
+  };
+  INT32 Get_lineno() {
+    return _lineno;
+  }
 };
 
 class NExpression : public Node {
