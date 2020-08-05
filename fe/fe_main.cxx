@@ -622,12 +622,16 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
   } else if (expr->getTypeName() == "NIdentifier") {
     // use of variable.
     auto val = reinterpret_cast<shared_ptr<NIdentifier> &>(expr);
-    AssertThat(!val->isArray, ("Array access not implemented."));
-    IRNODE_IDX ldid_node = tree->Create_node(OPC_I4LDID);
     // Find symbol idx.
     ST_IDX sym = File()->Find_symbol_by_name(val->name.c_str());
     if (sym == 0) {
       Comp_Failure("Use of undeclared symbol : %s ", val->name.c_str());
+    }
+    IRNODE_IDX ldid_node = 0;
+    if (TY_kind(ST_ty(sym)) == KIND_ARRAY) {
+      ldid_node = tree->Create_node(OPC_LDA);
+    } else {
+      ldid_node = tree->Create_node(OPC_I4LDID);
     }
     tree->Get_node(ldid_node)->Set_symbol_idx(sym);
     IR_ITER cur_node = tree->Insert_temp_node(ldid_node);

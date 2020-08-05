@@ -315,7 +315,8 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
   for (UINT32 stmt_idx = 0; stmt_idx < tree->Number_of_children(body); stmt_idx++) {
     IR_ITER stmt = tree->Get_operand(body, stmt_idx);
     AssertThat(*stmt != 0, ("Incorrect child, node 0 should not be a statement, 0 is only allowed in root position"));
-
+    cur_bb = Cfg()->Add_bb(cur_bb);
+    cur_bb_stmt_processed = 0;
     switch (OPCODE_operator(tree->Get_node(stmt)->Opcode())) {
       // What kind of opcode is allowed here.
       case OPR_STID: {
@@ -327,17 +328,12 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
         break;
       }
       case OPR_RETURN: {
-        CFG_BB_IDX next_bb = Cfg()->Add_bb();
         Handle_ret(stmt, cur_bb);
-        cur_bb = next_bb;
         cur_bb_stmt_processed = 0;
         break;
       }
       case OPR_RETURN_VAL: {
-        CFG_BB_IDX next_bb = Cfg()->Add_bb();
         Handle_ret_val(stmt, cur_bb);
-        cur_bb = next_bb;
-        cur_bb_stmt_processed = 0;
         break;
       }
       case OPR_FALSEBR:
@@ -578,7 +574,7 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
         // PREG, must spill here.
         Spill_tn(tid, tn);
       } else {
-        if (next_register >= 8) {
+        if (next_register >= 7) {
           /* Spill all now. */
           Spill_tn(tid, tn);
         } else {
@@ -1108,7 +1104,7 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
     TN *spill_tn = Gen_Register_TN(ISA_REGISTER_CLASS_integer, REG_SIZE_I);
     Set_TN_is_preallocated(spill_tn);
     Set_TN_flags(spill_tn, TN_SPILL_MEDIUM);
-    UINT32 reg_num_to_use = opnd == 0 ? 8 : ((opnd == 1) ?  10 : 11);
+    UINT32 reg_num_to_use = opnd == 0 ? 8 : ((opnd == 1) ?  10 : 7);
     if (is_write) { // this is dependent on the oper currently we're visiting.
       Is_Trace(TR_LRA(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), REGISTER_spill));
       // haven't allocated
