@@ -262,6 +262,9 @@ void TN::Print(FILE *file) {
       fprintf(file, "(fp)");
     }
   }
+  if (TN_flags(this) & TN_SPILL) {
+    fprintf(file, "(spill = %d)", TN_spill(this));
+  }
   if (TN_is_label(this)) {
     fprintf(file, "label = %d ", TN_label(this));
   }
