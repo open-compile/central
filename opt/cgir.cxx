@@ -1187,7 +1187,7 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
                                               LKIND_DEFAULT);
   TN *callee_name_tn   = Gen_Label_TN(lbl_idx, 0);
   UINT32 call_args        = tree->Number_of_children(stmt);
-  TY_IDX callee_proto     = PU_pu(ST_pu(func_sym))->getPrototype();
+  TY_IDX callee_proto     = ST_ty(func_sym);
   UINT32 callargs_size    = 0; // including the first four param.
   UINT32 abi_callarg_size = 0; // not including the first four param.
   UINT32 arg_id           = 0;

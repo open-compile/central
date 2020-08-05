@@ -369,6 +369,7 @@ PU_INFO_IDX FILE_MANAGER::Create_function(ST_IDX func, TY_IDX prototype) {
   // Init st_pu
   ST *st = ST_st(func);
   st->pu = pu_idx;
+  st->type = prototype;
   // Init tree
   pu_info->entry = new TREE();
   pu_info->entry->Initialize();
@@ -629,7 +630,7 @@ void ST::Print_storage_class(FILE *f) {
 void ST::Print_details(FILE *f) {
   switch (sym_class) {
     case SYM_CLASS_FUNC:
-      fprintf(f, "  --> function = pu_id = [%d], prototype = [%d] \n", pu, PU_pu(pu)->prototype);
+      fprintf(f, "  --> function = pu_id = [%d], prototype = [%d] \n", pu, type);
       break;
     case SYM_CLASS_BLOCK:
       fprintf(f, "  --> block \n");

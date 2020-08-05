@@ -600,7 +600,7 @@ IR_ITER visitExpression(TREE *tree, IR_ITER parent, int level,
     if (tree->Node(rhs)->Opcode() == OPC_I4CONST) {
       tree->Node(rhs)->Set_const_val(-tree->Node(rhs)->Get_const_val());
     } else {
-      OPCODE opc = (u_op->op == TNEG) ? OPC_I4I4SUB : OPC_I4I4ADD;
+      OPCODE opc = (u_op->op == TMINUS) ? OPC_I4I4SUB : OPC_I4I4ADD;
       IRNODE_IDX opr_node = tree->Create_node(opc);
       IRNODE_IDX zero_node = tree->Create_node(OPC_I4CONST);
       cur_node = tree->Insert_temp_node(opr_node);
