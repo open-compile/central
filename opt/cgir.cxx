@@ -716,6 +716,7 @@ CGIR::Exp_LDST (
     node_id = *node;
   }
   TN *src_res  = src_res_tn;
+  BOOL need_recalibrate = false;
   INT64 offset_from_base = ofst_val;
   CGOPC top = CGOPC_STR;
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
@@ -759,9 +760,13 @@ CGIR::Exp_LDST (
                               REGISTER_sp,
                               MTYPE_size(MTYPE_I4));
     offset_from_base = Layout()->Get_sym_sp_ofst(sym);
+    need_recalibrate = true;
   }
   AssertThat(base != nullptr, ("Base cannot be null here."));
   TN *ofst = Gen_Literal_TN(offset_from_base, 4);
+  if (need_recalibrate) {
+    Cfg()->Get_recalibrate_map().insert(std::make_pair(TN_tn_idx(ofst), sym));
+  }
   if (top == CGOPC_ADD) {
     // do nothing, continue on.
   } else if (OPCODE_operator(opc) == OPR_STID) {
@@ -1338,6 +1343,14 @@ void CGIR::Add_store_formals(IR_ITER entry, CFG_BB_IDX bb) {
     Exp_LDST(OPC_I4STID, MTYPE_I4, from_reg, nullptr, sym, 0,
              entry,
              bb, V_BR_NONE);
+  }
+}
+
+void CGIR::Recalibrate_offset(PU_INFO *pInfo) {
+  for (auto item : Cfg()->Get_recalibrate_map()) {
+    TN *ofst_tn = TN_tn(item.first);
+    AssertThat(TN_is_constant(ofst_tn), ("Not a constant TN to calibrate"));
+    Set_TN_value(ofst_tn, Layout()->Get_sym_sp_ofst(item.second));
   }
 }
 

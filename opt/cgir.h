@@ -39,6 +39,7 @@ public:
 private:
   map<CFG_BB_IDX, set<CFG_BB_IDX> > edges;
   BB_VECTOR                         bb_list;
+  map<TN_IDX, ST_IDX>              _recal_map;
 public:
   // iterators, accesses
   BB_ITER Begin() { return bb_list.begin(); }
@@ -77,6 +78,9 @@ public:
 
   void  Print(FILE *file = stderr);
   CFG_BB_IDX Add_bb(INT pred);
+  map<TN_IDX, ST_IDX> & Get_recalibrate_map() {
+    return _recal_map;
+  }
 };
 
 // BB definitions
@@ -531,6 +535,8 @@ public:
   void Add_store_formals(IR_ITER entry, CFG_BB_IDX bb);
 
   void Spill_tn(TN_IDX tid, TN *tn);
+
+  void Recalibrate_offset(PU_INFO *pInfo);
 };
 
 

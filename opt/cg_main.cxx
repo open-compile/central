@@ -43,6 +43,7 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
       }
       Cgir()->Local_register_allocate(pu_info); // GRA/LRA
       Cgir()->Layout()->Calculate_stack_frame_size();
+      Cgir()->Recalibrate_offset(pu_info);
       if(Tracing(COMPONENT_CG, TRACE_DATA)) {
         // Printing the layout table.
         Cgir()->Layout()->Print(TFile);

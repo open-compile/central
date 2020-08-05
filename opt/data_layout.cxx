@@ -16,7 +16,6 @@ void DATA_LAYOUT::Allocate_object(ST_IDX obj_sym) {
   var_ofst.insert(std::make_pair(obj_sym, ofst_from_sp_to_symbol));
 }
 
-
 void DATA_LAYOUT::Allocate_formal(ST_IDX idx, UINT32 i) {
   AssertThat(ST_sclass(idx) == SYMC_FORMAL,
              ("Symbol should be a param, formal"));
@@ -84,6 +83,7 @@ void DATA_LAYOUT::Initialize_frame(SCOPE *scope, ST_IDX func) {
       Allocate_object(sym_idx);
     }
   }
+  _local_without_spill = local_size_allocated;
 }
 
 UINT32 DATA_LAYOUT::Calculate_stack_frame_size() {

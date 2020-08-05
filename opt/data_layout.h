@@ -33,6 +33,7 @@ private:
   INT32   pU_real_size            = 0;
   UINT32  _padding                = 0;
   INT32   local_size_allocated    = 0;
+  INT32   _local_without_spill    = 0;
   INT32   formal_size_allocated   = 0;
   UINT32  frame_size              = 0;
   UINT32  _callee_actual_space    = 0;
