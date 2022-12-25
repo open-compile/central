@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.10)
+cmake_minimum_required(VERSION 3.2)
 project(fronend)
 
 add_library(opt opt_main.cxx cgir.cxx data_layout.cxx register.cxx tn.cxx targ_abi.cxx util.cxx cg_main.cxx)
