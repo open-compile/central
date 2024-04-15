@@ -49,6 +49,8 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
                     {"link"});                        
   args::Flag verbose(debug_group, "verbose", "With more verbosity",
                      {'v', "verbose"});
+  args::Flag minimal(debug_group, "minimal", "With more verbosity",
+                     {'q', "quiet"});
   args::Flag keep(debug_group, "keep", "Keeping the intermediate file",
                   {"keep"});
   args::Flag show(debug_group, "show",
@@ -82,6 +84,10 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
                                           {'i', "include-sys"});
   args::PositionalList<std::string> files(parser, "files", "The file of input");
   args::CompletionFlag completion(parser, {"complete"});
+
+  // Init tracing options first.
+  Init_trace_opts();
+  // Parse the cmd line args.
   try {
     parser.ParseCLI(argc, argv);
   }
@@ -110,11 +116,10 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     }
     conf.files.push_back(*it);
   }
-
   if (file_vec.size() <= 0) {
-    Comp_Failure("No input file found.");
+    Comp_Usual_Error("no input files");
+    Comp_Failure("No input file given.");
   }
-
   if (preprocess) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Enabled Preprocess Mode \n"));
   }
@@ -126,6 +131,12 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     conf.assembly = TRUE;
     conf.object_gen = TRUE;
   } else if (preprocess) {
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Only Running Preprocess \n"));
+  } else if (verbose) {
+    Set_tracing_option(TRACE_OPT_VERBOSE);
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Only Running Preprocess \n"));
+  } else if (minimal) {
+    Set_tracing_option(TRACE_ERROR);
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Only Running Preprocess \n"));
   } else {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "By Default Enabled Assembly Mode \n"));

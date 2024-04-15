@@ -29,6 +29,7 @@ extern const char * Compilation_Phase; // Compilation Phase currently in
 extern void Comp_Failure_Print ( const char *fmt, ... ); // Compilation Failure message printing
 
 #define Comp_Failure(msg ...) { Quit_with_tracing ( __FILE__, __LINE__ ); Comp_Failure_Print(msg); }
+#define Comp_Usual_Error(msg ...) { Quit_with_tracing ( __FILE__, __LINE__ ); Comp_Failure_Print(msg); }
 #define TFile stderr
 #define Is_Trace(cond, printval) { if ((cond)) { fprintf printval; } }
 
@@ -64,18 +65,27 @@ enum COMPONENTS_WHOLE {
 };
 
 enum TRACE_KIND {
-  TRACE_WARN = 0x1,
-  TRACE_INFO = 0x2,
-  TRACE_INVOCATION = 0x4,
+  TRACE_INVOCATION  = 0x1,
+  TRACE_DATA        = 0x2,
+  TRACE_INFO        = 0x4,
   TRACE_PERFORMANCE = 0x8,
-  TRACE_DATA      = 0x10,
-  TRACE_OPTIONS   = 0x20,
-  TRACE_EMIT_CORE = 0x40
+  TRACE_OPTIONS     = 0x10,
+  TRACE_EMIT_CORE   = 0x20,
+  TRACE_WARN        = 0x40,
+  TRACE_ERROR       = 0x80,
+  TRACE_FATAL       = 0x100,
+  TRACE_OPT_DEFAULT = 0x200,
+  TRACE_OPT_VERBOSE = 0x400,
+  TRACE_OPT_NOLINENO= 0x800,
+  TRACE_CUSTOM1     = 0x1000,
+  TRACE_CUSTOM2     = 0x2000,
 };
 
 
 // Tracing option
 extern BOOL Tracing(COMPONENTS_WHOLE tl, TRACE_KIND tk);
+extern void Set_tracing_option(TRACE_KIND opts);
+extern void Init_trace_opts();
 
 #define COMP_PHASE_DRIVER "DRIVER"
 #define COMP_PHASE_LEXER "LEXER"

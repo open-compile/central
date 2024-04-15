@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.5)
+cmake_minimum_required(VERSION 3.2)
 project(LibCommon)
 add_compile_options(-DDebug_Mode=1 -std=c++11)
 include_directories(${OCC_MAIN_DIR}/lib/subprocess ${OCC_MAIN_DIR}/lib)
