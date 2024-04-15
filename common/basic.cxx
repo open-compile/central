@@ -81,10 +81,13 @@ static TRACE_KIND Get_tracing_level(COMPONENTS_WHOLE whole) {
   if (outcome == -1) {
     AssertThat(false, ("Failed to process component id = %.8x, to trace ", whole));
   }
-  return Trace_opts[whole];
+  AssertThat(outcome < sizeof(COMPONENTS_WHOLE) * 8, ("Failed to process component id = %.8x, to trace ", whole));
+  AssertThat(outcome >= 0, ("Failed to process component id = %.8x, to trace ", whole));
+  return Trace_opts[outcome];
 }
 
 void Init_trace_opts() {
+  Current_Cmd_Opt = TRACE_ERROR;
   UINT32 max = sizeof(COMPONENTS_WHOLE) * 8;
   for (UINT32 i = 0; i < max; i++) {
     Trace_opts[i] = TRACE_ERROR;

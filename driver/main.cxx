@@ -67,6 +67,9 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   args::ValueFlag<std::string> language(file_group, "language",
                                           "Specify the source code language",
                                           {'x', "language"});
+  args::ValueFlag<int> loglevel(opt_group, "log",
+                                          "logging options in or-ed form, within [0, 0xffff]",
+                                          {"log", "loglevel"});
   args::ValueFlag<int> optimization_level(opt_group, "optlevel",
                                          "Optimisation level, within [1,4]",
                                          {'O'});
@@ -132,15 +135,23 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     conf.object_gen = TRUE;
   } else if (preprocess) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Only Running Preprocess \n"));
-  } else if (verbose) {
+  } else {
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "By Default Enabled Assembly Mode \n"));
+    conf.assembly = TRUE; // by
+  }
+
+  if (verbose) {
     Set_tracing_option(TRACE_OPT_VERBOSE);
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Only Running Preprocess \n"));
   } else if (minimal) {
     Set_tracing_option(TRACE_ERROR);
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Only Running Preprocess \n"));
-  } else {
-    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "By Default Enabled Assembly Mode \n"));
-    conf.assembly = TRUE; // by
+  }
+
+  // This is overriding the above -v or -quiet
+  if (loglevel) {
+    INT32 res = loglevel.Get();
+    Set_tracing_option(static_cast<TRACE_KIND>(res));
   }
 
   if (front_end_only) {
