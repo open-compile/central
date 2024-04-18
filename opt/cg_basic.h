@@ -14,20 +14,6 @@ enum CGOPC {
 #undef CGOPDEF
 };
 
-/**
- * Flags to mark on basic blocks
- */
-enum BB_FLAG{
-  BB_FLAG_ENTRY       = 0x0001,
-  BB_FLAG_EXIT        = 0x0002,
-  BB_FLAG_HANDLER     = 0x0004,
-  BB_FLAG_CALL        = 0x0008,
-  BB_FLAG_LABEL       = 0x0010,
-  BB_FLAG_UNREACH     = 0x0020,
-  BB_FLAG_SCHED       = 0x0040,
-  BB_FLAG_SPILL       = 0x0080,
-  BB_FLAG_LRA         = 0x0100,
-};
 
 enum CGOPC_KIND {
   CGOPK_LDST,

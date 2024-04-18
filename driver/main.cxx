@@ -69,7 +69,22 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
                                           {'x', "language"});
   args::ValueFlag<int> loglevel(opt_group, "log",
                                           "logging options in or-ed form, within [0, 0xffff]",
-                                          {"log", "loglevel"});
+{"log", "loglevel"});
+  args::ValueFlag<int> feloglevel(opt_group, "felevel",
+                                          "front-end logging options in or-ed form, within [0, 0xffff]",
+                                          {"felevel", "feloglevel"});
+  args::ValueFlag<int> beloglevel(opt_group, "belevel",
+                                          "back-end logging options in or-ed form, within [0, 0xffff]",
+                                          {"belevel", "beloglevel"});
+  args::ValueFlag<int> cgloglevel(opt_group, "cglevel",
+                                          "code-gen logging options in or-ed form, within [0, 0xffff]",
+                                          {"cgloglevel", "cglevel"});
+  args::ValueFlag<int> linkerloglevel(opt_group, "linkerlevel",
+                                          "asm+linker logging options in or-ed form, within [0, 0xffff]",
+                                          {"linkerloglevel", "linkerlevel"});
+  args::ValueFlag<int> symtabloglevel(opt_group, "linkerlevel",
+                                          "symtab logging options in or-ed form, within [0, 0xffff]",
+                                          {"symtabloglevel", "symtablevel"});
   args::ValueFlag<int> optimization_level(opt_group, "optlevel",
                                          "Optimisation level, within [1,4]",
                                          {'O'});
@@ -152,6 +167,41 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   if (loglevel) {
     INT32 res = loglevel.Get();
     Set_tracing_option(static_cast<TRACE_KIND>(res));
+  }
+
+  if (beloglevel) {
+    INT32 res = beloglevel.Get();
+    Set_mod_tracing_option(COMPONENT_BE, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_VHO, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_LNO, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_GOPT, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_IPA, static_cast<TRACE_KIND>(res));
+  }
+
+  if (symtabloglevel) {
+    INT32 res = symtabloglevel.Get();
+    Set_mod_tracing_option(COMPONENT_SYMTAB, static_cast<TRACE_KIND>(res));
+  }
+
+  if (feloglevel) {
+    INT32 res = feloglevel.Get();
+    Set_mod_tracing_option(COMPONENT_FE, static_cast<TRACE_KIND>(res));
+  }
+
+  if (cgloglevel) {
+    INT32 res = cgloglevel.Get();
+    Set_mod_tracing_option(COMPONENT_CG, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_CG_IR_IN, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_CG_CONV, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_CG_LRA, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_CG_GRA, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(CO_CG_EMIT, static_cast<TRACE_KIND>(res));
+  }
+
+  if (linkerloglevel) {
+    INT32 res = linkerloglevel.Get();
+    Set_mod_tracing_option(COMPONENT_ASM, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_LD, static_cast<TRACE_KIND>(res));
   }
 
   if (front_end_only) {

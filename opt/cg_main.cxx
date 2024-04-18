@@ -32,28 +32,30 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
   for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
     // Iterate over each pu_info (functions), dump each of the function
     PU_INFO *pu_info = file->Tables()->Pu_info()->Get(it);
-    if (pu_info->proc_sym != 0) {
-      Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_OPTIONS),
-               (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
-      File()->Scopes()->Goto_function(pu_info->proc_sym);
-      Cgir()->CG_Expand(&pu_info->scope); // Expansion
-      if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
-        // Printing the cgir exapnsion result.
-        Cgir()->Print(pu_info->proc_sym, TFile);
-      }
-      Cgir()->Local_register_allocate(pu_info); // GRA/LRA
-      Cgir()->Layout()->Calculate_stack_frame_size();
-      Cgir()->Recalibrate_offset(pu_info);
-      if(Tracing(COMPONENT_CG, TRACE_DATA)) {
-        // Printing the layout table.
-        Cgir()->Layout()->Print(TFile);
-      }
-      if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
-        // Printing the cgir exapnsion result.
-        Cgir()->Print(pu_info->proc_sym, TFile);
-      }
-    } else {
-      AssertThat(false, ("Incomoplete pu_infoo for PU_INFO_IDX = %u, or %0#x", it, it));
+    if (pu_info->proc_sym == 0) {
+      AssertThat(false, ("Incomoplete pu_info for PU_INFO_IDX = %u, or %0#x", it, it));
+      return;
+    }
+    Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_OPTIONS),
+    (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
+    Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DEBUG),
+             (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
+    File()->Scopes()->Goto_function(pu_info->proc_sym);
+    Cgir()->CG_Expand(&pu_info->scope); // Expansion
+    if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
+      // Printing the cgir exapnsion result.
+      Cgir()->Print(pu_info->proc_sym, TFile);
+    }
+    Cgir()->Local_register_allocate(pu_info); // GRA/LRA
+    Cgir()->Layout()->Calculate_stack_frame_size();
+    Cgir()->Recalibrate_offset(pu_info);
+    if(Tracing(COMPONENT_CG, TRACE_DATA)) {
+      // Printing the layout table.
+      Cgir()->Layout()->Print(TFile);
+    }
+    if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
+      // Printing the cgir exapnsion result.
+      Cgir()->Print(pu_info->proc_sym, TFile);
     }
   }
 }

@@ -44,7 +44,6 @@ typedef enum {
 enum COMPONENTS_WHOLE {
   COMPONENT_DRIVER = 100,
   // Common ones
-  COMPONENT_IR = 110,
   COMPONENT_SYMTAB = 130,
   // Front end
   COMPONENT_PREP = 210,
@@ -56,35 +55,39 @@ enum COMPONENTS_WHOLE {
   COMPONENT_IPA = 340,
   // Code generation
   COMPONENT_CG = 410,
+  COMPONENT_CG_IR_IN = 412,
   COMPONENT_CG_CONV = 420,
   COMPONENT_CG_LRA = 430,
   COMPONENT_CG_GRA = 440,
   CO_CG_EMIT = 450,
   COMPONENT_ASM = 500,
   COMPONENT_LD = 600,
+  COMPONENT_MAX = 999,
 };
 
 enum TRACE_KIND {
-  TRACE_INVOCATION  = 0x1,
+  TRACE_DEBUG       = 0x1,
   TRACE_DATA        = 0x2,
   TRACE_INFO        = 0x4,
   TRACE_PERFORMANCE = 0x8,
-  TRACE_OPTIONS     = 0x10,
-  TRACE_EMIT_CORE   = 0x20,
-  TRACE_WARN        = 0x40,
-  TRACE_ERROR       = 0x80,
-  TRACE_FATAL       = 0x100,
-  TRACE_OPT_DEFAULT = 0x200,
-  TRACE_OPT_VERBOSE = 0x400,
-  TRACE_OPT_NOLINENO= 0x800,
-  TRACE_CUSTOM1     = 0x1000,
-  TRACE_CUSTOM2     = 0x2000,
+  TRACE_INVOCATION  = 0x10,
+  TRACE_OPTIONS     = 0x20,
+  TRACE_EMIT_CORE   = 0x40,
+  TRACE_WARN        = 0x80,
+  TRACE_ERROR       = 0x100,
+  TRACE_FATAL       = 0x200,
+  TRACE_OPT_DEFAULT = 0x400,
+  TRACE_OPT_VERBOSE = 0x800,
+  TRACE_OPT_NOLINENO= 0x1000,
+  TRACE_CUSTOM1     = 0x2000,
+  TRACE_CUSTOM2     = 0x4000,
 };
 
 
 // Tracing option
 extern BOOL Tracing(COMPONENTS_WHOLE tl, TRACE_KIND tk);
 extern void Set_tracing_option(TRACE_KIND opts);
+extern void Set_mod_tracing_option(COMPONENTS_WHOLE comp, TRACE_KIND desired);
 extern void Init_trace_opts();
 
 #define COMP_PHASE_DRIVER "DRIVER"

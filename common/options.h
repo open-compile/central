@@ -1,4 +1,7 @@
 
+#ifndef _OCC_OPTIONS_H_
+#define _OCC_OPTIONS_H_
+
 #include "host.h"
 #include <string>
 #include <vector>
@@ -31,3 +34,5 @@ public:
 
 // Parsing arguments
 int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf);
+
+#endif

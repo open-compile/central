@@ -285,16 +285,14 @@ void CGIR::Handle_ret(IR_ITER stmt, CFG_BB_IDX cur_bb) {
 }
 
 void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
-  // Create a block
-  cur_bb = Cfg()->Add_bb();
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_Entry\n"));
   AssertThat(OPC_FUNC_ENTRY == tree->Get_node(entry)->Opcode(),
              ("Incorrect root entry"));
 
-  // Adding entry BB.
-  Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_ENTRY); //Assuming there is only one BB.
-  cur_bb = Cfg()->Add_bb(cur_bb);
+  // Initiate the prolog of this function.
+  cur_bb = Add_prolog(cur_bb);
+
   Add_store_formals(entry, cur_bb);
 
   // Create new BB.
@@ -311,6 +309,8 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
     return;
   }
   UINT32 cur_bb_stmt_processed = 0;
+
+  //FIXME: There should not be so much BB, There's simply too much BB here.
   // Verifying each statement
   for (UINT32 stmt_idx = 0; stmt_idx < tree->Number_of_children(body); stmt_idx++) {
     IR_ITER stmt = tree->Get_operand(body, stmt_idx);
@@ -379,6 +379,24 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
     }
     cur_bb_stmt_processed ++;
   }
+}
+
+/**
+ *  A unique function to add prolog and epilog to the CGIR;
+ */
+UINT32 CGIR::Add_prolog(UINT32 cur_bb) {
+  // Create a block
+  cur_bb = Cfg()->Add_bb();
+  // Adding entry BB.
+  Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_ENTRY); //Assuming there is only one BB.
+  cur_bb = Cfg()->Add_bb(cur_bb);
+  return cur_bb;
+}
+
+/**
+ *  A unique function to add prolog and epilog to the CGIR;
+ */
+UINT32 CGIR::Add_epilog(UINT32 cur_bb) {
   // Adding function epilog (exit BB)
   cur_bb = Cfg()->Add_bb(cur_bb);
   Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_EXIT);
@@ -388,6 +406,7 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
              0,
              TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_ra, REGISTER_ra, 4)),
              0, 0));
+  return cur_bb;
 }
 
 TN *CGIR::PREG_to_TN(TY_IDX preg_ty, PREG_NUM preg_num) {
@@ -417,6 +436,11 @@ TN *CGIR::PREG_to_ST_TN(ST_IDX sym_idx, PREG_NUM preg_num) {
 }
 
 
+/**
+ * Setting up CGIR preparation,
+ * @param cgir CGIR module
+ * @param sym Current function's PU symbol
+ */
 void CGIR::Set_current_cgir(CG_CFG *cgir, ST_IDX sym) {
   _current = cgir;
   _current_sym = sym;
@@ -621,17 +645,17 @@ void CGIR::Local_register_allocate(PU_INFO *info) {
     }
   }
 
-  for (UINT32 i = 0; i < bb_cnt; i++) {
-    CGBB *cgbb = Cfg()->BB(i);
-    auto work_list = cgbb->Get_work_list();
-    for (auto work_item : work_list) {
-      if (work_item.getPutBefore()) {
-        cgbb->Move_stmt_to_before(work_item.getTarget(), work_item.getFrom());
-      } else {
-        cgbb->Move_stmt_to_after(work_item.getTarget(), work_item.getFrom());
-      }
-    }
-  }
+  // for (UINT32 i = 0; i < bb_cnt; i++) {
+  //   CGBB *cgbb = Cfg()->BB(i);
+  //   auto work_list = cgbb->Get_work_list();
+  //   for (auto work_item : work_list) {
+  //     if (work_item.getPutBefore()) {
+  //       cgbb->Move_stmt_to_before(work_item.getTarget(), work_item.getFrom());
+  //     } else {
+  //       cgbb->Move_stmt_to_after(work_item.getTarget(), work_item.getFrom());
+  //     }
+  //   }
+  // }
 }
 
 void CGIR::Spill_tn(TN_IDX tid, TN *tn) {// We could put the spill on r8.
@@ -908,100 +932,6 @@ void CGIR::Emit_operand(CGOP *oper, CGOPR_KIND kind, UINT32 ch_id, FILE* out) {
   }
 }
 
-template<typename NODE_TYPE>
-void CFG_BB_BASE<NODE_TYPE>::Print(FILE * file) {
-  fprintf(file, "===== Printing CFG_BB_BASE id = %d =======\n", _id);
-  fprintf(file, "===== with %lu statements inside =======\n", _stmts.size());
-  for (UINT32 i = 0; i < _stmts.size(); i++) {
-    // STMTs
-    _stmts[i]->Print(file);
-  }
-}
-
-template<typename NODE_TYPE>
-CGOP *CFG_BB_BASE<NODE_TYPE>::Last_real_stmt() {
-  AssertThat(_stmts.size() > 0, ("No last exist"));
-  return _stmts.back();
-}
-
-template<typename NODE_TYPE>
-UINT32 CFG_BB_BASE<NODE_TYPE>::Get_stmt_count() {
-  return _stmts.size();
-}
-
-template<typename NODE_TYPE>
-void CFG_BB_BASE<NODE_TYPE>::Move_stmt_to_after(NODE_TYPE *position, NODE_TYPE *from) {
-  BOOL flag = false;
-  for (typename vector<NODE_TYPE*>::iterator it = _stmts.begin(); it != _stmts.end(); it++) {
-    if (*it == position) {
-      it++;
-      AssertThat(it != _stmts.end(), ("This cannot be, otherwise we are moving [position] after [position]"));
-      _stmts.insert(it, from);
-      flag = true;
-      break;
-    }
-  }
-  AssertThat(flag, ("Cannot find the target stmt %p in stmts.", position));
-  flag = false;
-  for (typename vector<NODE_TYPE*>::iterator it = _stmts.begin(); it != _stmts.end(); it++) {
-    if (*it == from) {
-      if (!flag) {
-        flag = true; // skip the first one.
-        continue;
-      }
-      _stmts.erase(it);
-      flag = true;
-      break;
-    }
-  }
-  AssertThat(flag, ("Cannot find the old value to delete."));
-}
-
-template<typename NODE_TYPE>
-void CFG_BB_BASE<NODE_TYPE>::Move_stmt_to_before(NODE_TYPE *position, NODE_TYPE *from) {
-  BOOL flag = false;
-  for (typename vector<NODE_TYPE*>::iterator it = _stmts.begin(); it != _stmts.end(); it++) {
-    if (*it == position) {
-      _stmts.insert(it, from);
-      flag = true;
-      break;
-    }
-  }
-  AssertThat(flag, ("Cannot find the target stmt %p in stmts.", position));
-  flag = false;
-  for (typename vector<NODE_TYPE*>::iterator it = _stmts.begin(); it != _stmts.end(); it++) {
-    if (*it == from) {
-      if (!flag) {
-        flag = true; // skip the first one.
-        continue;
-      }
-      _stmts.erase(it);
-      flag = true;
-      break;
-    }
-  }
-  AssertThat(flag, ("Cannot find the old value to delete."));
-}
-
-
-template<typename NODE_TYPE>
-void CFG_BASE<NODE_TYPE>::Print(FILE * file) {
-  // Print ...
-  fprintf(file, "%sPrinting CFG_BASE of size : %d\n%s",
-          DBAR, this->Size(), DBAR);
-  for (UINT32 i = 0; i < this->Size(); i++) {
-    this->Node(i)->Print(file);
-  }
-}
-
-template<typename NODE_TYPE>
-CFG_BB_IDX CFG_BASE<NODE_TYPE>::Add_bb(INT pred) {
-  CFG_BB_IDX new_bb = Add_bb();
-  this->BB(pred)->Add_succ(BB(new_bb));
-  this->BB(new_bb)->Add_pred(BB(pred));
-  return new_bb;
-}
-
 void CGOP::Print(FILE *file) {
   fprintf(file, "[CGOP] node = %d, opc = %s(%d), index:%d, res/opnd: [%u] [%u] [%u] [%u] \n",
           _tree_node_id, ISA_OPCODE_name(getOpcode()), getOpcode(), getIndexInBb(),
@@ -1142,7 +1072,7 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
         }
         rs->setFlags(CGOPF_SPILL);
         Cfg()->BB(cur_bb)->Get_work_list().push_back(
-          CGTODO_ITEM<CGOP>(oper, rs, false));
+          CG_REVISIT_ITEM<CGOP>(oper, rs, false));
       }
     } else {
       Is_Trace(TR_LRA(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), reg_num_to_use));
@@ -1166,7 +1096,7 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
           Set_TN_register(middle, 0);
         }
         rs->setFlags(CGOPF_SPILL);
-        Cfg()->BB(cur_bb)->Get_work_list().push_back(CGTODO_ITEM<CGOP> (oper, rs, true));
+        Cfg()->BB(cur_bb)->Get_work_list().push_back(CG_REVISIT_ITEM<CGOP> (oper, rs, true));
       }
     }
   }
@@ -1446,4 +1376,4 @@ template
 class CFG_BB_BASE<CGOP>;  // CGBB
 
 template
-class CFG_BASE<CGOP>;     // CG_CFG
+class CFG_BASE<CGOP, CG_CFG_BB_BASE<CGOP>>;     // CG_CFG

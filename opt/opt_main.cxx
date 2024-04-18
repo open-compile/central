@@ -43,6 +43,8 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
   Opt_lower(File(), LEVEL_HIGH, conf);
   Opt_verify(File(), LEVEL_HIGH, conf);
 
+  // If OPT >= 3, enable IPA, LNO ....
+
   Opt_lower(File(), LEVEL_HIGH, conf);
   Opt_verify(File(), LEVEL_HIGH, conf);
   // Optimizations on High IR

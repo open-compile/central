@@ -3,7 +3,7 @@
 
 const char * Compilation_Phase = COMP_PHASE_DRIVER;
 static TRACE_KIND Current_Cmd_Opt = TRACE_ERROR;
-static TRACE_KIND Trace_opts[sizeof(COMPONENTS_WHOLE) * 8];
+static TRACE_KIND Trace_opts[COMPONENT_MAX];
 
 void Assertion_Failure_Print ( const char *fmt, ... )
 {
@@ -55,41 +55,20 @@ void Quit_with_tracing(const char * file, UINT32 line) {
   fprintf(stderr, "%s", "occ: fatal error: ");
 }
 
-INT32 Right_most_bit(UINT32 n) {
-  if (n == 0)
-    return -1; // No bits are set
-
-  // Calculate the position of the rightmost set bit
-  int position = 1; // Position starts at 1, not 0
-  unsigned int mask = n & (-n);
-
-  // Shift the mask until we find the set bit
-  while ((mask & 1) == 0) {
-    mask >>= 1;
-    position++;
-  }
-
-  return position;
-}
-
 /**
  * Get tracing level for specific component, this should not be exposed elsewhere than this file.
  * @param whole
  */
 static TRACE_KIND Get_tracing_level(COMPONENTS_WHOLE whole) {
-  INT32 outcome = Right_most_bit(whole);
-  if (outcome == -1) {
-    AssertThat(false, ("Failed to process component id = %.8x, to trace ", whole));
-  }
-  AssertThat(outcome < sizeof(COMPONENTS_WHOLE) * 8, ("Failed to process component id = %.8x, to trace ", whole));
+  INT32 outcome = static_cast<INT32>(whole);
+  AssertThat(outcome < COMPONENT_MAX, ("Failed to process component id = %.8x, to trace ", whole));
   AssertThat(outcome >= 0, ("Failed to process component id = %.8x, to trace ", whole));
   return Trace_opts[outcome];
 }
 
 void Init_trace_opts() {
   Current_Cmd_Opt = TRACE_ERROR;
-  UINT32 max = sizeof(COMPONENTS_WHOLE) * 8;
-  for (UINT32 i = 0; i < max; i++) {
+  for (UINT32 i = 0; i < COMPONENT_MAX; i++) {
     Trace_opts[i] = TRACE_ERROR;
   }
 }
@@ -107,26 +86,29 @@ BOOL Tracing(COMPONENTS_WHOLE tl, TRACE_KIND tk) {
  * Set up tracing option given command line argument
  * @param opts can be either default / verbose or a specific trace level.
  */
-void Set_tracing_option(TRACE_KIND opts) {
-  if (opts == TRACE_OPT_DEFAULT || opts == TRACE_OPT_NOLINENO) {
-    Current_Cmd_Opt = opts;
-    UINT32 max = sizeof(COMPONENTS_WHOLE) * 8;
-    for (UINT32 i = 0; i < max; i++) {
-      Trace_opts[i] = TRACE_ERROR;
-    }
-    return;
-  } else if (opts == TRACE_OPT_VERBOSE) {
-    Current_Cmd_Opt = TRACE_OPT_VERBOSE;
-    UINT32 max = sizeof(COMPONENTS_WHOLE) * 8;
-    for (UINT32 i = 0; i < max; i++) {
-      Trace_opts[i] = static_cast<TRACE_KIND>(0x7fffffff);
-    }
-    return;
-  } else {
-    Current_Cmd_Opt = opts;
-    UINT32 max = sizeof(COMPONENTS_WHOLE) * 8;
-    for (UINT32 i = 0; i < max; i++) {
-      Trace_opts[i] = opts;
-    }
+void Set_tracing_option(TRACE_KIND mopts) {
+  TRACE_KIND res_opts = mopts;
+  if (mopts == TRACE_OPT_DEFAULT || mopts == TRACE_OPT_NOLINENO) {
+    res_opts = TRACE_ERROR;
+  } else if (mopts == TRACE_OPT_VERBOSE) {
+    res_opts = static_cast<TRACE_KIND>(0x7fffffff);
+  }
+  Current_Cmd_Opt = res_opts;
+  UINT32 max = COMPONENT_MAX;
+  for (UINT32 i = 0; i < max; i++) {
+    Trace_opts[i] = res_opts;
+  }
+}
+
+void Set_mod_tracing_option(COMPONENTS_WHOLE comp, TRACE_KIND desired) {
+  TRACE_KIND res_opts = desired;
+  if (desired == TRACE_OPT_DEFAULT || desired == TRACE_OPT_NOLINENO) {
+    res_opts = TRACE_ERROR;
+  } else if (desired == TRACE_OPT_VERBOSE) {
+    res_opts = static_cast<TRACE_KIND>(0x7fffffff);
+  }
+  UINT32 max = COMPONENT_MAX;
+  for (UINT32 i = 0; i < max; i++) {
+    Trace_opts[i] = res_opts;
   }
 }

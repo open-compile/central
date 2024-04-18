@@ -544,6 +544,7 @@ public:
   std::vector<void *>::iterator End() {
     return table.end();
   }
+  // TODO: add dump here to dump the table to a region.
 };
 
 
@@ -846,6 +847,13 @@ typedef RELATED_SYMTAB_ACCESS<PREG_IDX, PREG, TABLE_KIND_PREG> PREG_TABLE;
 typedef RELATED_SYMTAB_ACCESS<LABEL_IDX, LABEL, TABLE_KIND_LABEL> LABEL_TABLE;
 typedef RELATED_SYMTAB_ACCESS<INITO_IDX, INITO, TABLE_KIND_INITO> INITO_TABLE;
 
+// How do I dump everything to a file, then load a file afterwards?
+// Perhaps some speed-up on Unix-based systems using mmap?
+// To do that, I need a IDX group + Data-chunk based
+// INITO should be just fine
+// How to make sure that a "Table" is persistable....
+// Index +
+
 /**
  * File-level symbol tables
  */
@@ -982,12 +990,26 @@ public:
   std::vector<FILE_INFO *> _file_info;
 
   /**
-   * File open / read, dumping, TODO: Not implemented
+   * File open / read, dumping, TODO: These three have not been implemented
+   * IR file structure....
+   * Header
+   * Type Info ...
+   * Symbol info ...
+   * Function Unit Code .....
+   * INITO ....
+   * INITV ....
    * @param file_name
    */
   void Open_ir_file(const char *file_name);
   void Create_ir_file(const char *file_name);
   void Write_data_to_file(const char *file_name);
+
+
+  /**
+  *  Probably need some code-gen work done to generate llvm-ir
+  *  or generate WHIRL instead. function unit in VH-whirl to VL-whirl
+  */
+
 
   /**
    * Accessing Data

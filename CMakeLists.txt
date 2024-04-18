@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.5)
+cmake_minimum_required(VERSION 3.3)
 project(OCC)
 
 message(STATUS "=================================")
@@ -15,6 +15,7 @@ set(GLOBAL_OCC_LIB
   common
   fe
   opt
+  cg
 )
 
 set(GLOBAL_OCC_TARG
