@@ -27,148 +27,10 @@
 #include <memory.h>
 
 enum OPERATOR {
-  OPERATOR_UNKNOTREE = 0,
-  OPERATOR_FIRST = 1,
-  OPR_ABS = 1,
-  OPR_ADD = 2,
-  OPR_AGOTO = 3,
-  OPR_ALTENTRY = 4,
-  OPR_ARRAY = 5,
-  OPR_ARRAYEXP = 6,
-  OPR_ARRSECTION = 7,
-  OPR_ASHR = 8,
-  OPR_ASSERT = 9,
-  OPR_BACKWARD_BARRIER = 10,
-  OPR_BAND = 11,
-  OPR_BIOR = 12,
-  OPR_BLOCK = 13,
-  OPR_BNOR = 14,
-  OPR_BNOT = 15,
-  OPR_BXOR = 16,
-  OPR_CALL = 17,
-  OPR_CAND = 18,
-  OPR_CASEGOTO = 19,
-  OPR_CEIL = 20,
-  OPR_CIOR = 21,
-  OPR_COMMA = 22,
-  OPR_COMMENT = 23,
-  OPR_COMPGOTO = 24,
-  OPR_PAIR = 25,
-  OPR_CONST = 26,
-  OPR_CSELECT = 27,
-  OPR_CVT = 28,
-  OPR_CVTL = 29,
-  OPR_DIV = 30,
-  OPR_DIVREM = 31,
-  OPR_DO_LOOP = 32,
-  OPR_DO_WHILE = 33,
-  OPR_EQ = 34,
-  OPR_EVAL = 35,
-  OPR_EXC_SCOPE_BEGIN = 36,
-  OPR_EXC_SCOPE_END = 37,
-  OPR_FALSEBR = 38,
-  OPR_FLOOR = 39,
-  OPR_FORWARD_BARRIER = 40,
-  OPR_FUNC_ENTRY = 41,
-  OPR_GE = 42,
-  OPR_GOTO = 43,
-  OPR_GT = 44,
-  OPR_HIGHMPY = 45,
-  OPR_HIGHPART = 46,
-  OPR_ICALL = 47,
-  OPR_IDNAME = 48,
-  OPR_IF = 49,
-  OPR_ILDA = 50,
-  OPR_ILDBITS = 51,
-  OPR_ILOAD = 52,
-  OPR_ILOADX = 53,
-  OPR_SECONDPART = 54,
-  OPR_INTCONST = 55,
-  OPR_INTRINSIC_CALL = 56,
-  OPR_INTRINSIC_OP = 57,
-  OPR_IO = 58,
-  OPR_IO_ITEM = 59,
-  OPR_ISTBITS = 60,
-  OPR_ISTORE = 61,
-  OPR_ISTOREX = 62,
-  OPR_LABEL = 63,
-  OPR_LAND = 64,
-  OPR_LDA = 65,
-  OPR_LDBITS = 66,
-  OPR_LDID = 67,
-  OPR_LE = 68,
-  OPR_LIOR = 69,
-  OPR_LNOT = 70,
-  OPR_LOOP_INFO = 71,
-  OPR_LOWPART = 72,
-  OPR_LSHR = 73,
-  OPR_LT = 74,
-  OPR_MADD = 75,
-  OPR_MAX = 76,
-  OPR_MAXPART = 77,
-  OPR_MIN = 78,
-  OPR_MINMAX = 79,
-  OPR_MINPART = 80,
-  OPR_MLOAD = 81,
-  OPR_MOD = 82,
-  OPR_MPY = 83,
-  OPR_MSTORE = 84,
-  OPR_MSUB = 85,
-  OPR_NE = 86,
-  OPR_NEG = 87,
-  OPR_NMADD = 88,
-  OPR_NMSUB = 89,
-  OPR_OPTPARM = 90,
-  OPR_OPT_CHI = 91,
-  OPR_OPT_RESERVE2 = 92,
-  OPR_PAREN = 93,
-  OPR_PARM = 94,
-  OPR_PICCALL = 95,
-  OPR_PRAGMA = 96,
-  OPR_PREFETCH = 97,
-  OPR_PREFETCHX = 98,
-  OPR_RCOMMA = 99,
-  OPR_FIRSTPART = 100,
-  OPR_RECIP = 101,
-  OPR_REGION = 102,
-  OPR_REGION_EXIT = 103,
-  OPR_REM = 104,
-  OPR_RETURN = 105,
-  OPR_RETURN_VAL = 106,
-  OPR_RND = 107,
-  OPR_RSQRT = 108,
-  OPR_SELECT = 109,
-  OPR_SHL = 110,
-  OPR_SQRT = 111,
-  OPR_STBITS = 112,
-  OPR_STID = 113,
-  OPR_SUB = 114,
-  OPR_SWITCH = 115,
-  OPR_TAS = 116,
-  OPR_TRAP = 117,
-  OPR_TRIPLET = 118,
-  OPR_TRUEBR = 119,
-  OPR_TRUNC = 120,
-  OPR_VFCALL = 121,
-  OPR_WHERE = 122,
-  OPR_WHILE_DO = 123,
-  OPR_XGOTO = 124,
-  OPR_XMPY = 125,
-  OPR_XPRAGMA = 126,
-  OPR_AFFIRM = 127,
-  OPR_ALLOCA = 128,
-  OPR_DEALLOCA = 129,
-  OPR_LDMA = 130,
-  OPR_ASM_STMT = 131,
-  OPR_ASM_EXPR = 132,
-  OPR_ASM_INPUT = 133,
-  OPR_RROTATE = 134,
-  OPR_LDA_LABEL = 135,
-  OPR_GOTO_OUT = 136,
-  OPR_EXTRACT_BITS = 137,
-  OPR_COMPOSE_BITS = 138,
-  OPERATOR_LAST = 138,
+#define OCIR_OPR(opr, opr_int, lhs, rhs, br, mem, cnst, commut) opr = opr_int,
+#include "opr_base.h"
   // Don't add operators here, if you need extra operators, discuss it with @Jason
+#undef OCIR_OPR
 };
 
 #define RTYPE(x) (x<<8)
@@ -192,6 +54,18 @@ typedef struct {
   MTYPE_ID  desc;
   const char *name;
 } OPCODE_INFO;
+
+typedef struct {
+  OPERATOR    opr;
+  INT32       opr_intval;
+  INT32       num_lhs;
+  INT32       num_rhs;
+  INT32       is_branch;
+  INT32       is_mem_access;
+  INT32       is_const_exp;
+  INT32       is_commutative; // being able to treat a+b as b+a
+  const char *name;
+} OPERATOR_INFO;
 
 enum REGION_KIND{
   REGION_KIND_1 = 1,
@@ -387,6 +261,8 @@ OPERATOR OPCODE_operator(OPCODE opc); // get operator(non-typed) from opcode(typ
 const char *OPCODE_name(OPCODE opcode);
 BOOL OPCODE_is_const(OPCODE opc);
 BOOL OPCODE_is_bin_arith(OPCODE opc);
+const char *OPERATOR_name(OPERATOR opr);
+const char *OPCODE_name(OPCODE opc);
 
 /**
  * Utility function to get a IRNODE&

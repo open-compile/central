@@ -277,7 +277,7 @@ BOOL Opt_is_const(IR_ITER node, TREE *tree, PU_INFO *func, FILE_MANAGER *file,
 }
 
 IR_ITER
-Opt_lower_bin_op(IR_ITER expr, TREE *tree, PU_INFO *func, FILE_MANAGER *file,
+Opt_prpgate_const_bin_op(IR_ITER expr, TREE *tree, PU_INFO *func, FILE_MANAGER *file,
                  IR_LEVEL level, COMPILER_CONFIG &config) {
   if (!(Opt_is_const(tree->Get_operand(expr, 0), tree, func, file, level, config) &&
         Opt_is_const(tree->Get_operand(expr, 1), tree, func, file, level, config))) {
@@ -290,7 +290,7 @@ Opt_lower_bin_op(IR_ITER expr, TREE *tree, PU_INFO *func, FILE_MANAGER *file,
   UINT64 lhs = tree->Get_node(tree->Get_operand(expr, 0))->Get_const_val();
   UINT64 rhs = tree->Get_node(tree->Get_operand(expr, 1))->Get_const_val();
   AssertThat(OPCODE_rtype(tree->Get_node(expr)->Opcode()) == MTYPE_I4,
-             ("Incorrect type used in op = add"));
+             ("Incorrect type used in op = add, expected i4, given %d", OPCODE_rtype(tree->Get_node(expr)->Opcode())));
   IRNODE_IDX opr_node = tree->Create_node(OPC_I4CONST);
   switch (OPCODE_operator(tree->Get_node(expr)->Opcode())) {
     case OPR_ADD: {
@@ -348,7 +348,7 @@ IR_ITER Opt_lower_expr(IR_ITER expr, UINT32 index_in_parent, PU_INFO *func, FILE
   if (OPCODE_is_bin_arith(tree->Get_node(expr)->Opcode()) &&
       conf.Opt_enabled(OPT_KIND_ARITH)) {
     // Check if lowerable,
-    IR_ITER res = Opt_lower_bin_op(expr, tree, func, file, level, conf);
+    IR_ITER res = Opt_prpgate_const_bin_op(expr, tree, func, file, level, conf);
     if (res != expr) {
       return res;
     }

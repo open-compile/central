@@ -144,35 +144,33 @@ public:
   }
 
   // Start the cg transformation of a function.
-  void          CG_Expand(SCOPE *scope);        // Initialize the CG stuff
-  void          IR_to_CGIR(ST_IDX func_sym);
+  void          CG_convert_function(SCOPE *scope);        // Initialize the CG stuff
   void          Data_layout(SCOPE *scope);    // Do data layout
   UINT32        Add_prolog(UINT32 bb);
   UINT32        Add_epilog(UINT32 bb);
-
-
-  // Expanding a funciton, handle all kinds of VHIR stmt / expr.
-  void          Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb);
-  TN           *Handle_LDID(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *pTn);
-  TN           *Handle_ILOAD(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res);
-  TN           *Handle_ISTORE(IR_ITER stmt, CFG_BB_IDX cur_bb);
-  TN           *Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res);
-  void          Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb);
-  void          Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb);
-  void          Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb);
-  void          Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb);
-  void          Handle_ret(IR_ITER, CFG_BB_IDX cur_bb);
-  // Expanding stuff, such as expression
-  TN           *Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result);
-
-  // CG-tuple creation
-  void          Exp_op(UINT32 expr_id, OPCODE opcode, CFG_BB_IDX cur_bb, TN *result, TN *op1, TN *op2, TN *op3,
-                       VARIANT variant, CGOP **ops);
   void          Set_current_cgir(CG_CFG *cgir, ST_IDX sym);
   CG_CFG       *Cfg() { return _current; }
   void          Local_register_allocate(PU_INFO *info);
   void          Print(FILE *file = stderr);
   void          Print(ST_IDX sym, FILE *file = stderr);
+
+
+  // Expanding a funciton, handle all kinds of VHIR stmt / expr.
+  void          Handle_stid     (IR_ITER stmt, CFG_BB_IDX cur_bb);
+  TN           *Handle_ldid     (IR_ITER stmt, CFG_BB_IDX cur_bb, TN *pTn);
+  TN           *Handle_iload    (IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res);
+  TN           *Handle_istore   (IR_ITER stmt, CFG_BB_IDX cur_bb);
+  TN           *Handle_lda      (IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res);
+  void          Handle_ret_val  (IR_ITER stmt, CFG_BB_IDX cur_bb);
+  void          Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb);
+  void          Handle_goto     (IR_ITER stmt, CFG_BB_IDX cur_bb);
+  void          Handle_call     (IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb);
+  void          Handle_ret      (IR_ITER, CFG_BB_IDX cur_bb);
+
+  // Expanding stuff, such as expression
+  TN           *Expand_expr     (IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result);
+  void          Exp_op(UINT32 expr_id, OPCODE opcode, CFG_BB_IDX cur_bb, TN *result, TN *op1, TN *op2, TN *op3,
+                       VARIANT variant, CGOP **ops);
   inline  void  Exp_op0(UINT32 e, OPCODE c,  CFG_BB_IDX bb, TN *r, CGOP **ops)              {  Exp_op(e, c,bb,r,NULL,NULL,NULL,V_NONE,ops); }
   inline  void  Exp_op1(UINT32 e, OPCODE c,  CFG_BB_IDX bb, TN *r, TN *o1, CGOP **ops)           {  Exp_op(e, c,bb,r,o1,NULL,NULL,V_NONE,ops); }
   inline  void  Exp_op1v(UINT32 e, OPCODE c, CFG_BB_IDX bb, TN *r, TN *o1, VARIANT v, CGOP **ops)        {  Exp_op(e, c,bb,r,o1,NULL,NULL,v,ops); }
@@ -180,7 +178,7 @@ public:
   inline  void  Exp_op2v(UINT32 e, OPCODE c, CFG_BB_IDX bb, TN *r, TN *o1, TN *o2,VARIANT v, CGOP **ops)     {  Exp_op(e, c,bb,r,o1,o2,NULL,v,ops); }
   inline  void  Exp_op3(UINT32 e, OPCODE c,  CFG_BB_IDX bb, TN *r, TN *o1, TN *o2, TN *o3, CGOP **ops)     {  Exp_op(e, c,bb,r,o1,o2,o3,V_NONE,ops); }
   inline  void  Exp_op3v(UINT32 e, OPCODE c, CFG_BB_IDX bb, TN *r, TN *o1, TN *o2, TN *o3, VARIANT v, CGOP **ops)  {  Exp_op(e, c,bb,r,o1,o2,o3,v,ops); }
-  void          Exp_LDST(OPCODE opc,
+  void          Exp_load_store(OPCODE opc,
                          MTYPE_ID mtype, TN *src_res_tn,
                          TN *base_tn,
                          ST_IDX sym, INT64 ofst_val,
@@ -216,7 +214,7 @@ public:
   TN           *PREG_to_ST_TN(ST_IDX sym_idx, PREG_NUM preg_num);
 
   // Temporary Node related...
-  vector<TN *>  &Get_tn_table() {  return _global_tn_vec;  };
+  vector<TN *> &Get_tn_table() {  return _global_tn_vec;  };
   TN_IDX        Get_TN_from_symbol(ST_IDX sym);
   TN_IDX        Get_TN_by_ir_node(IR_ITER node, CFG_BB_IDX cur_bb);
   UINT32        TN_tab_size();

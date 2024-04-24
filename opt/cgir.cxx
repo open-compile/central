@@ -9,7 +9,7 @@ INLINE BOOL TR_LRA() {
   return Tracing(COMPONENT_CG_LRA, TRACE_DATA);
 }
 
-void CGIR::CG_Expand(SCOPE *scope) {
+void CGIR::CG_convert_function(SCOPE *scope) {
   // Do data layout
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::CG_Expand\n"));
@@ -21,7 +21,11 @@ void CGIR::CG_Expand(SCOPE *scope) {
   AssertThat(layout.find(func_sym) != layout.end(), ("Layout should have this function now. 0x%08x", func_sym));
   Layout()->Calculate_stack_frame_size(); // Calc frame size
   // Do IR to CGIR conversion
-  this->IR_to_CGIR(scope->getSt());
+  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
+           (TFile, "Perform IR to CGIR conversion in CGIR::IR_to_CGIR\n"));
+  CG_CFG    *function_cgir = Get_function(func_sym);
+  Set_current_cgir(function_cgir, func_sym);
+  Handle_func_body(tree->Get_root(), 0);
 }
 
 void CGIR::Data_layout(SCOPE *scope) {
@@ -36,16 +40,8 @@ void CGIR::Data_layout(SCOPE *scope) {
   Set_current_layout(onelayout);
 }
 
-void CGIR::IR_to_CGIR(ST_IDX sym) {
-  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
-           (TFile, "Perform IR to CGIR conversion in CGIR::IR_to_CGIR\n"));
-  CG_CFG    *function_cgir = Get_function(sym);
-  Set_current_cgir(function_cgir, sym);
-  Handle_Entry(tree->Get_root(), 0);
-}
-
 void
-CGIR::Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb) {
+CGIR::Handle_stid(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_STID\n"));
   AssertThat(OPCODE_operator(tree->Node(stmt)->Opcode()) == OPR_STID, ("Not a stid to be passed to Handle_stid"));
@@ -60,13 +56,13 @@ CGIR::Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   if (ST_symclass(sym) == SYM_CLASS_PREG) {
     TN *tn_res = PREG_to_TN(ST_ty(sym), ofst);
     res = TN_tn_idx(tn_res);
-    Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, tn_res);
+    Expand_expr (tree->Get_operand(stmt, 0), stmt, cur_bb, tn_res);
   } else {
     VARIANT variant = Memop_Variant(stmt);
-    TN *tn_res = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
+    TN *tn_res = Expand_expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
     AssertThat(tn_res != NULL, ("Expand of expr should not return null."));
     res = TN_tn_idx(tn_res);
-    Exp_LDST(opcode,
+    Exp_load_store(opcode,
              OPCODE_desc(opcode),
              tn_res,
              nullptr,
@@ -81,7 +77,7 @@ CGIR::Handle_STID(IR_ITER stmt, CFG_BB_IDX cur_bb) {
 
 
 TN *
-CGIR::Handle_LDID(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
+CGIR::Handle_ldid(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_LDID\n"));
   AssertThat(OPCODE_operator(tree->Node(stmt)->Opcode()) == OPR_LDID,
@@ -115,7 +111,7 @@ CGIR::Handle_LDID(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
   } else {
     VARIANT variant = Memop_Variant(stmt);
     TN *tn_res = TN_tn(res);
-    Exp_LDST(opcode,
+    Exp_load_store(opcode,
              OPCODE_desc(opcode),
              tn_res,
              nullptr,
@@ -130,7 +126,7 @@ CGIR::Handle_LDID(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
 
 
 TN *
-CGIR::Handle_ILOAD(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
+CGIR::Handle_iload(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_ILOAD\n"));
   AssertThat(OPCODE_operator(tree->Node(stmt)->Opcode()) == OPR_ILOAD,
@@ -139,7 +135,7 @@ CGIR::Handle_ILOAD(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
              ("Incorrect number of kid in ILOAD, 1 expected, got %d", tree->Number_of_children(
                stmt)));
 
-  TN *base_tn = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
+  TN *base_tn = Expand_expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
   AssertThat(base_tn != nullptr, ("base tn should not be null in ILOAD."));
 
   CG_OPRAND res       = 0;
@@ -158,7 +154,7 @@ CGIR::Handle_ILOAD(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
   } else {
     VARIANT variant = Memop_Variant(stmt);
     TN *tn_res = TN_tn(res);
-    Exp_LDST(opcode,
+    Exp_load_store(opcode,
              OPCODE_desc(opcode),
              tn_res,
              base_tn,
@@ -173,7 +169,7 @@ CGIR::Handle_ILOAD(IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res) {
 
 
 TN *
-CGIR::Handle_ISTORE(IR_ITER stmt, CFG_BB_IDX cur_bb) {
+CGIR::Handle_istore(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_ISTORE\n"))
   AssertThat(OPCODE_operator(tree->Node(stmt)->Opcode()) == OPR_ISTORE,
@@ -182,7 +178,7 @@ CGIR::Handle_ISTORE(IR_ITER stmt, CFG_BB_IDX cur_bb) {
              ("Incorrect number of kid in ILOAD, 1 expected, got %d", tree->Number_of_children(
                stmt)));
 
-  TN *base_tn = Expand_Expr (tree->Get_operand(stmt, 1), stmt, cur_bb, NULL);
+  TN *base_tn = Expand_expr (tree->Get_operand(stmt, 1), stmt, cur_bb, NULL);
   AssertThat(base_tn != nullptr, ("base tn should not be null in ISTORE."));
 
   OPCODE    opcode    = tree->Get_node(stmt)->Opcode();
@@ -195,10 +191,10 @@ CGIR::Handle_ISTORE(IR_ITER stmt, CFG_BB_IDX cur_bb) {
     return tn_res;
   } else {
     VARIANT variant = Memop_Variant(stmt);
-    TN *tn_res = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
+    TN *tn_res = Expand_expr (tree->Get_operand(stmt, 0), stmt, cur_bb, NULL);
     AssertThat(tn_res != NULL, ("Expand of expr should not return null."));
     res = TN_tn_idx(tn_res);
-    Exp_LDST(opcode,
+    Exp_load_store(opcode,
              OPCODE_desc(opcode),
              tn_res,
              base_tn,
@@ -213,7 +209,7 @@ CGIR::Handle_ISTORE(IR_ITER stmt, CFG_BB_IDX cur_bb) {
 
 
 TN *
-CGIR::Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res) {
+CGIR::Handle_lda(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_LDA\n"));
   AssertThat(OPCODE_operator(tree->Node(expr)->Opcode()) == OPR_LDA,
@@ -272,7 +268,7 @@ CGIR::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb) {
     TN      *func_val = Gen_Register_TN(ISA_REGISTER_CLASS_integer, 4);
     Set_TN_register(func_val, 0);
     Set_TN_is_preallocated(func_val);
-    TN      *tn_res   = Expand_Expr (tree->Get_operand(stmt, 0), stmt, cur_bb, func_val);
+    TN      *tn_res   = Expand_expr (tree->Get_operand(stmt, 0), stmt, cur_bb, func_val);
   }
   Handle_ret(stmt, cur_bb);
 }
@@ -284,7 +280,14 @@ void CGIR::Handle_ret(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   Cfg()->BB(cur_bb)->Add_stmt(cgop);
 }
 
-void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
+/**
+ * Convert a function's body to CGIR
+ * @param entry function body
+ * @param cur_bb current BB.
+ */
+void CGIR::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
+  // There could be global stuff here.
+  
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_Entry\n"));
   AssertThat(OPC_FUNC_ENTRY == tree->Get_node(entry)->Opcode(),
@@ -317,12 +320,12 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
     switch (OPCODE_operator(tree->Get_node(stmt)->Opcode())) {
       // What kind of opcode is allowed here.
       case OPR_STID: {
-        Handle_STID(stmt, cur_bb);
+        Handle_stid(stmt, cur_bb);
         cur_bb_stmt_processed ++;
         break;
       }
       case OPR_ISTORE: {
-        Handle_ISTORE(stmt, cur_bb);
+        Handle_istore(stmt, cur_bb);
         cur_bb_stmt_processed ++;
         break;
       }
@@ -343,26 +346,42 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
         CFG_BB_IDX next_bb = Cfg()->Add_bb(cur_bb);
         Handle_goto(stmt, cur_bb);
         Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
-                 (TFile, "Finishing a BB = %d, starting next bb = %d\n",
+                 (TFile, "After [goto], end of BB = %d, start next BB = %d\n",
                   cur_bb, next_bb));
         cur_bb = next_bb;
         cur_bb_stmt_processed = 0;
+        break;
       }
       case OPR_LABEL: {
         // Add a label to cur_bb or next_bb;
         LABEL_IDX lbl = tree->Node(stmt)->Get_label_num();
+        Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
+                 (TFile, "Found label(%d) in BB(%d) .. ", lbl, cur_bb));
         AssertThat(lbl != 0, ("Label idx cannot be zero"));
         if (cur_bb_stmt_processed == 0) {
           // First stmt, ok
           // Add a bb-label
+          // There should be no BB label id set already.
+          AssertThat(Cfg()->BB(cur_bb)->Get_label_id() == 0,
+            ("When processing the first stmt, there should be no label in the BB(%d), instead label = %d",
+              cur_bb, Cfg()->BB(cur_bb)->Get_label_id()));
+          Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
+                 (TFile, "set lbl(%d) for BB(%d)\n", lbl, cur_bb));
           Cfg()->BB(cur_bb)->Set_label_id(lbl);
           cur_bb_stmt_processed ++;
         } else {
+          // Ending the current-BB, and creating a new-BB
           // Create new bb including this as a start
           CFG_BB_IDX next_bb = Cfg()->Add_bb(cur_bb); // fall-thru
+          Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
+                 (TFile, "\nBefore [label], end of BB = %d, start next BB(%d), label for new BB = %d\n",
+                  cur_bb, next_bb, lbl));
+          AssertThat(Cfg()->BB(next_bb)->Get_label_id() == 0,
+            ("Before setting up the new bb, bb should contain no label, yet given %d",
+              next_bb, Cfg()->BB(next_bb)->Get_label_id()));
           Cfg()->BB(next_bb)->Set_label_id(lbl);
           cur_bb = next_bb;
-          cur_bb_stmt_processed = 0;
+          cur_bb_stmt_processed = 1;
         }
         break;
       }
@@ -457,18 +476,18 @@ void CGIR::Set_current_cgir(CG_CFG *cgir, ST_IDX sym) {
  * @return
  */
 TN *
-CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) {
+CGIR::Expand_expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
-           (TFile, "CGIR::Handle_expr\n"));
+           (TFile, "CGIR::Handle_Expr\n"));
   switch (OPCODE_operator(tree->Node(entry)->Opcode())) {
     case OPR_LDID: {
-      return Handle_LDID(entry, cur_bb, result);
+      return Handle_ldid(entry, cur_bb, result);
     }
     case OPR_LDA: {
-      return Handle_LDA(entry, cur_bb, result);
+      return Handle_lda(entry, cur_bb, result);
     }
     case OPR_ILOAD: {
-      return Handle_ILOAD(entry, cur_bb, result);
+      return Handle_iload(entry, cur_bb, result);
     }
     case OPR_CONST: {
       INT64 val = tree->Node(entry)->Get_const_val();
@@ -495,10 +514,10 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
     case OPR_DIV: {
       CGOP *exp_res = nullptr;
       TN *rh1_res = nullptr;
-      rh1_res = Expand_Expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
+      rh1_res = Expand_expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
       // TODO: If rh2 is a constant, maybe we could do a BIN_OP r1, r2, #const kind of transform.
       TN *rh2_res = nullptr;
-      rh2_res = Expand_Expr(tree->Get_operand(entry, 1), entry, cur_bb, rh2_res);
+      rh2_res = Expand_expr(tree->Get_operand(entry, 1), entry, cur_bb, rh2_res);
       AssertThat(rh1_res != nullptr && rh2_res != nullptr, ("Results cannot be null"));
       if (result == NULL) {
         result = TN_tn(Gen_TN(MTYPE_I4)); // rh1_res; // A trick to reduce # of register
@@ -509,7 +528,7 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
     case OPR_LNOT: {
       CGOP *exp_res = nullptr;
       TN *rh1_res = nullptr;
-      rh1_res = Expand_Expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
+      rh1_res = Expand_expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
       AssertThat(rh1_res != nullptr, ("Result cannot be null"));
       if (result == NULL) {
         result = TN_tn(Gen_TN(MTYPE_I4)); // rh1_res; // A trick to reduce # of register
@@ -546,6 +565,10 @@ TN_IDX CGIR::Get_TN_by_ir_node(IR_ITER node, CFG_BB_IDX cur_bb) {
   return Gen_TN(MTYPE_I4);
 }
 
+/**
+ * Global register allocation
+ * @param info Current function
+ */
 void CGIR::Local_register_allocate(PU_INFO *info) {
   Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_INVOCATION),
            (TFile, "CGIR::Local_register_allocate \n"));
@@ -724,7 +747,7 @@ OPCODE OPCODE_make_op(OPERATOR opr, MTYPE_ID res, MTYPE_ID desc) {
  * @param variant
  */
 void
-CGIR::Exp_LDST (
+CGIR::Exp_load_store (
   OPCODE opc,
   MTYPE_ID mtype,
   TN *src_res_tn,
@@ -1052,7 +1075,7 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
       Is_Trace(TR_LRA(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), REGISTER_spill));
       Set_TN_register(spill_tn, reg_num_to_use);
       _last_created.clear();
-      Exp_LDST(OPC_I4STID, MTYPE_I4,
+      Exp_load_store(OPC_I4STID, MTYPE_I4,
                spill_tn,
                nullptr,
                TN_spill(tn), 0,
@@ -1079,7 +1102,7 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
       Is_Trace(TR_LRA(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), reg_num_to_use));
       Set_TN_register(spill_tn, reg_num_to_use); // Making sure the two register are the same.
       _last_created.clear();
-      Exp_LDST(OPC_I4LDID, MTYPE_I4,
+      Exp_load_store(OPC_I4LDID, MTYPE_I4,
         spill_tn,
         nullptr,
         TN_spill(tn), 0, 0, cur_bb, V_BR_NONE);
@@ -1108,6 +1131,8 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
  * @param cur_bb
  */
 void CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb) {
+  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
+           (TFile, "CGIR::Handle_Goto\n"));
   CGOPC out_code = CGOPC_B;
   switch(OPCODE_operator(tree->Node(stmt)->Opcode())) {
     case OPR_GOTO: {
@@ -1121,13 +1146,13 @@ void CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb) {
       // Create cmp / tst instructions.
       TN *rh1_res = TN_tn(Gen_TN(MTYPE_I4));
       TN *rh2_res = nullptr;
-      Expand_Expr(tree->Get_operand(cond, 0), stmt, cur_bb, rh1_res);
+      Expand_expr(tree->Get_operand(cond, 0), stmt, cur_bb, rh1_res);
       if (tree->Node(tree->Get_operand(cond, 1))->Opcode() == OPC_I4CONST &&
           tree->Node(tree->Get_operand(cond, 1))->Get_const_val() < 255) {
         rh2_res = Gen_Literal_TN(tree->Node(tree->Get_operand(cond, 1))->Get_const_val(), REG_SIZE_I);
       } else {
         rh2_res = TN_tn(Gen_TN(MTYPE_I4));
-        Expand_Expr(tree->Get_operand(cond, 1), stmt, cur_bb, rh2_res);
+        Expand_expr(tree->Get_operand(cond, 1), stmt, cur_bb, rh2_res);
       }
       CGOP *cmpins = new CGOP(CGOPC_CMP, cur_bb, 0, TN_tn_idx(rh1_res), TN_tn_idx(rh2_res), 0);
       Cfg()->BB(cur_bb)->Add_stmt(cmpins);
@@ -1140,6 +1165,8 @@ void CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   LABEL_IDX lbl = tree->Node(stmt)->Get_label_num();
   AssertThat(lbl != 0, ("Invalid label num = %d", lbl));
   TN *label_tn = Gen_Label_TN(lbl, 0);
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO),
+    (TFile, "Create label tn for goto target : TN(%d), label-id = %d\n", TN_tn_idx(label_tn), lbl));
   CGOP *jmp = new CGOP(out_code, cur_bb, 0, TN_tn_idx(label_tn), 0, 0);
   Cfg()->BB(cur_bb)->Add_stmt(jmp);
 }
@@ -1195,10 +1222,10 @@ void CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb) {
   for (UINT32 i = 0; i < call_args; i++) {
     IR_ITER expr = tree->Get_operand(stmt, i);
     TN *result = TN_tn(Gen_TN(MTYPE_I4));
-    Expand_Expr(expr, stmt, to_mem_bb, result);
+    Expand_expr(expr, stmt, to_mem_bb, result);
     INT32 sp_ofst = -callargs_size - CALL_PUSH_SIZE + (i * 4);
     // SP related store
-    Exp_LDST(OPC_I4STID, MTYPE_I4,
+    Exp_load_store(OPC_I4STID, MTYPE_I4,
              result,
              Build_Dedicated_TN(REGISTER_CLASS_sp, REGISTER_sp, 4), 0,
              sp_ofst,
@@ -1215,7 +1242,7 @@ void CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb) {
     TN *dedic = TN_tn(Gen_TN(MTYPE_I4));
     Set_TN_is_preallocated(dedic);
     Set_TN_register(dedic, i);
-    Exp_LDST(OPC_I4LDID, MTYPE_I4,
+    Exp_load_store(OPC_I4LDID, MTYPE_I4,
              dedic,
              Build_Dedicated_TN(REGISTER_CLASS_sp, REGISTER_sp, 4), 0, sp_ofst,
              expr,
@@ -1258,28 +1285,28 @@ void CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb) {
 }
 
 CGOPC CGIR::Get_branch_cond(IR_ITER cond, BOOL is_true_br) {
-  OPERATOR org = OPCODE_operator(tree->Node(cond)->Opcode());
+  OPERATOR curopr = OPCODE_operator(tree->Node(cond)->Opcode());
   Is_Trace(Tracing(COMPONENT_CG, TRACE_DEBUG), (TFile,
-    "CGIR::Get_branch_cond, facing org = %d, is_true_br = %d\n", org, is_true_br));
+    "CGIR::Get_branch_cond, operator = OPR(%d) %s, is_true_br = %d\n", curopr, OPERATOR_name(curopr), is_true_br));
   if (!is_true_br) {
-    switch (org) {
+    switch (curopr) {
       case OPR_LT:
-        org = OPR_GE;
+        curopr = OPR_GE;
         break;
       case OPR_LE:
-        org = OPR_GT;
+        curopr = OPR_GT;
         break;
       case OPR_GE:
-        org = OPR_LT;
+        curopr = OPR_LT;
         break;
       case OPR_GT:
-        org = OPR_LE;
+        curopr = OPR_LE;
         break;
       case OPR_EQ:
-        org = OPR_NE;
+        curopr = OPR_NE;
         break;
       case OPR_NE:
-        org = OPR_EQ;
+        curopr = OPR_EQ;
         break;
       default:
         AssertThat(false, ("unknown reverse condition met: %s", OPCODE_name(tree->Node(cond)->Opcode())));
@@ -1287,7 +1314,7 @@ CGOPC CGIR::Get_branch_cond(IR_ITER cond, BOOL is_true_br) {
   }
   // Not true branch, aka false branch
   CGOPC end = CGOPC_B;
-  switch (org) {
+  switch (curopr) {
     case OPR_LT:
       end = CGOPC_BLT;
       break;
@@ -1327,7 +1354,7 @@ void CGIR::Add_store_formals(IR_ITER entry, CFG_BB_IDX bb) {
     TN *from_reg = Gen_Register_TN(ISA_REGISTER_CLASS_integer, MTYPE_size(MTYPE_I4));
     Set_TN_is_preallocated(from_reg);
     Set_TN_register(from_reg, Layout()->Get_sym_reg_num(sym));
-    Exp_LDST(OPC_I4STID, MTYPE_I4, from_reg, nullptr, sym, 0,
+    Exp_load_store(OPC_I4STID, MTYPE_I4, from_reg, nullptr, sym, 0,
              entry,
              bb, V_BR_NONE);
   }

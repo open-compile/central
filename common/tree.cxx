@@ -107,6 +107,24 @@ const char *OPCODE_name(OPCODE opcode) {
   return "UNKOWN";
 }
 
+OPERATOR_INFO opr_info_table[] = {
+#define OCIR_OPR(opr, opr_int, lhs, rhs, br, mem, cnst, commut)  \
+{opr, opr_int, lhs, rhs, br, mem, cnst, commut, #opr},
+#include "opr_base.h"
+#undef OCIR_OPR
+};
+
+
+const char *OPERATOR_name(OPERATOR opr) {
+  // TODO: Print it by someway else
+  UINT32      count = sizeof(opr_info_table) / sizeof(OPERATOR_INFO);
+  for (UINT32 i     = 0; i < count; i++) {
+    if (opr_info_table[i].opr == opr)
+      return opr_info_table[i].name;
+  }
+  return "UNKOWN";
+}
+
 IRNODE_IDX &IRNODE::Opnd(UINT32 pos) {
   AssertThat(pos == 0 || pos == 1, ("Operand must be zero or one"));
   return this->extra3.kids[pos];

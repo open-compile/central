@@ -41,7 +41,7 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
     Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DEBUG),
              (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
     File()->Scopes()->Goto_function(pu_info->proc_sym);
-    Cgir()->CG_Expand(&pu_info->scope); // Expansion
+    Cgir()->CG_convert_function(&pu_info->scope); // Expansion
     if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
       // Printing the cgir exapnsion result.
       Cgir()->Print(pu_info->proc_sym, TFile);
@@ -175,28 +175,24 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
   UINT32 bb_cnt = cgir->Cfg()->Size();
   for (UINT32 i = 0; i < bb_cnt; i++) {
     CGBB *cgbb = Cfg()->BB(i);
-
-    // label to be set
-    if (cgbb->Get_label_id() != 0) {
-      Is_Trace(TR_EMIT(), (out, "#  ---  BB has a label: ---   \n"));
-      Emit_label(func, out, cgbb->Get_label_id());
-    }
-
     // Tracings
     if (TR_EMIT()) {
-      fprintf(out, "#  --------- Processing BB : %d ---------  \n"
-                   "#  --------- BB label = %d      ---------  \n"
-                   "#  Pred: ", i, cgbb->Get_label_id());
+      fprintf(out, "#  --------- Processing BB : %d, label = %d ---------  \n"
+                   "#  --------- (Pred: ", i, cgbb->Get_label_id());
       for (auto prd_id = cgbb->Pred_begin();
            prd_id != cgbb->Pred_end(); prd_id++) {
         fprintf(out, "%d ", (*prd_id)->Get_id());
       }
-      fprintf(out, "\n#  Succ: ");
+      fprintf(out, ", Succ: ");
       for (auto prd_id = cgbb->Succ_begin();
            prd_id != cgbb->Succ_end(); prd_id++) {
         fprintf(out, "%d ", (*prd_id)->Get_id());
       }
-      fprintf(out, "\n");
+      fprintf(out, ") --------- \n");
+    }
+    // label to be set
+    if (cgbb->Get_label_id() != 0) {
+      Emit_label(func, out, cgbb->Get_label_id());
     }
     const int FUNC_PUSH_SIZE = 28 + 8;
     const int SP_EXTRA = FUNC_PUSH_SIZE - 4;
@@ -233,7 +229,7 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
       fprintf(out, "\tpop\t{r4-r10}\n"
                    "\tpop\t{fp, pc}\n");
     }
-    Is_Trace(TR_EMIT(), (out, "#  -------- Begin Code ---------- \n"));
+    Is_Trace(TR_EMIT(), (TFile, "Emit_code: Begin real stmt in BB(%d)\n", i));
     // If there is a label to it, emit the label
     for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
       CGOP *cgop = (*stmt_it);
