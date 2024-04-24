@@ -159,8 +159,8 @@ public:
   TN           *Handle_LDA(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res);
   void          Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb);
   void          Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb);
-  CFG_BB_IDX    Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb);
-  CFG_BB_IDX    Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb);
+  void          Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb);
+  void          Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb);
   void          Handle_ret(IR_ITER, CFG_BB_IDX cur_bb);
   // Expanding stuff, such as expression
   TN           *Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result);

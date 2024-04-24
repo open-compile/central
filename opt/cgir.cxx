@@ -295,9 +295,6 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
 
   Add_store_formals(entry, cur_bb);
 
-  // Create new BB.
-  cur_bb = Cfg()->Add_bb(cur_bb);
-
   // Do nothing
   IR_ITER root = tree->Get_root();
   AssertThat(root != nullptr, ("root should not be empty"));
@@ -308,6 +305,8 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
              (TFile, "There is no statement in the body, skip conversion to CGIR\n"));
     return;
   }
+
+  // stmt having already proccessed in BB
   UINT32 cur_bb_stmt_processed = 0;
 
   //FIXME: There should not be so much BB, There's simply too much BB here.
@@ -315,38 +314,39 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
   for (UINT32 stmt_idx = 0; stmt_idx < tree->Number_of_children(body); stmt_idx++) {
     IR_ITER stmt = tree->Get_operand(body, stmt_idx);
     AssertThat(*stmt != 0, ("Incorrect child, node 0 should not be a statement, 0 is only allowed in root position"));
-    cur_bb = Cfg()->Add_bb(cur_bb);
-    cur_bb_stmt_processed = 0;
     switch (OPCODE_operator(tree->Get_node(stmt)->Opcode())) {
       // What kind of opcode is allowed here.
       case OPR_STID: {
         Handle_STID(stmt, cur_bb);
+        cur_bb_stmt_processed ++;
         break;
       }
       case OPR_ISTORE: {
         Handle_ISTORE(stmt, cur_bb);
+        cur_bb_stmt_processed ++;
         break;
       }
       case OPR_RETURN: {
         Handle_ret(stmt, cur_bb);
-        cur_bb_stmt_processed = 0;
+        cur_bb_stmt_processed ++;
         break;
       }
       case OPR_RETURN_VAL: {
         Handle_ret_val(stmt, cur_bb);
+        cur_bb_stmt_processed ++;
         break;
       }
       case OPR_FALSEBR:
       case OPR_TRUEBR:
       case OPR_GOTO: {
-        CFG_BB_IDX next_bb = 0;
-        next_bb = Handle_goto(stmt, cur_bb);
+        // Create a new BB in jumps
+        CFG_BB_IDX next_bb = Cfg()->Add_bb(cur_bb);
+        Handle_goto(stmt, cur_bb);
         Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
                  (TFile, "Finishing a BB = %d, starting next bb = %d\n",
                   cur_bb, next_bb));
         cur_bb = next_bb;
         cur_bb_stmt_processed = 0;
-        break;
       }
       case OPR_LABEL: {
         // Add a label to cur_bb or next_bb;
@@ -356,6 +356,7 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
           // First stmt, ok
           // Add a bb-label
           Cfg()->BB(cur_bb)->Set_label_id(lbl);
+          cur_bb_stmt_processed ++;
         } else {
           // Create new bb including this as a start
           CFG_BB_IDX next_bb = Cfg()->Add_bb(cur_bb); // fall-thru
@@ -368,16 +369,14 @@ void CGIR::Handle_Entry(IR_ITER entry, CFG_BB_IDX cur_bb) {
       case OPR_CALL: {
         // Create new bb including this as a start
         CFG_BB_IDX next_bb = Cfg()->Add_bb(cur_bb); // fall-thru
-        CFG_BB_IDX bb_after_call = Handle_call(stmt, cur_bb, next_bb);
-        cur_bb = bb_after_call;
-        cur_bb_stmt_processed = 0;
+        Handle_call(stmt, cur_bb, next_bb);
+        cur_bb_stmt_processed ++;
         break;
       }
       default: {
         AssertThat(false, ("Opcode: %s should not be in the body", OPCODE_name(tree->Get_node(stmt)->Opcode())));
       }
     }
-    cur_bb_stmt_processed ++;
   }
 }
 
@@ -509,7 +508,8 @@ CGIR::Expand_Expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result) 
     }
     case OPR_LNOT: {
       CGOP *exp_res = nullptr;
-      TN *rh1_res = Expand_Expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
+      TN *rh1_res = nullptr;
+      rh1_res = Expand_Expr(tree->Get_operand(entry, 0), entry, cur_bb, rh1_res);
       AssertThat(rh1_res != nullptr, ("Result cannot be null"));
       if (result == NULL) {
         result = TN_tn(Gen_TN(MTYPE_I4)); // rh1_res; // A trick to reduce # of register
@@ -1102,8 +1102,12 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
   }
 }
 
-CFG_BB_IDX CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb) {
-  CFG_BB_IDX newbb = Cfg()->Add_bb(cur_bb);
+/**
+ * Handle goto, falsebr, branch ....
+ * @param stmt STMT to process
+ * @param cur_bb
+ */
+void CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   CGOPC out_code = CGOPC_B;
   switch(OPCODE_operator(tree->Node(stmt)->Opcode())) {
     case OPR_GOTO: {
@@ -1138,10 +1142,9 @@ CFG_BB_IDX CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb) {
   TN *label_tn = Gen_Label_TN(lbl, 0);
   CGOP *jmp = new CGOP(out_code, cur_bb, 0, TN_tn_idx(label_tn), 0, 0);
   Cfg()->BB(cur_bb)->Add_stmt(jmp);
-  return newbb;
 }
 
-CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb) {
+void CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb) {
   ST_IDX func_sym      = tree->Node(stmt)->Get_symbol_idx();
   LABEL_IDX lbl_idx    = File()->Create_label(ST_st(func_sym)->getNameIdx(), 0,
                                               LKIND_DEFAULT);
@@ -1181,7 +1184,13 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
   AssertThat(arg_id == call_args,
              ("Insufficient arguments %d needed , %d present",
                arg_id, call_args));
-  CFG_BB_IDX to_mem_bb = Cfg()->Add_bb(cur_bb);
+
+  // Function call-site
+  // Make sure that all values store to formal.
+  // Currently use the same bb for storing formals on mem/reg
+  UINT32 to_mem_bb = cur_bb;
+  UINT32 to_reg_bb = cur_bb;
+
   // Create a new BB for storing to memory.
   for (UINT32 i = 0; i < call_args; i++) {
     IR_ITER expr = tree->Get_operand(stmt, i);
@@ -1197,7 +1206,6 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
              to_mem_bb, V_BR_NONE);
   }
 
-  CFG_BB_IDX to_reg_bb = Cfg()->Add_bb(to_mem_bb);
   // Create a new BB for loading to r0 to r3.
   for (UINT32 i = 0; i < 4 && i < call_args; i++) {
     IR_ITER expr = tree->Get_operand(stmt, i);
@@ -1234,7 +1242,7 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
 
   // After calling, handling results.
   // Re-adjust sp
-  CFG_BB_IDX after_call_bb = Cfg()->Add_bb(to_reg_bb);
+  CFG_BB_IDX after_call_bb = cur_bb;
   if (call_args > 0) {
     CGOP *readjust_sp = new CGOP(CGOPC_ADD, cur_bb,
                                  TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_sp,
@@ -1247,11 +1255,12 @@ CFG_BB_IDX CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb
     CGOP *pop_sp   = new CGOP(CGOPC_POPR, cur_bb, 0, 0, 0, 0);
     Cfg()->BB(after_call_bb)->Add_stmt(pop_sp);
   }
-  return after_call_bb;
 }
 
 CGOPC CGIR::Get_branch_cond(IR_ITER cond, BOOL is_true_br) {
   OPERATOR org = OPCODE_operator(tree->Node(cond)->Opcode());
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_DEBUG), (TFile,
+    "CGIR::Get_branch_cond, facing org = %d, is_true_br = %d\n", org, is_true_br));
   if (!is_true_br) {
     switch (org) {
       case OPR_LT:
@@ -1276,6 +1285,7 @@ CGOPC CGIR::Get_branch_cond(IR_ITER cond, BOOL is_true_br) {
         AssertThat(false, ("unknown reverse condition met: %s", OPCODE_name(tree->Node(cond)->Opcode())));
     }
   }
+  // Not true branch, aka false branch
   CGOPC end = CGOPC_B;
   switch (org) {
     case OPR_LT:

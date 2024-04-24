@@ -69,7 +69,7 @@ public:
   };
 
   // Add a BB with predecessor
-  CFG_BB_IDX Add_bb(INT pred) {
+  CFG_BB_IDX Add_bb(CFG_BB_IDX pred) {
     CFG_BB_IDX new_bb = Add_bb();
     this->BB(pred)->Add_succ(BB(new_bb));
     this->BB(new_bb)->Add_pred(BB(pred));

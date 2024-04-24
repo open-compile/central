@@ -7,10 +7,12 @@
 #include "options.h"
 #include "cfg_common.h"
 
-// Define CG-opcode
-class CGNOP {
+#include "cg_basic.h"
+#include "cg_variant.h"
+#include "tn.h"
 
-};
+using IR_TN_MAP = std::unordered_map<IRNODE_IDX, TN*>;
+using TN_IR_MAP = std::unordered_map<TN*, IRNODE_IDX>;
 
 template<typename N>
 class CGN_CFG_BB_BASE: public CFG_BB_BASE<N> {
@@ -19,7 +21,7 @@ class CGN_CFG_BB_BASE: public CFG_BB_BASE<N> {
 };
 
 // BB definitions
-typedef CGN_CFG_BB_BASE<CGNOP> CGBB;
+typedef CGN_CFG_BB_BASE<CGOP> CGBB;
 typedef vector<CGBB *> CGBB_VECTOR;
 typedef typename vector<CGBB *>::iterator CGBB_ITER;
 
