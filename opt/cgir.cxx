@@ -287,7 +287,9 @@ void CGIR::Handle_ret(IR_ITER stmt, CFG_BB_IDX cur_bb) {
  */
 void CGIR::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
   // There could be global stuff here.
-  
+  map<LABEL_IDX, CFG_BB_IDX> func_label_bb_map;
+  map<CFG_BB_IDX, LABEL_IDX> goto_need_revisit_list;
+
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_Entry\n"));
   AssertThat(OPC_FUNC_ENTRY == tree->Get_node(entry)->Opcode(),
@@ -397,12 +399,16 @@ void CGIR::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
       }
     }
   }
+  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA), (TFile, "Ending function body.\n"));
+  Add_epilog(cur_bb);
 }
 
 /**
  *  A unique function to add prolog and epilog to the CGIR;
+ *  @param cur_bb the current BB.
  */
-UINT32 CGIR::Add_prolog(UINT32 cur_bb) {
+CFG_BB_IDX CGIR::Add_prolog(CFG_BB_IDX cur_bb) {
+  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA), (TFile, "Adding function prologue BB.\n"));
   // Create a block
   cur_bb = Cfg()->Add_bb();
   // Adding entry BB.
@@ -413,8 +419,10 @@ UINT32 CGIR::Add_prolog(UINT32 cur_bb) {
 
 /**
  *  A unique function to add prolog and epilog to the CGIR;
+ *  @param cur_bb the current BB.
  */
-UINT32 CGIR::Add_epilog(UINT32 cur_bb) {
+CFG_BB_IDX CGIR::Add_epilog(CFG_BB_IDX cur_bb) {
+  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA), (TFile, "Adding function epilog BB.\n"));
   // Adding function epilog (exit BB)
   cur_bb = Cfg()->Add_bb(cur_bb);
   Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_EXIT);

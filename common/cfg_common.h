@@ -57,6 +57,8 @@ public:
 private:
   CFG_BB_EDGES_STORE                           _edges;
   BB_VECTOR                                    _bb_list;
+  map<LABEL_IDX, CFG_BB_IDX>                   _label_to_bb_map;
+  vector<CFG_BB_IDX>                           _revisit_goto_bb_list;
 public:
   // iterators, accesses
   BB_ITER Begin() { return _bb_list.begin(); }

@@ -135,6 +135,7 @@ private:
   DATA_LAYOUT                *_current_layout;
   TREE                        *tree;
   vector<CGOP *>               _last_created;
+
 public:
   CG_CFG       *Get_function(ST_IDX func_sym) {
     if(trees.find(func_sym) == trees.end()) {
@@ -146,8 +147,8 @@ public:
   // Start the cg transformation of a function.
   void          CG_convert_function(SCOPE *scope);        // Initialize the CG stuff
   void          Data_layout(SCOPE *scope);    // Do data layout
-  UINT32        Add_prolog(UINT32 bb);
-  UINT32        Add_epilog(UINT32 bb);
+  CFG_BB_IDX    Add_prolog(CFG_BB_IDX bb);
+  CFG_BB_IDX    Add_epilog(CFG_BB_IDX bb);
   void          Set_current_cgir(CG_CFG *cgir, ST_IDX sym);
   CG_CFG       *Cfg() { return _current; }
   void          Local_register_allocate(PU_INFO *info);
