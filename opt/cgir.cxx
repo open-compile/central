@@ -729,12 +729,14 @@ void CGIR::Print(ST_IDX sym, FILE *file) {
           DBAR, ST_name(sym), sym, DBAR);
   Get_function(sym)->Print(file);
 
-  fprintf(file, "%sPrinting the TN info\n%s", DBAR, DBAR);
-  // Printing TNs
-  for (INT32 i = TN_tab_size() - 1; i >= 0; i--) {
-    TN *tn_obj = TN_tn(i);
-    fprintf(file, "[TN %-8d, 0x%04x]  ", i, i);
-    tn_obj->Print(file);
+  if (Tracing(COMPONENT_CG_CONV, TRACE_DEBUG)) {
+    fprintf(file, "%sPrinting the TN info\n%s", DBAR, DBAR);
+    // Printing TNs
+    for (INT32 i = TN_tab_size() - 1; i >= 0; i--) {
+      TN *tn_obj = TN_tn(i);
+      fprintf(file, "[TN %-8d, 0x%04x]  ", i, i);
+      tn_obj->Print(file);
+    }
   }
 }
 

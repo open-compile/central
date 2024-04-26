@@ -66,9 +66,14 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
 
   if(Tracing(COMPONENT_BE, TRACE_EMIT_CORE)) {
     // Dump the tree again after all optimizations
-    Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
+    Is_Trace(Tracing(COMPONENT_BE, TRACE_EMIT_CORE),
              (TFile, "Completed all lowering, dumping the IR again. \n"));
     File()->Print(TFile);
+  } else if(Tracing(COMPONENT_BE, TRACE_EMIT_BASIC)) {
+    // Dump the tree again after all optimizations
+    Is_Trace(Tracing(COMPONENT_BE, TRACE_EMIT_BASIC),
+             (TFile, "Completed all lowering, dumping the IR's function program again. \n"));
+    File()->Tables()->Print_functions(TFile);
   }
   return 0;
 }

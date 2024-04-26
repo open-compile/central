@@ -108,7 +108,7 @@ void Set_mod_tracing_option(COMPONENTS_WHOLE comp, TRACE_KIND desired) {
     res_opts = static_cast<TRACE_KIND>(0x7fffffff);
   }
   UINT32 max = COMPONENT_MAX;
-  for (UINT32 i = 0; i < max; i++) {
-    Trace_opts[i] = res_opts;
-  }
+  AssertThat(comp <= max,
+    ("Component index out of bound when seeting up trace opt: %d", comp));
+  Trace_opts[comp] = res_opts;
 }
