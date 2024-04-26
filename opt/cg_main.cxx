@@ -177,18 +177,8 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
     CGBB *cgbb = Cfg()->BB(i);
     // Tracings
     if (TR_EMIT()) {
-      fprintf(out, "#  --------- Processing BB : %d, label = %d ---------  \n"
-                   "#  --------- (Pred: ", i, cgbb->Get_label_id());
-      for (auto prd_id = cgbb->Pred_begin();
-           prd_id != cgbb->Pred_end(); prd_id++) {
-        fprintf(out, "%d ", (*prd_id)->Get_id());
-      }
-      fprintf(out, ", Succ: ");
-      for (auto prd_id = cgbb->Succ_begin();
-           prd_id != cgbb->Succ_end(); prd_id++) {
-        fprintf(out, "%d ", (*prd_id)->Get_id());
-      }
-      fprintf(out, ") --------- \n");
+      // Printing some BB level basic info before each basic block.
+      cgbb->Print_basic(out);
     }
     // label to be set
     if (cgbb->Get_label_id() != 0) {

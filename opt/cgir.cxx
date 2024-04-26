@@ -246,7 +246,7 @@ CGIR::Handle_lda(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res) {
 }
 
 void
-CGIR::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb) {
+CGIR::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb, CGBUILDER &builder) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_ret_val\n"));
   AssertThat(OPCODE_operator(tree->Node(stmt)->Opcode()) == OPR_RETURN_VAL,
@@ -270,10 +270,10 @@ CGIR::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb) {
     Set_TN_is_preallocated(func_val);
     TN      *tn_res   = Expand_expr (tree->Get_operand(stmt, 0), stmt, cur_bb, func_val);
   }
-  Handle_ret(stmt, cur_bb);
+  Handle_ret(stmt, cur_bb, builder);
 }
 
-void CGIR::Handle_ret(IR_ITER stmt, CFG_BB_IDX cur_bb) {
+void CGIR::Handle_ret(IR_ITER stmt, CFG_BB_IDX cur_bb, CGBUILDER &builder) {
   LABEL_IDX lbl   = File()->Get_func_exit_label();
   CGOP      *cgop = new CGOP(CGOPC_B, *stmt, cur_bb,
                                0, TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0);
@@ -287,8 +287,8 @@ void CGIR::Handle_ret(IR_ITER stmt, CFG_BB_IDX cur_bb) {
  */
 void CGIR::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
   // There could be global stuff here.
-  map<LABEL_IDX, CFG_BB_IDX> func_label_bb_map;
-  map<CFG_BB_IDX, LABEL_IDX> goto_need_revisit_list;
+  CGBUILDER builder;
+  builder.Init(Cfg());
 
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_Entry\n"));
@@ -332,12 +332,12 @@ void CGIR::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
         break;
       }
       case OPR_RETURN: {
-        Handle_ret(stmt, cur_bb);
+        Handle_ret(stmt, cur_bb, builder);
         cur_bb_stmt_processed ++;
         break;
       }
       case OPR_RETURN_VAL: {
-        Handle_ret_val(stmt, cur_bb);
+        Handle_ret_val(stmt, cur_bb, builder);
         cur_bb_stmt_processed ++;
         break;
       }
@@ -345,8 +345,13 @@ void CGIR::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
       case OPR_TRUEBR:
       case OPR_GOTO: {
         // Create a new BB in jumps
-        CFG_BB_IDX next_bb = Cfg()->Add_bb(cur_bb);
-        Handle_goto(stmt, cur_bb);
+        CFG_BB_IDX next_bb = 0;
+        if(OPCODE_operator(tree->Get_node(stmt)->Opcode()) == OPR_GOTO) {
+          next_bb = Cfg()->Add_bb();
+        } else {
+          next_bb = Cfg()->Add_bb(cur_bb);
+        }
+        Handle_goto(stmt, cur_bb, next_bb, builder);
         Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
                  (TFile, "After [goto], end of BB = %d, start next BB = %d\n",
                   cur_bb, next_bb));
@@ -370,6 +375,7 @@ void CGIR::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
           Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
                  (TFile, "set lbl(%d) for BB(%d)\n", lbl, cur_bb));
           Cfg()->BB(cur_bb)->Set_label_id(lbl);
+          builder.Bind_label_to_bb(lbl, cur_bb);
           cur_bb_stmt_processed ++;
         } else {
           // Ending the current-BB, and creating a new-BB
@@ -382,6 +388,7 @@ void CGIR::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
             ("Before setting up the new bb, bb should contain no label, yet given %d",
               next_bb, Cfg()->BB(next_bb)->Get_label_id()));
           Cfg()->BB(next_bb)->Set_label_id(lbl);
+          builder.Bind_label_to_bb(lbl, next_bb);
           cur_bb = next_bb;
           cur_bb_stmt_processed = 1;
         }
@@ -401,6 +408,9 @@ void CGIR::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
   }
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA), (TFile, "Ending function body.\n"));
   Add_epilog(cur_bb);
+
+  // Fixup the predecessor / successor info for the BB CFG.
+  builder.Fixup_pred_succ();
 }
 
 /**
@@ -725,7 +735,7 @@ void CGIR::Print(FILE *file) {
 void CGIR::Print(ST_IDX sym, FILE *file) {
   // Print a functions detail.
   AssertThat(ST_st(sym) != nullptr, ("invalid function ST_IDX to print in CGIR"));
-  fprintf(file, "%sPrinting the CGIR's function : name = %s, sym = 0x%08x\n%s",
+  fprintf(file, "%sPrinting the CGIR's function with sym : name = %s, sym = 0x%08x\n%s",
           DBAR, ST_name(sym), sym, DBAR);
   Get_function(sym)->Print(file);
 
@@ -1140,12 +1150,13 @@ void CGIR::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
  * @param stmt STMT to process
  * @param cur_bb
  */
-void CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb) {
+void CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb, CGBUILDER &builder) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR::Handle_Goto\n"));
   CGOPC out_code = CGOPC_B;
   switch(OPCODE_operator(tree->Node(stmt)->Opcode())) {
     case OPR_GOTO: {
+      // Add to todo list.
       out_code = CGOPC_B;
       break;
     }
@@ -1179,6 +1190,9 @@ void CGIR::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb) {
     (TFile, "Create label tn for goto target : TN(%d), label-id = %d\n", TN_tn_idx(label_tn), lbl));
   CGOP *jmp = new CGOP(out_code, cur_bb, 0, TN_tn_idx(label_tn), 0, 0);
   Cfg()->BB(cur_bb)->Add_stmt(jmp);
+
+  // Adding this jump info to correctly mark up BB's relations graph.
+  builder.Mark_goto_in_bb( cur_bb, lbl);
 }
 
 void CGIR::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb) {

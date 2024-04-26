@@ -113,7 +113,7 @@ typedef CG_CFG_BB_BASE<CGOP>              CGBB;
 typedef vector<CGBB *>                    CGBB_VECTOR;
 typedef typename vector<CGBB *>::iterator CGBB_ITER;
 typedef CG_CFG_BASE<CGOP>                 CG_CFG;
-
+typedef CFG_BB_BUILDER<CGOP, CGBB>        CGBUILDER;
 
 
 extern std::vector<TN *>              _global_tn_vec;
@@ -162,11 +162,11 @@ public:
   TN           *Handle_iload    (IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res);
   TN           *Handle_istore   (IR_ITER stmt, CFG_BB_IDX cur_bb);
   TN           *Handle_lda      (IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res);
-  void          Handle_ret_val  (IR_ITER stmt, CFG_BB_IDX cur_bb);
-  void          Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb);
-  void          Handle_goto     (IR_ITER stmt, CFG_BB_IDX cur_bb);
+  void          Handle_ret_val  (IR_ITER stmt, CFG_BB_IDX cur_bb, CGBUILDER &builder);
+  void          Handle_func_body(IR_ITER enti, CFG_BB_IDX cur_bb);
+  void          Handle_goto     (IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb, CGBUILDER &builder);
   void          Handle_call     (IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb);
-  void          Handle_ret      (IR_ITER, CFG_BB_IDX cur_bb);
+  void          Handle_ret      (IR_ITER stmt, CFG_BB_IDX cur_bb, CGBUILDER &builder);
 
   // Expanding stuff, such as expression
   TN           *Expand_expr     (IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result);

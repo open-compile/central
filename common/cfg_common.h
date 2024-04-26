@@ -57,8 +57,6 @@ public:
 private:
   CFG_BB_EDGES_STORE                           _edges;
   BB_VECTOR                                    _bb_list;
-  map<LABEL_IDX, CFG_BB_IDX>                   _label_to_bb_map;
-  vector<CFG_BB_IDX>                           _revisit_goto_bb_list;
 public:
   // iterators, accesses
   BB_ITER Begin() { return _bb_list.begin(); }
@@ -96,7 +94,7 @@ public:
   }
   void  Print(FILE *file = stderr)  {
     // Print ...
-    fprintf(file, "%sPrinting CFG_BASE of size : %d\n%s",
+    fprintf(file, "%sPrinting control flow graph, of size : %d\n%s",
             DBAR, this->Size(), DBAR);
     for (UINT32 i = 0; i < this->Size(); i++) {
       this->Node(i)->Print(file);
@@ -395,9 +393,23 @@ public:
   const_bb_iterator df_end(BOOL df)   const { return (df) ? _df_list.end() : _cd_list.end();       }
 
   // Utility functions
+  void Print_basic(FILE *out = stderr) {
+    fprintf(out, "#  --------- Printing BB : %d, label = %d = 0x%04x  ---------  \n"
+            "#  --------- (Pred: ", Get_id(), Get_label_id(), Get_label_id());
+    for (auto prd_id = Pred_begin();
+         prd_id != Pred_end(); prd_id++) {
+      fprintf(out, "%d ", (*prd_id)->Get_id());
+    }
+    fprintf(out, ", Succ: ");
+    for (auto prd_id = Succ_begin();
+         prd_id != Succ_end(); prd_id++) {
+      fprintf(out, "%d ", (*prd_id)->Get_id());
+    }
+    fprintf(out, ") --------- \n");
+  }
   void              Print(FILE *file = stderr) {
-    fprintf(file, "===== Printing CFG_BB_BASE id = %d =======\n", _id);
-    fprintf(file, "===== with %lu statements inside =======\n", _stmts.size());
+    this->Print_basic(file);
+    fprintf(file, "#  --------- with %lu statements inside  --------- \n", _stmts.size());
     for (UINT32 i = 0; i < _stmts.size(); i++) {
       // STMTs
       _stmts[i]->Print(file);
@@ -476,6 +488,72 @@ public:
   }
 };
 
+
+
+template<typename NODE_TYPE, typename BB_TYPE>
+class CFG_BB_BUILDER {
+private:
+  CFG_BASE<NODE_TYPE, BB_TYPE>                *_cfg               = nullptr;
+  map<LABEL_IDX, CFG_BB_IDX>                   _label_to_bb_map;
+  map<CFG_BB_IDX, LABEL_IDX>                   _bb_goto_label;
+  vector<CFG_BB_IDX>                           _revisit;  // the list to revisit when the labels, goto are all marked.
+public:
+  void Init(CFG_BASE<NODE_TYPE, BB_TYPE> *cfg) {
+    _cfg = cfg;
+  };
+  void Bind_label_to_bb(LABEL_IDX label, CFG_BB_IDX bb_id) {
+    Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
+      (TFile, "[CFG-Builder] Marking up label %d = %04x at BB %d\n", label, label, bb_id));
+    _label_to_bb_map.insert(std::make_pair(label, bb_id));
+  }
+  void Mark_goto_in_bb(CFG_BB_IDX bb, LABEL_IDX label) {
+    Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
+      (TFile, "[CFG-Builder] Marking up BB %d goto label %d = %04x\n", bb, label, label));
+    _bb_goto_label.insert(std::make_pair(bb, label));
+    _revisit.push_back(bb);
+  }
+  void Fixup_pred_succ() {
+    if (!_cfg) {
+      // cfg not ready.
+      AssertThat(false, ("Call Init first before using fixup pred-succ utility. nullptr found"));
+      return;
+    }
+    Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA), (TFile, "[CFG-Builder] Fixing up BB's pred / succ relations..\n"));
+    for(auto it = _revisit.begin(); it != _revisit.end(); it++) {
+      CFG_BB_IDX such_bb = *it;
+      LABEL_IDX to_label = 0;
+      if (_bb_goto_label.find(such_bb) != _bb_goto_label.end()) {
+        to_label = _bb_goto_label[such_bb];
+      } else {
+        AssertThat(to_label != 0,
+          ("Couldn't find BB %d in bb-goto-label map, map's size = %d",
+          such_bb, _bb_goto_label.size()));
+      }
+      AssertThat(to_label != 0,
+        ("The goto target label cannot be zero for BB = %d", such_bb));
+      CFG_BB_IDX target_bb = 0;
+      if (_label_to_bb_map.find(to_label) != _label_to_bb_map.end()) {
+        target_bb = _label_to_bb_map[to_label];
+      } else {
+        AssertThat(target_bb != 0,
+          ("Couldn't find target BB for label %d in label-bb map, map's size = %d",
+          (INT32) to_label, _label_to_bb_map.size()));
+      }
+      AssertThat(target_bb != 0,
+        ("The target bb cannot be zero for label = %d", to_label));
+      AssertThat(such_bb < _cfg->Size() && target_bb < _cfg->Size(),
+        ("The such_bb = %d, target_bb = %d, not be valid bb id, for label = %d", such_bb, target_bb, to_label));
+      // pred: such_bb, succ: target_bb
+      Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
+        (TFile, "[CFG-Builder] Add relation BB %d -> %d, found via label = %04x..\n", such_bb, target_bb, to_label));
+      _cfg->BB(such_bb)->Add_succ(_cfg->BB(target_bb));
+      _cfg->BB(target_bb)->Add_pred(_cfg->BB(such_bb));
+    }
+  }
+  void Unbind_all_labels() {
+    _label_to_bb_map.clear();
+  };
+};
 
 // We probably need a SSA based stuff;
 
