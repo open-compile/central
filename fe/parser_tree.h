@@ -47,7 +47,7 @@ public:
 
   virtual string getTypeName() const = 0;
 
-  virtual void print(string prefix) const {}
+  virtual void print(FILE *outfile, string prefix) const {}
 
   virtual Json::Value jsonGen() const { return Json::Value(); }
   void Set_lineno(INT32 lineno) {
@@ -66,8 +66,8 @@ public:
     return "NExpression";
   }
 
-  virtual void print(string prefix) const override {
-    cout << prefix << getTypeName() << endl;
+  virtual void print(FILE *outfile, string prefix) const override {
+    fprintf(outfile, "%s%s\n", prefix.c_str(), getTypeName().c_str());
   }
 
   Json::Value jsonGen() const override {
@@ -86,8 +86,8 @@ public:
     return "NStatement";
   }
 
-  virtual void print(string prefix) const override {
-    cout << prefix << getTypeName() << endl;
+  virtual void print(FILE*outfile, string prefix) const override {
+    fprintf(outfile, "%s%s\n", prefix.c_str(), getTypeName().c_str());
   }
 
   Json::Value jsonGen() const override {
@@ -112,8 +112,8 @@ public:
     return "NDouble";
   }
 
-  void print(string prefix) const override {
-    cout << prefix << getTypeName() << this->m_DELIM << value << endl;
+  void print(FILE*outfile, string prefix) const override {
+    fprintf(outfile, "%s%s%c%lf\n", prefix.c_str(), getTypeName().c_str(), m_DELIM, value);
   }
 
   Json::Value jsonGen() const override {
@@ -140,8 +140,8 @@ public:
     return "NInteger";
   }
 
-  void print(string prefix) const override {
-    cout << prefix << getTypeName() << this->m_DELIM << value << endl;
+  void print(FILE*outfile, string prefix) const override {
+    fprintf(outfile, "%s%s%c%llu\n", prefix.c_str(), getTypeName().c_str(), m_DELIM, value);
   }
 
   Json::Value jsonGen() const override {
@@ -191,14 +191,13 @@ public:
     return root;
   }
 
-  void print(string prefix) const override {
+  void print(FILE*outfile, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << name
-         << (isArray ? "(Array)" : "") << endl;
+    fprintf(outfile, "%s%s%c%s%s\n", prefix.c_str(), getTypeName().c_str(), m_DELIM, name.c_str(), (isArray ? "(Array)" : ""));
     if (isArray && arraySize->size() > 0) {
       AssertThat(arraySize != nullptr, ("Array size should not be nullptr"));
       for (auto it = arraySize->begin(); it != arraySize->end(); it++) {
-        (*it)->print(nextPrefix);
+        (*it)->print(outfile, nextPrefix);
       }
     }
   }
@@ -256,14 +255,14 @@ public:
     return root;
   }
 
-  void print(string prefix) const override {
+  void print(FILE *f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM);
     for (auto it = values->begin(); it != values->end(); it++) {
-      (*it)->print(nextPrefix);
+      (*it)->print(f, nextPrefix);
     }
     for (auto it = children->begin(); it != children->end(); it++) {
-      (*it)->print(nextPrefix);
+      (*it)->print(f, nextPrefix);
     }
   }
 };
@@ -300,12 +299,12 @@ public:
     return root;
   }
 
-  void print(string prefix) const override {
+  void print(FILE *f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
-    this->id->print(nextPrefix);
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM);
+    this->id->print(f, nextPrefix);
     for (auto it = arguments->begin(); it != arguments->end(); it++) {
-      (*it)->print(nextPrefix);
+      (*it)->print(f, nextPrefix);
     }
   }
 
@@ -339,12 +338,12 @@ public:
     return root;
   }
 
-  void print(string prefix) const override {
-    string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << op << endl;
 
-    lhs->print(nextPrefix);
-    rhs->print(nextPrefix);
+  void print(FILE* f, string prefix) const override {
+    string nextPrefix = prefix + this->m_PREFIX;
+    fprintf(f, "%s%s%c%d\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM, op);
+    lhs->print(f, nextPrefix);
+    rhs->print(f, nextPrefix);
   }
 
 
@@ -372,11 +371,10 @@ public:
     root["children"].append(rhs->jsonGen());
     return root;
   }
-
-  void print(string prefix) const override {
+  void print(FILE *outfile, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << op << endl;
-    rhs->print(nextPrefix);
+    fprintf(outfile, "%s%s%c%d\n", prefix.c_str(), getTypeName().c_str(), m_DELIM, op);
+    rhs->print(outfile, nextPrefix);
   }
 };
 
@@ -396,11 +394,11 @@ public:
     return "NAssignment";
   }
 
-  void print(string prefix) const override {
+  void print(FILE *f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
-    lhs->print(nextPrefix);
-    rhs->print(nextPrefix);
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM);
+    lhs->print(f, nextPrefix);
+    rhs->print(f, nextPrefix);
   }
 
   Json::Value jsonGen() const override {
@@ -426,11 +424,11 @@ public:
     return "NBlock";
   }
 
-  void print(string prefix) const override {
+  void print(FILE *outfile, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
+    fprintf(outfile, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), m_DELIM);
     for (auto it = child->begin(); it != child->end(); it++) {
-      (*it)->print(nextPrefix);
+      (*it)->print(outfile, nextPrefix);
     }
   }
 
@@ -460,10 +458,10 @@ public:
     return "NExpressionStatement";
   }
 
-  void print(string prefix) const override {
+  void print(FILE* f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
-    expression->print(nextPrefix);
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM);
+    expression->print(f, nextPrefix);
   }
 
   Json::Value jsonGen() const override {
@@ -506,13 +504,13 @@ public:
     return this->others;
   }
 
-  void print(string prefix) const override {
+  void print(FILE *f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << "isArray = " << type->isArray << endl;
-    type->print(nextPrefix);
-    id->print(nextPrefix);
+    fprintf(f, "%s%s%cisArray = %d\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM, type->isArray);
+    type->print(f, nextPrefix);
+    id->print(f, nextPrefix);
     if (assignmentExpr != nullptr) {
-      assignmentExpr->print(nextPrefix);
+      assignmentExpr->print(f, nextPrefix);
     }
   }
 
@@ -552,21 +550,21 @@ public:
     return "NFunctionDeclaration";
   }
 
-  void print(string prefix) const override {
+  void print(FILE* f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM);
 
-    type->print(nextPrefix);
-    id->print(nextPrefix);
+    type->print(f, nextPrefix);
+    id->print(f, nextPrefix);
 
     for (auto it = arguments->begin(); it != arguments->end(); it++) {
-      (*it)->print(nextPrefix);
+      (*it)->print(f, nextPrefix);
     }
 
     AssertThat(isExternal || block != nullptr,
                ("Not external nor valid block"));
     if (block)
-      block->print(nextPrefix);
+      block->print(f, nextPrefix);
   }
 
   Json::Value jsonGen() const override {
@@ -607,13 +605,13 @@ public:
     return "NStructDeclaration";
   }
 
-  void print(string prefix) const override {
+  void print(FILE* f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << this->name->name
-         << endl;
+    fprintf(f, "%s%s%c%s\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM,
+            this->name->name.c_str());
 
     for (auto it = members->begin(); it != members->end(); it++) {
-      (*it)->print(nextPrefix);
+      (*it)->print(f, nextPrefix);
     }
   }
 
@@ -655,11 +653,11 @@ public:
     return root;
   }
 
-  void print(string prefix) const override {
+  void print(FILE* f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM);
     if (expression)
-      expression->print(nextPrefix);
+      expression->print(f, nextPrefix);
   }
 
 
@@ -685,16 +683,14 @@ public:
     return "NIfStatement";
   }
 
-  void print(string prefix) const override {
+  void print(FILE* f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM);
 
-    condition->print(nextPrefix);
-
-    trueBlock->print(nextPrefix);
-
+    condition->print(f, nextPrefix);
+    trueBlock->print(f, nextPrefix);
     if (falseBlock) {
-      falseBlock->print(nextPrefix);
+      falseBlock->print(f, nextPrefix);
     }
 
   }
@@ -733,19 +729,19 @@ public:
     return "NForStatement";
   }
 
-  void print(string prefix) const override {
+  void print(FILE *f, string prefix) const override {
 
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), m_DELIM);
 
     if (initial)
-      initial->print(nextPrefix);
+      initial->print(f, nextPrefix);
     if (condition)
-      condition->print(nextPrefix);
+      condition->print(f, nextPrefix);
     if (increment)
-      increment->print(nextPrefix);
+      increment->print(f, nextPrefix);
 
-    block->print(nextPrefix);
+    block->print(f, nextPrefix);
   }
 
 
@@ -782,13 +778,11 @@ public:
     return "NStructMember";
   }
 
-  void print(string prefix) const override {
-
+  void print(FILE *f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
-
-    id->print(nextPrefix);
-    member->print(nextPrefix);
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), m_DELIM);
+    id->print(f, nextPrefix);
+    member->print(f, nextPrefix);
   }
 
 
@@ -827,15 +821,14 @@ public:
     return "NArrayIndex";
   }
 
-  void print(string prefix) const override {
+  void print(FILE *f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
-
-    arrayName->print(nextPrefix);
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), m_DELIM);
+    arrayName->print(f, nextPrefix);
     for (auto it = expressions->begin(); it != expressions->end(); it++) {
-      (*it)->print(nextPrefix);
+      (*it)->print(f, nextPrefix);
     }
-//        expression->print(nextPrefix);
+//        expression->print(f, nextPrefix);
   }
 
   Json::Value jsonGen() const override {
@@ -869,13 +862,11 @@ public:
     return "NArrayAssignment";
   }
 
-  void print(string prefix) const override {
-
+  void print(FILE *f, string prefix) const override {
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
-
-    arrayIndex->print(nextPrefix);
-    expression->print(nextPrefix);
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), m_DELIM);
+    arrayIndex->print(f, nextPrefix);
+    expression->print(f, nextPrefix);
   }
 
 
@@ -910,14 +901,13 @@ public:
     return "NArrayInitialization";
   }
 
-  void print(string prefix) const override {
+  void print(FILE* f, string prefix) const override {
 
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
-
-    declaration->print(nextPrefix);
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM);
+    declaration->print(f, nextPrefix);
     for (auto it = expressionList->begin(); it != expressionList->end(); it++) {
-      (*it)->print(nextPrefix);
+      (*it)->print(f, nextPrefix);
     }
   }
 
@@ -953,13 +943,13 @@ public:
     return "NStructAssignment";
   }
 
-  void print(string prefix) const override {
+  void print(FILE* f, string prefix) const override {
 
     string nextPrefix = prefix + this->m_PREFIX;
-    cout << prefix << getTypeName() << this->m_DELIM << endl;
+    fprintf(f, "%s%s%c\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM);
 
-    structMember->print(nextPrefix);
-    expression->print(nextPrefix);
+    structMember->print(f, nextPrefix);
+    expression->print(f, nextPrefix);
   }
 
 
@@ -990,10 +980,8 @@ public:
     return "NLiteral";
   }
 
-  void print(string prefix) const override {
-
-    cout << prefix << getTypeName() << this->m_DELIM << value << endl;
-
+  void print(FILE* f, string prefix) const override {
+    fprintf(f, "%s%s%c%s\n", prefix.c_str(), getTypeName().c_str(), this->m_DELIM, value.c_str());
   }
 
 
