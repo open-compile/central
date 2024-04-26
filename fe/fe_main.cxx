@@ -135,8 +135,8 @@ INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_nam
     Comp_Failure("Syntax check failed for file : %s:%d", file_name, yylineno);
   }
 
-  if(Tracing(COMPONENT_FE, TRACE_INFO)) {
-    programBlock->print("--");
+  if(Tracing(COMPONENT_FE, TRACE_EMIT_CORE)) {
+    programBlock->print(TFile, "--");
   }
   auto root = programBlock->jsonGen();
   Irgen_visit(programBlock);
@@ -148,7 +148,7 @@ INT32 femain(COMPILER_CONFIG &conf, FILE_MANAGER &file_man, const char *file_nam
 //    astJson.close();
 //  }
 
-  Is_Trace(Tracing(COMPONENT_FE, TRACE_INFO), (TFile, "Front end finishing, dump file info %d\n", (File()->Print(TFile), 1)));
+  Is_Trace(Tracing(COMPONENT_FE, TRACE_EMIT_CORE), (TFile, "Front end finishing, dump file info %d\n", (File()->Print(TFile), 1)));
   return 0;
 }
 
