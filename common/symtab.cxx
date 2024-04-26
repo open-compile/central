@@ -281,7 +281,7 @@ void TY::Print(FILE *f) const {
 
   switch (kind) {
     case KIND_SCALAR:
-      fprintf(f, "SCALAR (%s)\n", MTYPE_name(mtype));
+      fprintf(f, "SCALAR (%s)", MTYPE_name(mtype));
       break;
 
     case KIND_ARRAY:

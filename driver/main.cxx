@@ -68,22 +68,25 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
                                           "Specify the source code language",
                                           {'x', "language"});
   args::ValueFlag<int> loglevel(opt_group, "log",
-                                          "logging options in or-ed form, within [0, 0xffff]",
+                                          "logging options in or-ed form, within [0, LOG_MAX], LOG_MAX = 0xfffff",
 {"log", "loglevel"});
   args::ValueFlag<int> feloglevel(opt_group, "felevel",
-                                          "front-end logging options in or-ed form, within [0, 0xffff]",
+                                          "front-end logging options in or-ed form, within [0, LOG_MAX]",
                                           {"felevel", "feloglevel"});
   args::ValueFlag<int> beloglevel(opt_group, "belevel",
-                                          "back-end logging options in or-ed form, within [0, 0xffff]",
+                                          "back-end logging options in or-ed form, within [0, LOG_MAX]",
                                           {"belevel", "beloglevel"});
   args::ValueFlag<int> cgloglevel(opt_group, "cglevel",
-                                          "code-gen logging options in or-ed form, within [0, 0xffff]",
+                                          "code-gen logging options in or-ed form, within [0, LOG_MAX]",
                                           {"cgloglevel", "cglevel"});
+  args::ValueFlag<int> graloglevel(opt_group, "gralevel",
+                                          "global register allocation (gra) log option, 0->LOG_MAX",
+                                          {"graloglevel"});
   args::ValueFlag<int> linkerloglevel(opt_group, "linkerlevel",
-                                          "asm+linker logging options in or-ed form, within [0, 0xffff]",
+                                          "asm+linker logging options in or-ed form, within [0, LOG_MAX]",
                                           {"linkerloglevel", "linkerlevel"});
   args::ValueFlag<int> symtabloglevel(opt_group, "linkerlevel",
-                                          "symtab logging options in or-ed form, within [0, 0xffff]",
+                                          "symtab logging options in or-ed form, within [0, LOG_MAX]",
                                           {"symtabloglevel", "symtablevel"});
   args::ValueFlag<int> optimization_level(opt_group, "optlevel",
                                          "Optimisation level, within [1,4]",
@@ -196,6 +199,12 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     Set_mod_tracing_option(COMPONENT_CG_LRA, static_cast<TRACE_KIND>(res));
     Set_mod_tracing_option(COMPONENT_CG_GRA, static_cast<TRACE_KIND>(res));
     Set_mod_tracing_option(CO_CG_EMIT, static_cast<TRACE_KIND>(res));
+  }
+
+  if (graloglevel) {
+    INT32 res = graloglevel.Get();
+    Set_mod_tracing_option(COMPONENT_CG_LRA, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_CG_GRA, static_cast<TRACE_KIND>(res));
   }
 
   if (linkerloglevel) {
@@ -331,20 +340,20 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
       for (INT32 file_id = 0; file_id < config.files.size(); file_id++) {
         operands[0] = "fe";
         operands[1] = config.files[file_id].c_str();
-        Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking sub-process [%s %s]\n", operands[0], operands[1]));
+        Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking component [%s %s]\n", operands[0], operands[1]));
         femain(config, *File(), config.files[file_id].c_str());
       }
       break;
     }
     case COMPONENT_BE: {
       Compilation_Phase = COMP_PHASE_OPT_LOWER;
-      Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking direct sub-process: back-end\n"));
+      Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking direct component: back-end\n"));
       BE_EXTERNAL_MAIN_NAME(config);
       break;
     }
     case COMPONENT_CG: {
       Compilation_Phase = COMP_PHASE_CG;
-      Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking direct sub-process: code generation\n"));
+      Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking direct component: code generation\n"));
       CG_full_process(config);
       break;
     }
