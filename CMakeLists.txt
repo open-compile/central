@@ -16,6 +16,7 @@ set(GLOBAL_OCC_LIB
   fe
   opt
   cg
+  cgnova
 )
 
 set(GLOBAL_OCC_TARG

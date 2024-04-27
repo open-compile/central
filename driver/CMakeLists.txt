@@ -11,7 +11,7 @@ target_include_directories(${DRIVER_TARGET_NAME} PRIVATE
         ${OCC_MAIN_DIR}/common
         ${OCC_MAIN_DIR}/lib/subprocess
         ${OCC_MAIN_DIR}/lib)
-target_link_libraries(${DRIVER_TARGET_NAME} PRIVATE common fe opt cg)
+target_link_libraries(${DRIVER_TARGET_NAME} PRIVATE common fe opt cg cgnova)
 
 INSTALL(TARGETS ${DRIVER_TARGET_NAME}
   RUNTIME DESTINATION bin

@@ -208,6 +208,13 @@ CGIR::Handle_istore(IR_ITER stmt, CFG_BB_IDX cur_bb) {
 }
 
 
+/**
+ * Convert LDA from IR to CGIR.
+ * @param expr IR TREE to convert.
+ * @param cur_bb current BB to save the result.
+ * @param target_res the target TN to store the result of LDA.
+ * @return
+ */
 TN *
 CGIR::Handle_lda(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
