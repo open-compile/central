@@ -12,11 +12,10 @@ INLINE BOOL TR_EMIT() {
 }
 
 // Single instance for the program to use, for now.
-CGIR *_cgir_opt = nullptr;
-
-CGIR *Cgir() {
+CG_COMPOSITE *_cgir_opt = nullptr;
+CG_COMPOSITE *Cgmon() {
   if (_cgir_opt == nullptr) {
-    _cgir_opt = new CGIR();
+    _cgir_opt = new CG_COMPOSITE();
   }
   return _cgir_opt;
 }
@@ -28,10 +27,12 @@ CGIR *Cgir() {
  * @param config
  */
 void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
+  CGIR *main_cgir = Cgmon()->Cgir();
   // Convert OCIR to CGIR, saving the CGIR in file
   for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
     // Iterate over each pu_info (functions), dump each of the function
     PU_INFO *pu_info = file->Tables()->Pu_info()->Get(it);
+    main_cgir->Start_function_TN();
     if (pu_info->proc_sym == 0) {
       AssertThat(false, ("Incomoplete pu_info for PU_INFO_IDX = %u, or %0#x", it, it));
       return;
@@ -41,22 +42,23 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
     Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DEBUG),
              (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
     File()->Scopes()->Goto_function(pu_info->proc_sym);
-    Cgir()->CG_convert_function(&pu_info->scope); // Expansion
+    Cgmon()->CG_convert_function(&pu_info->scope); // Expansion
     if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
       // Printing the cgir exapnsion result.
-      Cgir()->Print(pu_info->proc_sym, TFile);
+      main_cgir->Print(pu_info->proc_sym, TFile);
     }
-    Cgir()->Local_register_allocate(pu_info); // GRA/LRA
-    Cgir()->Layout()->Calculate_stack_frame_size();
-    Cgir()->Recalibrate_offset(pu_info);
+    Cgmon()->Reg_alloc().Register_allocate(pu_info); // GRA/LRA
+    main_cgir->Layout()->Calculate_stack_frame_size();
+    main_cgir->Recalibrate_offset(pu_info);
     if(Tracing(COMPONENT_CG, TRACE_DATA)) {
       // Printing the layout table.
-      Cgir()->Layout()->Print(TFile);
+      main_cgir->Layout()->Print(TFile);
     }
     if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
       // Printing the cgir exapnsion result.
-      Cgir()->Print(pu_info->proc_sym, TFile);
+      main_cgir->Print(pu_info->proc_sym, TFile);
     }
+    main_cgir->Cleanup_function_TN();
   }
 }
 
@@ -82,6 +84,7 @@ INT32 CG_full_process(COMPILER_CONFIG &conf) {
   }
 
   // This should only be run once.
+  Cgmon()->Init(); // Creating CG_COMPOSITE, initializing CGIR, EMITTER, BUILDER, REG_ALLOC ....
   REGISTER_Begin();	/* initialize the register package */
   Init_Dedicated_TNs ();
 
@@ -135,7 +138,7 @@ void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
            (out, "# Emitting function ST_IDX = %d, name = %s \n", func->proc_sym, ST_name(
              func->proc_sym)));
   file->Scopes()->Goto_function(func->proc_sym);
-  Cgir()->Set_current_cgir(Cgir()->Get_function(func->proc_sym), func->proc_sym);
+  Cgmon()->Cgir()->Set_current_cgir(Cgmon()->Cgir()->Get_function(func->proc_sym), func->proc_sym);
   // Inside the function now, emitting all symtab info
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO),
            (out, "# Function has %d non-trivial symbols\n",
@@ -143,7 +146,7 @@ void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
   for (UINT32 i = 1; i < file->Tables()->Sym()->Length(&(func->scope)); i++) {
     ST_IDX one = (i << 8) | LOCAL_SYMTAB;
     fprintf(out, "# Id: 0x%08x, Symbol : %s, Type: %d, Ofst: %d\n", one,
-            ST_name(one), ST_ty(one), Cgir()->Layout()->Get_sym_sp_ofst(one));
+            ST_name(one), ST_ty(one), Cgmon()->Cgir()->Layout()->Get_sym_sp_ofst(one));
     // Find INITO matching this.
     INITO_IDX inito_idx = ST_st(one)->getInitoIdx();
     // Generate initv
@@ -161,20 +164,20 @@ void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
   fprintf(out, ".global %s\n", func_name);
   fprintf(out, "%s: \n", func_name);
   // Letting Cgir to point to current function.
-  Cgir()->Emit_tree(func, out, file);
+  Cgmon()->Emitter().Emit_tree(func, out, file);
   // TODO: Use CGIR's emission instead.
 }
 
-void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
-  IR_ITER it = tree->Get_root();
-  AssertThat(tree->Get_node(it)->Opcode() == OPC_FUNC_ENTRY, ("Incorrect root opcode"));
+void CG_EMITTER::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
+  IR_ITER it = Tree()->Get_root();
+  AssertThat(Tree()->Get_node(it)->Opcode() == OPC_FUNC_ENTRY, ("Incorrect root opcode"));
   // Get the function body.
   map<ST_IDX, UINT32> temp_labels;
   CGIR *cgir = Cgir();
   // Generate all statements in the function-level body block
   UINT32 bb_cnt = cgir->Cfg()->Size();
   for (UINT32 i = 0; i < bb_cnt; i++) {
-    CGBB *cgbb = Cfg()->BB(i);
+    CGBB *cgbb = Cgir()->Cfg()->BB(i);
     // Tracings
     if (TR_EMIT()) {
       // Printing some BB level basic info before each basic block.
@@ -190,7 +193,7 @@ void CGIR::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & BB_FLAG_ENTRY) {
       Is_Trace(TR_EMIT(), (out, "#  ---  function prologue ---   \n"));
-      if (Layout()->Get_local_pad_size() > (1 << 8)) {
+      if (Cgir()->Layout()->Get_local_pad_size() > (1 << 8)) {
         // This is a large stack.
         fprintf(out, "\tpush\t{fp, lr}\n" // 8bytes
                      "\tpush\t{r4-r10}\n"); // 28bytes

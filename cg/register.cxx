@@ -697,9 +697,7 @@ REGISTER_SET_Choose(REGISTER_SET set)
  * ====================================================================
  */
 static void
-Initialize_Register_Class(
-  ISA_REGISTER_CLASS rclass
-)
+Initialize_Register_Class(ISA_REGISTER_CLASS rclass)
 {
   INT32              i;
   const ISA_REGISTER_CLASS_INFO *icinfo = ISA_REGISTER_CLASS_Info(rclass);
@@ -756,7 +754,7 @@ Initialize_Register_Class(
 
     if ( is_allocatable ) {
       allocatable = REGISTER_SET_Union1(allocatable,reg);
-#ifdef ABI_PROPERTY_global_ptr
+#ifdef ABI_PROPERTY_global_ptr // do we have global pointer?
       if ( ABI_PROPERTY_Is_global_ptr(rclass, isa_reg) ) {
         if ( GP_Is_Preserved ) {
           /* neither caller nor callee saved (always preserved). */

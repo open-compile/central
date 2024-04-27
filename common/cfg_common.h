@@ -67,7 +67,6 @@ public:
     CFG_BB_EDGES &pointee = _edges[from];
     return pointee;
   };
-
   // Add a BB with predecessor
   CFG_BB_IDX Add_bb(CFG_BB_IDX pred) {
     CFG_BB_IDX new_bb = Add_bb();
@@ -102,6 +101,21 @@ public:
   }
 };
 
+
+// How to use DNA / RNA to connect IPA.
+class IPA_CALLING_NODE {
+private:
+  // Should have DNA/RNA here.
+  UINT32              _flags = 0;
+  UINT32              _label_id = 0;
+
+public:
+
+};
+
+class IPA_CALL_GRAPH {
+
+};
 
 /**
  * Basic block, as to contain stmt without any jumps,
@@ -499,7 +513,11 @@ private:
   vector<CFG_BB_IDX>                           _revisit;  // the list to revisit when the labels, goto are all marked.
 public:
   void Init(CFG_BASE<NODE_TYPE, BB_TYPE> *cfg) {
+    AssertThat(cfg != nullptr, ("CFG cannot be null."));
     _cfg = cfg;
+    _label_to_bb_map.clear();
+    _bb_goto_label.clear();
+    _revisit.clear();
   };
   void Bind_label_to_bb(LABEL_IDX label, CFG_BB_IDX bb_id) {
     Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),

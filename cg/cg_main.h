@@ -7,7 +7,7 @@
 
 #include "cgir.h"
 
-CGIR *Cgir();
+CG_COMPOSITE *Cgmon();
 void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config);
 INT32 CG_full_process(COMPILER_CONFIG &conf);
 

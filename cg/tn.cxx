@@ -31,25 +31,25 @@ namespace TN_CONTEXT {
 /**
  * Dedicated TN Groups
  */
-  static TN *ded_tns[ISA_REGISTER_CLASS_MAX + 1][REGISTER_MAX + 1];
-  static TN *f4_ded_tns[REGISTER_MAX + 1];
-  static TN *v16_ded_tns[REGISTER_MAX + 1];
-  static TN *v32_ded_tns[REGISTER_MAX + 1];
-  static TN *i1_ded_tns[REGISTER_MAX + 1];
-  static TN *i2_ded_tns[REGISTER_MAX + 1];
-  TN *i4_ded_tns[REGISTER_MAX + 1];
+static TN *ded_tns[ISA_REGISTER_CLASS_MAX + 1][REGISTER_MAX + 1];
+static TN *f4_ded_tns[REGISTER_MAX + 1];
+static TN *v16_ded_tns[REGISTER_MAX + 1];
+static TN *v32_ded_tns[REGISTER_MAX + 1];
+static TN *i1_ded_tns[REGISTER_MAX + 1];
+static TN *i2_ded_tns[REGISTER_MAX + 1];
+TN *i4_ded_tns[REGISTER_MAX + 1];
 
-  TN *RA_TN    = NULL;
-  TN *SP_TN    = NULL;
-  TN *FP_TN    = NULL;
-  TN *Ep_TN    = NULL;
-  TN *GP_TN    = NULL;
-  TN *Zero_TN  = NULL;
-  TN *Pfs_TN   = NULL;
-  TN *True_TN  = NULL;
-  TN *FZero_TN = NULL;
-  TN *FOne_TN  = NULL;
-  TN *LC_TN    = NULL;
+TN *RA_TN    = NULL;
+TN *SP_TN    = NULL;
+TN *FP_TN    = NULL;
+TN *Ep_TN    = NULL;
+TN *GP_TN    = NULL;
+TN *Zero_TN  = NULL;
+TN *Pfs_TN   = NULL;
+TN *True_TN  = NULL;
+TN *FZero_TN = NULL;
+TN *FOne_TN  = NULL;
+TN *LC_TN    = NULL;
 
   /* Keep track of the TN_number for the last register TN generated. The
    * first numbered TN is #1; #0 must remain unused (various algorithms
@@ -70,18 +70,34 @@ namespace TN_CONTEXT {
 
 using namespace TN_CONTEXT;
 
+// Utility function for faster access.
 TN *Gen_TN() {
-  UINT32 sz = Cgir()->Get_tn_table().size();
-  TN *ntn = new TN(sz);
-  Cgir()->Get_tn_table().push_back(ntn);
-  Cgir()->Get_tn_table()[sz]->Set_idx(sz);
-  AssertThat(Cgir()->Get_tn_table()[sz]->Get_tn_idx() == sz, ("Generation failed somehow."));
-  AssertThat(TN_tn(Cgir()->Get_tn_table()[sz]->Get_tn_idx()) ==
-             Cgir()->Get_tn_table()[sz], ("Generation failed somehow."));
-  return Cgir()->Get_tn_table()[sz];
+  return Cgmon()->Cgir()->Gen_TN();
+}
+TN_IDX Gen_TN(MTYPE_ID mtype) {
+  return Cgmon()->Cgir()->Gen_TN(mtype);
+}
+TN    *TN_tn(TN_IDX tn_idx) {
+  return Cgmon()->Cgir()->TN_tn(tn_idx);
 }
 
-TN_IDX Gen_TN(MTYPE_ID mtype) {
+TN *CGIR::Gen_TN() {
+  UINT32 sz = Get_tn_table().size();
+  TN *ntn = new TN(sz);
+  Get_tn_table().push_back(ntn);
+  Get_tn_table()[sz]->Set_idx(sz);
+  AssertThat(Get_tn_table()[sz]->Get_tn_idx() == sz, ("Generation failed somehow."));
+  AssertThat(TN_tn(Get_tn_table()[sz]->Get_tn_idx()) ==
+             Get_tn_table()[sz], ("Generation failed somehow."));
+  return Get_tn_table()[sz];
+}
+
+/**
+ * Generate an empty TN with given value type.
+ * @param mtype MACHINE TYPE, I4, I8...
+ * @return
+ */
+TN_IDX CGIR::Gen_TN(MTYPE_ID mtype) {
   TN *tn = Gen_TN();
   tn->Set_type(mtype);
   tn->Set_size(MTYPE_size(mtype));
@@ -90,18 +106,18 @@ TN_IDX Gen_TN(MTYPE_ID mtype) {
   return tn_id;
 }
 
-TN *TN_tn(TN_IDX tn_idx) {
-  AssertThat(Cgir()->Get_tn_table().size() > tn_idx,
-             ("TN_IDX = %d is out of max range = %d", tn_idx, Cgir()->Get_tn_table().size()));
-  return Cgir()->Get_tn_table()[tn_idx];
+TN *CGIR::TN_tn(TN_IDX tn_idx) {
+  AssertThat(Get_tn_table().size() > tn_idx,
+             ("TN_IDX = %d is out of max range = %d", tn_idx, Get_tn_table().size()));
+  return Get_tn_table()[tn_idx];
 }
 
 namespace TNS {
   UINT32 _last_tn = 0;
 }
 
-void Check_TN_Vec_Size() {
-  AssertThat(TNS::_last_tn < 4096 && Cgir()->Get_tn_table().size() < 4096,
+void          CGIR::Check_TN_Vec_Size() {
+  AssertThat(TNS::_last_tn < 4096 && Get_tn_table().size() < 4096,
              ("Too much TNs used"));
 }
 
@@ -189,8 +205,29 @@ Init_Dedicated_TNs(void) {
     i4_ded_tns[reg] = Create_Dedicated_TN(ISA_REGISTER_CLASS_integer, reg);
     Set_TN_size(i4_ded_tns[reg], 4);
   }
-  Last_Dedicated_TN = Cgir()->Get_tn_table().size();
+  Last_Dedicated_TN = Cgmon()->Cgir()->Get_tn_table().size();
 }
+
+/**
+ * Clean up all function level TN
+ */
+void CGIR::Cleanup_function_TN() {
+  vector<TN *> &table = Cgmon()->Cgir()->Get_tn_table();
+  // for (INT32 i = (INT32) table.size() - 1; i >= Last_Dedicated_TN; i--) {
+  //   TN *one = table[i];
+  //   AssertThat(one != nullptr, ("TN object is invalid"));
+  //   AssertThat(i == table.size() - 1, ("TN table size is invalid"));
+  //   delete one;
+  //   table.pop_back();
+  // }
+}
+
+void CGIR::Start_function_TN() {
+  vector<TN *> &table = Cgmon()->Cgir()->Get_tn_table();
+  _func_tn_begin = table.size();
+  AssertThat(_func_tn_begin >= Last_Dedicated_TN, ("The TN table has somehow shrinked"));
+}
+
 
 
 
@@ -208,7 +245,6 @@ Build_Dedicated_TN (ISA_REGISTER_CLASS rclass, REGISTER reg, INT size)
   if(rclass == ISA_REGISTER_CLASS_integer) {
     return i4_ded_tns[reg];
   }
-
   AssertThat(ded_tns[rclass][reg] != NULL,
              ("Cannot use such TN, rclass = %d, reg = %d", rclass, reg));
   return ded_tns[rclass][reg];

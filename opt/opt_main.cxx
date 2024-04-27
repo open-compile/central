@@ -10,7 +10,6 @@
 #include <vector>
 #include <map>
 #include "cgir.h"
-#include "cg_main.h"
 
 IR_ITER &Opt_lower_if_stmt(IR_ITER &stmt, const PU_INFO *func, TREE *tree,
                            char *name_buf);
