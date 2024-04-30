@@ -28,6 +28,9 @@ public:
   STRVEC object_files;
   string output_file;
   BOOL Opt_enabled(OPT_KIND k) {
+    if (k == OPT_KIND::OPT_KIND_ARITH) {
+      return false;
+    }
     return true;
   }
 };
