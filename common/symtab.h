@@ -755,6 +755,7 @@ struct PU_INFO {
   PU_INFO() : scope(0) {
       memset(this, 0, sizeof(PU_INFO));
   };
+  ST_IDX Proc_sym() { return proc_sym; }
   void Set_proc_sym(ST_IDX proc_sym) {
     this->proc_sym = proc_sym;
     this->scope.st_idx = proc_sym;

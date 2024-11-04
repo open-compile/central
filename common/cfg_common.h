@@ -503,9 +503,14 @@ public:
 };
 
 
-
+/**
+ * Containing some extra info for label and goto conversion on CGIR creation.
+ * saving which bb goto which label, for later on destructing BBs and generating final code.
+ * @tparam NODE_TYPE
+ * @tparam BB_TYPE
+ */
 template<typename NODE_TYPE, typename BB_TYPE>
-class CFG_BB_BUILDER {
+class CG_CONV_EXTRAINFO {
 private:
   CFG_BASE<NODE_TYPE, BB_TYPE>                *_cfg               = nullptr;
   map<LABEL_IDX, CFG_BB_IDX>                   _label_to_bb_map;

@@ -116,7 +116,7 @@ typedef CG_CFG_BB_BASE<CGOP>              CGBB;
 typedef vector<CGBB *>                    CGBB_VECTOR;
 typedef typename vector<CGBB *>::iterator CGBB_ITER;
 typedef CG_CFG_BASE<CGOP>                 CG_CFG;
-typedef CFG_BB_BUILDER<CGOP, CGBB>        CGBUILDER;
+typedef CG_CONV_EXTRAINFO<CGOP, CGBB>     CG_CONV_INFO;
 
 
 extern std::vector<TN *>              _global_tn_vec;
@@ -286,9 +286,6 @@ public:
     AssertThat(cfg != nullptr, ("Couldn't get cfg from cgir."));
     return cfg;
   }
-  void          Goto_function(ST_IDX func) {
-    _tree = Cgir()->Current_tree();
-  }
   TREE *Tree() {
     return Cgir()->Current_tree();
   }
@@ -303,11 +300,11 @@ public:
   TN           *Handle_iload    (IR_ITER stmt, CFG_BB_IDX cur_bb, TN *target_res);
   TN           *Handle_istore   (IR_ITER stmt, CFG_BB_IDX cur_bb);
   TN           *Handle_lda      (IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res);
-  void          Handle_ret_val  (IR_ITER stmt, CFG_BB_IDX cur_bb, CGBUILDER &builder);
+  void          Handle_ret_val  (IR_ITER stmt, CFG_BB_IDX cur_bb, CG_CONV_INFO &builder);
   void          Handle_func_body(IR_ITER enti, CFG_BB_IDX cur_bb);
-  void          Handle_goto     (IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb, CGBUILDER &builder);
+  void          Handle_goto     (IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb, CG_CONV_INFO &conv_info);
   void          Handle_call     (IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb);
-  void          Handle_ret      (IR_ITER stmt, CFG_BB_IDX cur_bb, CGBUILDER &builder);
+  void          Handle_ret      (IR_ITER stmt, CFG_BB_IDX cur_bb, CG_CONV_INFO &builder);
 
   // Expanding stuff, such as expression
   TN           *Expand_expr     (IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *result);

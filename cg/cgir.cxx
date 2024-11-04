@@ -255,7 +255,7 @@ CGIR_BUILDER::Handle_lda(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res) {
 }
 
 void
-CGIR_BUILDER::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb, CGBUILDER &builder) {
+CGIR_BUILDER::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb, CG_CONV_INFO &builder) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR_BUILDER::Handle_ret_val\n"));
   AssertThat(OPCODE_operator(Tree()->Node(stmt)->Opcode()) == OPR_RETURN_VAL,
@@ -282,7 +282,7 @@ CGIR_BUILDER::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb, CGBUILDER &builder
   Handle_ret(stmt, cur_bb, builder);
 }
 
-void CGIR_BUILDER::Handle_ret(IR_ITER stmt, CFG_BB_IDX cur_bb, CGBUILDER &builder) {
+void CGIR_BUILDER::Handle_ret(IR_ITER stmt, CFG_BB_IDX cur_bb, CG_CONV_INFO &builder) {
   LABEL_IDX lbl   = File()->Get_func_exit_label();
   CGOP      *cgop = new CGOP(CGOPC_B, *stmt, cur_bb,
                                0, TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0);
@@ -296,7 +296,7 @@ void CGIR_BUILDER::Handle_ret(IR_ITER stmt, CFG_BB_IDX cur_bb, CGBUILDER &builde
  */
 void CGIR_BUILDER::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
   // There could be global stuff here.
-  CGBUILDER builder;
+  CG_CONV_INFO builder;
   builder.Init(Cfg());
 
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
@@ -1177,7 +1177,7 @@ void CG_REG_ALLOC::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
  * @param stmt STMT to process
  * @param cur_bb
  */
-void CGIR_BUILDER::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb, CGBUILDER &builder) {
+void CGIR_BUILDER::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb, CG_CONV_INFO &conv_info) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR_BUILDER::Handle_Goto\n"));
   CGOPC out_code = CGOPC_B;
@@ -1219,7 +1219,7 @@ void CGIR_BUILDER::Handle_goto(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_
   Cfg()->BB(cur_bb)->Add_stmt(jmp);
 
   // Adding this jump info to correctly mark up BB's relations graph.
-  builder.Mark_goto_in_bb( cur_bb, lbl);
+  conv_info.Mark_goto_in_bb(cur_bb, lbl);
 }
 
 void CGIR_BUILDER::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_bb) {

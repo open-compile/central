@@ -52,6 +52,9 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
   Opt_verify(File(), LEVEL_MID, conf);
   // Optimizations on Mid IR, SSA, DCE, CSE ...
 
+  // After middle level lowering & simple opt. transform to SSA and continue for opt.
+  Opt_build_ssa_all(File(), LEVEL_MID, conf);
+
   Opt_lower(File(), LEVEL_LOW, conf);
   Opt_verify(File(), LEVEL_LOW, conf);
   // Optimizations done in low IR, not much though

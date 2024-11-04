@@ -5,14 +5,17 @@
 #ifndef OCC_OPT_MAIN_H
 #define OCC_OPT_MAIN_H
 
-enum IR_LEVEL {
-  LEVEL_VHIGH = 1,
-  LEVEL_HIGH  = 2,
-  LEVEL_MID   = 3,
-  LEVEL_LOW   = 4,
-  LEVEL_VLOW  = 5,
-  LEVEL_CGIR  = 6,
-};
+#include "opt_basic.h"
+
+// TODO: separate different level lowering to different functions.
+//void Opt_lower_function_high(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL target, COMPILER_CONFIG &config);
+//void Opt_lower_function_mid(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL target, COMPILER_CONFIG &config);
+//void Opt_lower_function_low(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL target, COMPILER_CONFIG &config);
+//void Opt_lower_function_very_low(PU_INFO *func, FILE_MANAGER *file, IR_LEVEL target, COMPILER_CONFIG &config);
+
+// SSA conversion
+void Opt_build_ssa(PU_INFO *pu, FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &config);
+void Opt_build_ssa_all(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &config);
 
 void Opt_lower(FILE_MANAGER *file, IR_LEVEL target, COMPILER_CONFIG &config);
 
