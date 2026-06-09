@@ -16,6 +16,12 @@
 // SSA conversion
 void Opt_build_ssa(PU_INFO *pu, FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &config);
 void Opt_build_ssa_all(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &config);
+void Opt_destruct_ssa(PU_INFO *pu_info, FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &config);
+void Opt_destruct_ssa_all(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &config);
+
+// SSA-based optimization passes
+void Opt_run_dce(FILE_MANAGER *file, COMPILER_CONFIG &config);
+void Opt_run_cprop(FILE_MANAGER *file, COMPILER_CONFIG &config);
 
 void Opt_lower(FILE_MANAGER *file, IR_LEVEL target, COMPILER_CONFIG &config);
 

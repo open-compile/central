@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.11)
 project(OCC_CODEGEN_NOVA)
 
 add_library(cgnova cg_nova.cxx)

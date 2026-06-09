@@ -44,16 +44,21 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
 
   // If OPT >= 3, enable IPA, LNO ....
 
-  Opt_lower(File(), LEVEL_HIGH, conf);
-  Opt_verify(File(), LEVEL_HIGH, conf);
-  // Optimizations on High IR
-
   Opt_lower(File(), LEVEL_MID, conf);
   Opt_verify(File(), LEVEL_MID, conf);
+  // Optimizations on High IR
+
   // Optimizations on Mid IR, SSA, DCE, CSE ...
 
   // After middle level lowering & simple opt. transform to SSA and continue for opt.
   Opt_build_ssa_all(File(), LEVEL_MID, conf);
+
+  // SSA-based optimization passes
+  Opt_run_cprop(File(), conf);
+  Opt_run_dce(File(), conf);
+
+  // 析构 SSA（phi → copy），恢复成普通 IR 继续降级
+  Opt_destruct_ssa_all(File(), LEVEL_MID, conf);
 
   Opt_lower(File(), LEVEL_LOW, conf);
   Opt_verify(File(), LEVEL_LOW, conf);

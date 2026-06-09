@@ -51,6 +51,7 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
                      {'v', "verbose"});
   args::Flag minimal(debug_group, "minimal", "With more verbosity",
                      {'q', "quiet"});
+
   args::Flag keep(debug_group, "keep", "Keeping the intermediate file",
                   {"keep"});
   args::Flag show(debug_group, "show",

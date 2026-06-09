@@ -86,6 +86,9 @@ public:
     return _bb_list.at(idx);
   }
   BB_TYPE *BB(CFG_BB_IDX idx) { return Node(idx); };
+  // 内部访问：让 builder 能在不重新抽象 Add_bb 的情况下填充预分配 BB
+  BB_VECTOR &Internal_bb_list() { return _bb_list; }
+  CFG_BB_EDGES_STORE &Internal_edges() { return _edges; }
   void Add_succ(CFG_BB_IDX from, CFG_BB_IDX to) { Edges(from).insert(to); }
   BOOL Is_succ(CFG_BB_IDX from, CFG_BB_IDX to) {
     CFG_BB_EDGES &edge = Edges(from);

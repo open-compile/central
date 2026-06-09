@@ -13,6 +13,9 @@
 #include "cfg_common.h"
 #include "ir.h"
 
+// OPT_STAB 在 opt_stab.h 中定义。这里前向声明以打破循环。
+class OPT_STAB;
+
 using std::vector;
 using std::map;
 using std::set;
@@ -75,13 +78,17 @@ public:
 
 template <typename NODE_TYPE>
 class SSA_CFG_BB_BASE : public CFG_BB_BASE<NODE_TYPE> {
-private:
 public:
-  explicit SSA_CFG_BB_BASE(UINT32 block_id)
-    : CFG_BB_BASE<NODE_TYPE>(block_id) {
-  }
-  SSA_CFG_BB_BASE(): CFG_BB_BASE<NODE_TYPE>() {
-  }
+  // PHI 列表（此 BB 头部的所有 phi 函数）
+  std::vector<class PHI_NODE *>  _phi_list;
+  // STMTREP 列表（SSA 化的语句）
+  std::vector<class STMTREP *>   _stmtreps;
+
+  void Add_phi(class PHI_NODE *p) { _phi_list.push_back(p); }
+  void Add_stmtrep(class STMTREP *s) { _stmtreps.push_back(s); }
+
+  SSA_CFG_BB_BASE(UINT32 block_id) : CFG_BB_BASE<NODE_TYPE>(block_id) {}
+  SSA_CFG_BB_BASE() : CFG_BB_BASE<NODE_TYPE>() {}
 };
 
 // BB definitions
@@ -97,33 +104,26 @@ class SSAIR {
 private:
 // CGIR_Table
   map<ST_IDX, SSA_CFG *>       _trees;
-  map<ST_IDX, OPT_SYMTAB *>    _ssa_symtab;
+  map<ST_IDX, OPT_STAB *>      _ssa_symtab;
   map<ST_IDX, CODE_STORE *>    _ssa_codemap;
   SSA_CFG                     *_current         = nullptr;
-  OPT_SYMTAB                  *_current_symtab  = nullptr;
+  OPT_STAB                    *_current_symtab  = nullptr;
   CODE_STORE                  *_current_codemap = nullptr;
   ST_IDX                       _current_sym     = 0;
   TREE                        *_current_tree    = nullptr;
 public:
+  SSAIR();
+  ~SSAIR();
   map<ST_IDX, SSA_CFG *>      &Trees() { return _trees; }
+  map<ST_IDX, OPT_STAB *>     &Symtab_map() { return _ssa_symtab; }
 
-  SSA_CFG       *Get_function(ST_IDX func_sym) {
-    if(_trees.find(func_sym) == _trees.end()) {
-      // TODO: when will this be freed,
-      //  using some vector or list instead,
-      //  pre-allocate enough space if required.
-      _trees[func_sym] = new SSA_CFG();
-      _ssa_symtab[func_sym] = new OPT_SYMTAB(); // initialize this;
-      _ssa_codemap[func_sym] = new CODE_STORE();
-    }
-    return _trees[func_sym];
-  }
+  SSA_CFG       *Get_function(ST_IDX func_sym);  // 实现见 opt_ssa.cxx
   SSA_CFG       *Cfg() { return _current; }
   TREE         *Current_tree() {
     AssertThat(_current_tree != nullptr, ("current tree must be set first."));
     return _current_tree;
   };
-  OPT_SYMTAB    *Current_symtab() {
+  OPT_STAB     *Current_symtab() {
     AssertThat(_current_symtab != nullptr, ("Uninitialized current sym-table when accessed."));
     return _current_symtab;
   }

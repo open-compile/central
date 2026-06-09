@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.11)
 project(OCC_CODEGEN)
 
 add_library(cg cg_main.cxx cgir.cxx data_layout.cxx register.cxx tn.cxx targ_abi.cxx util.cxx)
