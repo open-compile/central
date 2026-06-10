@@ -1,3 +1,7 @@
+// ============================================================================
+// CLAUDE-MARKER  STATUS: KEEP (data structure)
+// 配套 opt_stmt.h; 实现 STMTREP::Print / CR_POOL::Alloc_stmtrep
+// ============================================================================
 #include "opt_stmt.h"
 #include "opt_basic.h"
 #include "opt_coderep.h"
@@ -42,16 +46,40 @@ BOOL STMTREP::Has_side_effect() const {
 }
 
 void STMTREP::Print(FILE *f) const {
-  fprintf(f, "  stmt ");
+  if (!f) f = stderr;
+  fprintf(f, "  stmt[bb=%d opc=%s live=%d] ",
+          _bb ? (INT32)_bb->Get_id() : -1,
+          OPCODE_name(_opc), (INT32)_live);
   if (_lhs) {
     fprintf(f, "lhs=");
     _lhs->Print(f);
     fprintf(f, " = ");
+  } else {
+    fprintf(f, "  ");
   }
   if (_rhs) _rhs->Print(f);
+  else fprintf(f, "-");
   if (_cond) {
-    fprintf(f, " cond=");
+    fprintf(f, " | cond=");
     _cond->Print(f);
   }
   fprintf(f, "\n");
+}
+
+void STMTREP::Print_pretty(FILE *f) const {
+  if (!f) f = stderr;
+  fprintf(f, "  stmt opc=%s live=%d side_effect=%d\n",
+          OPCODE_name(_opc), (INT32)_live, (INT32)Has_side_effect());
+  if (_lhs) {
+    fprintf(f, "    lhs:\n");
+    _lhs->Print_pretty(f, 2);
+  }
+  if (_rhs) {
+    fprintf(f, "    rhs:\n");
+    _rhs->Print_pretty(f, 2);
+  }
+  if (_cond) {
+    fprintf(f, "    cond:\n");
+    _cond->Print_pretty(f, 2);
+  }
 }

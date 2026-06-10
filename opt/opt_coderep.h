@@ -1,3 +1,22 @@
+//
+// ============================================================================
+// CLAUDE-MARKER  STATUS: KEEP (data structure + factory methods)
+// ============================================================================
+// 文件作用: CODEREP / PHI_NODE / CR_POOL  — SSA 形式的 IR 表达式节点
+// 关键类:
+//   - CODEREP   : 5 种 kind (CK_CONST/CK_LDA/CK_VAR/CK_IVAR/CK_OP), 用 union
+//                 紧凑存储; 仿 Open64 CODEREP 设计
+//   - PHI_NODE  : SSA phi 节点 (aux_id + result_ver + opnd_vers + opnd_crs)
+//   - CR_POOL   : 内存池 (CODEREP / PHI_NODE / STMTREP 统一分配)
+// 关键函数:
+//   - CODEREP::Make_const / Make_lda / Make_var / Make_ivar / Make_op
+//   - CODEREP::Print / Print_pretty
+//   - PHI_NODE::Print
+//   - CR_POOL::Alloc_coderep / Alloc_phi
+// 重写提示: 数据结构 + Print 可保留; 若要扩展 kind (例如 CK_DELETED) 直接加
+//           union 分支并补 Print 分支即可。
+// ============================================================================
+
 #ifndef OCC_OPT_CODEREP_H
 #define OCC_OPT_CODEREP_H
 
@@ -96,6 +115,7 @@ public:
   static CODEREP *Make_op(OPCODE opc, CODEREP *k0, CODEREP *k1, MTYPE_ID mtype);
 
   void Print(FILE *f = stderr) const;
+  void Print_pretty(FILE *f = stderr, INT32 depth = 0) const;
 };
 
 

@@ -28,6 +28,11 @@ CG_COMPOSITE *Cgmon() {
  */
 void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
   CGIR *main_cgir = Cgmon()->Cgir();
+  // TODO(cg-pipeline): 当前是单 pass 串, 一次性走完 convert + alloc + layout + emit.
+  //   真正的实现应该走 pass pipeline (见 cg.spec.md §1):
+  //     Pass chain = [ Build → LiveRange → IFG → Color → SpillRewrite → FrameLayout → Emit ]
+  //     每步可单独 Is_Trace dump; 可单独 disable / enable
+  //   建议抽出一个 CG_PASS 抽象基类 + Run_passes 函数.
   // Convert OCIR to CGIR, saving the CGIR in file
   for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
     // Iterate over each pu_info (functions), dump each of the function
@@ -47,6 +52,11 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
       // Printing the cgir exapnsion result.
       main_cgir->Print(pu_info->proc_sym, TFile);
     }
+    // TODO(pipeline-call): 真正 pipeline 应该分两步:
+    //   1) LRA.Pre_alloc(): 调 Cgmon()->Lra().Analyze_live_range(pu_info)
+    //                      建 IFG → 染色 → spill rewrite
+    //   2) 调 Reg_alloc().Register_allocate(pu_info)  (只剩 layout)
+    // 当前是直接调 Register_allocate, 内部走 naive linear scan.
     Cgmon()->Reg_alloc().Register_allocate(pu_info); // GRA/LRA
     main_cgir->Layout()->Calculate_stack_frame_size();
     main_cgir->Recalibrate_offset(pu_info);

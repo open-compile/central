@@ -1,3 +1,22 @@
+//
+// ============================================================================
+// CLAUDE-MARKER  STATUS: REWRITE-REFERENCE (算法会重写)
+// ============================================================================
+// 文件作用: DOM_BUILDER  — 支配树 (Cooper) + 支配边界 (Cytron)
+// 关键函数:
+//   - Build                  — 主入口
+//   - Compute_rpo            — 迭代 DFS 求 RPO
+//   - Compute_idom           — Cooper 算法
+//   - Intersect              — idom 求交
+//   - Compute_dom_list       — 父-子链表
+//   - Compute_df             — Cytron et al. 算法
+// 已知问题 (重写时建议):
+//   1. Compute_idom 中使用 b->get_idom(true) 而非 Get_idom() 因为后者有断言
+//   2. 多 BB 函数上 RPO 只含 BB[0] (rpo.size()=1), 迭代从未执行 — 待 fix
+//   3. _rpo_num 是 unordered_map, 可换成 vector 提速
+//   4. Cooper 是 O(N^2); 大函数可换 Lengauer-Tarjan (O((N+E) α))
+// ============================================================================
+
 #ifndef OCC_OPT_DOM_H
 #define OCC_OPT_DOM_H
 

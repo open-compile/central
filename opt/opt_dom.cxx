@@ -1,3 +1,7 @@
+// ============================================================================
+// CLAUDE-MARKER  STATUS: REWRITE-REFERENCE (算法会重写)
+// 配套 opt_dom.h
+// ============================================================================
 #include "opt_dom.h"
 #include <stack>
 #include <algorithm>
@@ -86,7 +90,7 @@ void DOM_BUILDER::Compute_idom(SSA_CFG *cfg, std::vector<SSABB *> &rpo) {
           new_idom = Intersect(p, new_idom);
         }
       }
-      if (b->Get_idom() != new_idom) {
+      if (b->get_idom(true) != new_idom) {
         b->Set_idom(new_idom);
         changed = TRUE;
       }
@@ -111,7 +115,7 @@ SSABB *DOM_BUILDER::Intersect(SSABB *b1, SSABB *b2) {
 void DOM_BUILDER::Compute_dom_list(SSA_CFG *cfg) {
   for (UINT32 i = 0; i < cfg->Size(); ++i) {
     SSABB *b = AS(cfg->Node(i));
-    SSABB *idom = AS(b->Get_idom());
+    SSABB *idom = AS(b->get_idom(true));
     if (idom && idom != b) {
       idom->add_to_dom_list(b, TRUE);
     }
@@ -127,9 +131,9 @@ void DOM_BUILDER::Compute_df(SSA_CFG *cfg) {
     for (auto pit = b->Pred_begin(); pit != b->Pred_end(); ++pit) {
       SSABB *p = AS(*pit);
       SSABB *runner = p;
-      while (runner != b->Get_idom()) {
+      while (runner != b->get_idom(true)) {
         runner->add_to_df_list(b, TRUE);
-        SSABB *r_idom = AS(runner->Get_idom());
+        SSABB *r_idom = AS(runner->get_idom(true));
         if (!r_idom || r_idom == runner) break;
         runner = r_idom;
       }

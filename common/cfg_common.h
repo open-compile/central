@@ -3,6 +3,13 @@
 // This file contains code related to the creation of control flow graph(CFG)
 // Control flow graph, Basic block, ....
 //
+// ============================================================================
+// CLAUDE-MARKER  STATUS: 修改 (增 Internal_bb_list / Internal_edges 访问器)
+// ============================================================================
+// 修改内容:
+//   - 增 Internal_bb_list()  / Internal_edges()  — 让 CFG_FROM_IR 能直接 push
+//     BB 进 BB 列表, 不需要走 Add_bb 之类的虚接口
+// ============================================================================
 
 #ifndef CFG_COMMON_H
 #define CFG_COMMON_H

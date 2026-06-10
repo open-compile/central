@@ -219,6 +219,8 @@ public:
     return _cgir;
   }
   void Analyze_live_range(PU_INFO *info);
+  // 调试输出: 把每个 TN 的 live range 打到 FILE*; 无副作用
+  void            Print(FILE *file = stderr);
 };
 
 /**
@@ -253,13 +255,51 @@ public:
     return _builder;
   }
   // Register Allocation
+  // 入口: 由 CG_process_funcs 调用, 串起整个 RA pipeline
   void          Register_allocate(PU_INFO *info);
+
+  // TODO(register-allocator): 真正 RA 流水线应该拆成以下几步 (每步是一个独立函数):
+  //
+  //   step1  Build_Interference_Graph(IFG&)          ← 建 IFG
+  //          输入: live_range (从 CG_LIVE_RANGE::Analyze_live_range 得到)
+  //          输出: IFG (节点=TN, 边=live-range-overlap)
+  //
+  //   step2  Chaitin_Simplify(IFG&, stack)            ← 启发式压栈
+  //          把 degree < K 的节点压栈 (Simplify)
+  //          选 cost/degree 最低的节点压栈 (Potential-Spill)
+  //
+  //   step3  Chaitin_Select(stack, IFG, coloring)     ← 反向染色
+  //          弹栈, 给每个节点分配 K 种颜色之一
+  //          不够色就 spill
+  //
+  //   step4  Spill_Rewrite(spilled, CGIR&)            ← 改 CGOP
+  //          对每个 spilled TN, 在 def 前插 STR, use 后插 LDR
+  //          然后回到 step1 (IFG 变了!)
+  //
+  //   step5  Rematerialize(CGIR&)                     ← 重物化
+  //          如果 tn 是 const / lda 等可便宜重算的, 不 spill, 在 use 处重算
+  //
+  //   step6  Frame_Allocation(CGIR&, DATA_LAYOUT&)    ← 算栈帧
+  //          给 spilled TN 分配 [sp, #off] 槽位
+  //
+  // 当前实现:
+  //   - 没有 IFG (count-uses 只做频次)
+  //   - 用 naive linear scan (next_register++)
+  //   - spill 是 "寄存器用光就全 spill" 的简化版
+  //   - 缺 step5 (remat) 和 step6 的精确计算
+  //
+  // 详细 spec 见 docs/cg.spec.md §4
+
+  // 当前唯一入口: 把上面的 step1..step6 全揉在一起做 linear scan
   void          Allocate_registers();
   void          Spill_tn(TN_IDX tid, TN *tn);
   UINT32        Count_needed_register(CGOP *oper, UINT32 cgop_id,
                                CGOPR_KIND kind, UINT32 cur_bb, UINT8 opr_pos);
   void          Process_spill_op(CGOP *oper, CGOPR_KIND kind,
                         UINT32 cur_bb, UINT32 opnd, BOOL is_write);
+  // 调试输出
+  void          Print_freq_map(FILE *file = stderr);
+  void          Print_live_range(FILE *file = stderr);
 };
 
 /**

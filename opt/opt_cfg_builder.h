@@ -1,3 +1,21 @@
+//
+// ============================================================================
+// CLAUDE-MARKER  STATUS: REWRITE-REFERENCE (算法会重写)
+// ============================================================================
+// 文件作用: CFG_FROM_IR  — 从 IR TREE 构建 SSABB + STMTREP
+// 关键函数:
+//   - Build                          — 主入口
+//   - Build_function_body            — 处理 BLOCK 内的每条语句
+//   - Lower_expr / Lower_stmt        — 表达式 / 语句降级
+//   - Fixup_branches                 — label → BB, 建立 pred/succ
+// 已知问题 (重写时建议):
+//   1. IR 形式: FUNC_ENTRY → BLOCK(empty) → BLOCK(stmts); 现在硬选 kids>0
+//      的 BLOCK 是 hack, 建议前端调整 IR 让 FUNC_ENTRY 直接包 stmt BLOCK
+//   2. Lower_expr 的 switch 覆盖不全, 大量 OPR_ 未处理
+//   3. LOOP/EXC_SCOPE/REGION/CALL 等控制流节点未处理
+//   4. End_bb() 之后的空 BB (没语句直接 RETURN) 仍会被创建
+// ============================================================================
+
 #ifndef OCC_OPT_CFG_BUILDER_H
 #define OCC_OPT_CFG_BUILDER_H
 

@@ -596,9 +596,42 @@ TN_IDX CGIR::Get_TN_by_ir_node(IR_ITER node, CFG_BB_IDX cur_bb) {
 /**
  * Analyze function-level live range for CGIR;
  * @param info current function
+ *
+ * 标准 RA 算法流水线:
+ *   ┌──────────────────────────┐
+ *   │ Live Range Analysis (本函数) │  1. 反向 dataflow, 求每个 TN 的 [d, u]
+ *   └──────────────────────────┘
+ *              │ 输出: live_in[BB] / live_out[BB] / TN.live_range
+ *              ▼
+ *   ┌──────────────────────────┐
+ *   │ Build Interference Graph  │  2. TN a ─ TN b iff live_range[a] ∩ live_range[b] ≠ ∅
+ *   └──────────────────────────┘
+ *              │ 输出: IFG (无向图)
+ *              ▼
+ *   ┌──────────────────────────┐
+ *   │ Graph Coloring (Chaitin / │  3. K-coloring (K = #available regs); 不够则 spill
+ *   │ Briggs / Linear Scan)     │
+ *   └──────────────────────────┘
+ *
+ * 详细 spec 见 docs/cg.spec.md §3 / §4
  */
 void CG_LIVE_RANGE::Analyze_live_range(PU_INFO *info) {
+  // TODO(live-range): 当前是 stub; 真正的实现需要:
+  //   1. 反向数据流分析 (Reverse Dataflow Analysis):
+  //      - gen[BB] = TN defined in BB
+  //      - kill[BB] = TN used in BB
+  //      - live_in[BB] = use[BB] ∪ (live_out[BB] - def[BB])
+  //      - live_out[BB] = ∪_{succ} live_in[succ]
+  //   2. 走不动点直到稳定
+  //   3. 给每个 TN 拼出 [first_def, last_use] 的区间
+  // 见 cg.spec.md
+  Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_WARN),
+           (TFile, "[CG-LRA] Analyze_live_range is a STUB; RA will fall back to linear scan.\n"));
+}
 
+void CG_LIVE_RANGE::Print(FILE *file) {
+  if (!file) file = stderr;
+  fprintf(file, "%s CG_LIVE_RANGE (currently empty - stub) %s\n", DBAR, DBAR);
 }
 
 /**
@@ -608,6 +641,8 @@ void CG_LIVE_RANGE::Analyze_live_range(PU_INFO *info) {
 void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
   Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_INVOCATION),
            (TFile, "CGIR::Local_register_allocate \n"));
+  AssertThat(info != nullptr, ("PU_INFO is null"));
+  AssertThat(Cgir()->Cfg() != nullptr, ("CGIR cfg not initialized"));
   CGIR *cgir = this->Cgir();
   // Count registers needed.
   UINT32 i32_register_needed = 0;
@@ -615,9 +650,7 @@ void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
   for (UINT32 i = 0; i < bb_cnt; i++) {
     CGBB *cgbb = Cfg()->BB(i);
     // Tracings
-    if (TR_LRA()) {
-      fprintf(TFile, " --------- Processing BB : %d ---------  \n", i);
-    }
+    Is_Trace(TR_LRA(), (TFile, " --------- Processing BB : %d ---------  \n", i));
     _tn_freq_map.clear();
     // If there is a label to it, emit the label
     UINT32 stmt_id = 0;
@@ -626,6 +659,12 @@ void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
       Is_Trace(TR_LRA(),
                (TFile, "LRA: Processing op = %s\n",
                 Get_cg_opc_info(cgop->getOpcode())->ins_token));
+      // TODO(step1: count-uses): 这里是 step 1 — 扫描所有 CGOP, 统计每个 TN
+      //   的 use/def 数, 并把它塞进 _tn_freq_map / _tn_live_range.
+      //   真正的 RA 流水线要把这一步的结果:
+      //     - "每个 TN 被 use 几次" → 用来算 spill cost (cost = uses / degree)
+      //     - "每个 TN 在哪些 BB 里被 use" → 用来构造 IFG
+      //   见 cg.spec.md §4.4
       if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
         i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 0);
       }
@@ -642,22 +681,72 @@ void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
              (TFile, "Found %lu registers to allocate for \n", _tn_freq_map.size()));
 
     // Build interference graph.
-    // ...
+    // TODO(step2: ifg-build): 在真正实现时, 这里应该:
+    //   1. 先调 Cgir()->Reg_lra().Analyze_live_range(info) 算出每个 TN 的 live range
+    //      (反向 dataflow, 见 cg.spec.md §3)
+    //   2. 再建 IFG: TN a ─ TN b iff live_range[a] ∩ live_range[b] ≠ ∅
+    //      数据结构: 一个 unordered_map<TN_IDX, vector<TN_IDX>> 或邻接矩阵
+    //      (图小就用矩阵, 图大用 adjacency list)
+    //   3. IFG 是无向图, 用于下一步 Chaitin-Briggs coloring
+    //
+    //   当前 _tn_freq_map 只是一个 use-频次表, 不能替代 IFG.
+    //   没有 IFG, 你不知道两个 TN 是否冲突 → 给它们同色 = 错误.
+    //
+    //   真正的 LRA 需要:
+    //   1. 调 Analyze_live_range 计算每个 TN 的 live range
+    //   2. 建 IFG (节点=TN, 边=live-range 重叠)
+    //   3. 走 Chaitin / Briggs 启发式 graph coloring
+    //   4. 选 K 不到时做 spill
+    //   现在是 naive linear scan, 见 cg.spec.md
+    //   2. 构造 interference graph: TN a, b 干扰 iff 它们的 live range 重叠
+    //   3. 走 Chaitin / Briggs 启发式 graph coloring
+    //   4. 选 K 不到时做 spill
+    // 现在是 naive linear scan, 见 cg.spec.md
 
     // This is actually global register allocation.
+    //
+    // TODO(step3: coloring): 当前是 naive linear scan: next_register 一直 ++.
+    //   这是错的, 因为:
+    //     - 没看 IFG, 可能把两个 live-range 重叠的 TN 分到同一寄存器 (互相覆盖)
+    //     - spill 一刀切 (next_register >= 7 就全 spill), 没有 cost model
+    //   正确做法: 在 step 2 建的 IFG 上跑 Chaitin-Briggs (见 cg.spec.md §4.2):
+    //     1. Simplify 阶段: 把 degree < K 的节点压栈
+    //     2. Spill 阶段: 选 cost/degree 最低的候选压栈
+    //     3. Select 阶段: 弹栈, 给每个节点分配第一个可用颜色
+    //   K 的取值 (ARMv7 AAPCS integer pool):
+    //     - 全部 caller/callee save 可用: {r0,r1,r2,r3,r4,r5,r6,r7,r8,r10,r11} = 11 个
+    //     - 严格 AAPCS: caller save {r0-r3} = 4, callee save {r4-r8,r10,r11} = 7
+    //     - 调用约定: 跨 call 的 TN 优先用 callee save
     REGISTER_SET used = 0;
     REGISTER_SET_EmptyP(used);
     UINT32 next_register = 1; // Use r0 for return value
     for (auto tn_freq : _tn_freq_map) {
       TN_IDX tid = tn_freq.first;
       TN *tn = TN_tn(tid);
+      AssertThat(tn != nullptr, ("tn is null for tid=%u", tid));
+      AssertThat(TN_register(tn) == 0,
+                 ("TN: %d should not be pre-allocated. cur register = %d",
+                  tid, TN_register(tn)));
+      // TODO(step3.1: 选色): 真正实现时, 这里应该:
+      //   color = pick_color(tn, IFG, K, available_colors)
+      //   而 pick_color 要看 tn 的邻居们 (degree) 都用了什么颜色
       // Allocate one-by-one
       vector<UINT32> &ded = Cfg()->BB(i)->Get_dedicate_regs();
       if (TN_is_gra_cannot_split(tn)){
+        // TODO(step4.1: forced-spill): 这个 TN 不能切 live range (e.g. PREG),
+        //   必须 spill. 真正的实现也要记录: 为啥不能切 (call 实参 / 特殊约束)
         // PREG, must spill here.
         Spill_tn(tid, tn);
       } else {
         if (next_register >= 7) {
+          // TODO(step4.2: heuristic-spill): 当前 spill 是 "寄存器用光就全 spill".
+          //   真正做法 (Chaitin spill heuristics, 见 cg.spec.md §4.4):
+          //     cost(tn) = Σ_{op ∈ uses/defs} (10 ^ in_loop(op))  /  degree(tn)
+          //     选 cost 最低 (spill 影响最小) 的节点 spill
+          //   还应该考虑:
+          //     - 跨 call 的 TN 用 callee-save (r4-r11) 优先, 这样 spill 少
+          //     - 常数 TN 用 rematerialization, 不 spill
+          //     - loop-invariant 优先放在 callee-save (跨 call 不丢)
           /* Spill all now. */
           Spill_tn(tid, tn);
         } else {
@@ -676,12 +765,22 @@ void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
   }
   // Re-add spilling etc.,
   // Allocate all registers, mark spilling info.
+  //
+  // TODO(step5: spill-rewrite): coloring 阶段选出 spill 候选 TN 后,
+  //   这一步要把它们"重写"为 load/store 序列:
+  //     - 在 def 之前插 STR tn, [sp, #spill_offset]
+  //     - 在 use 之后插 LDR tn, [sp, #spill_offset]
+  //   重写后需要重新计算:
+  //     - 因为新增了 CGOP, IFG 变了
+  //     - 需要回到 step 2 重新做 IFG + coloring
+  //   真正的 RA 是迭代的: coloring → spill → 改 CGOP → 回到 coloring, 直到收敛.
+  //
+  //   当前实现只对 TN_SPILL flag 已置位的 TN 做处理 (line ~1112),
+  //   真正的实现应该是: 把 step 3 / 4 选出的 spill 候选都 rewrite 一遍.
   for (UINT32 i = 0; i < bb_cnt; i++) {
     CGBB *cgbb = Cfg()->BB(i);
     // Tracings
-    if (TR_LRA()) {
-      fprintf(TFile, " --------- Post-LRA-Spill BB : %d ---------  \n", i);
-    }
+    Is_Trace(TR_LRA(), (TFile, " --------- Post-LRA-Spill BB : %d ---------  \n", i));
     // If there is a label to it, emit the label
     UINT32 stmt_cnt = cgbb->Get_stmt_count();
     UINT32 stmt_id = 0;
@@ -736,6 +835,38 @@ void CG_REG_ALLOC::Spill_tn(TN_IDX tid, TN *tn) {// We could put the spill on r8
   Set_TN_flags(tn, TN_SPILL);
   Set_TN_spill(tn, sym);
   Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
+}
+
+// 调试输出: 把当前 _tn_freq_map 打到 FILE*; 无副作用
+void CG_REG_ALLOC::Print_freq_map(FILE *file) {
+  if (!file) file = stderr;
+  fprintf(file, "%s CG_REG_ALLOC::_tn_freq_map (%lu entries) %s\n",
+          DBAR, _tn_freq_map.size(), DBAR);
+  for (auto &p : _tn_freq_map) {
+    TN *tn = TN_tn(p.first);
+    fprintf(file, "  TN %u : freq = %u, class = %d, reg = %d, dedicated = %d, prealloc = %d\n",
+            p.first, p.second,
+            TN_register_class(tn), TN_register(tn),
+            TN_is_dedicated(tn), TN_is_preallocated(tn));
+  }
+  fprintf(file, "%s end %s\n", DBAR, DBAR);
+}
+
+// 调试输出: 把每个 TN 的 live range (bb_stmt 序列) 打到 FILE*
+void CG_REG_ALLOC::Print_live_range(FILE *file) {
+  if (!file) file = stderr;
+  fprintf(file, "%s CG_REG_ALLOC::_tn_live_range (%lu entries) %s\n",
+          DBAR, _tn_live_range.size(), DBAR);
+  for (auto &p : _tn_live_range) {
+    fprintf(file, "  TN %u : live points =", p.first);
+    for (auto bs : p.second) {
+      UINT32 bb = (UINT32)((bs >> 32) & 0xFFFFFFFF);
+      UINT32 stmt = (UINT32)(bs & 0xFFFFFFFF);
+      fprintf(file, " (bb=%u,stmt=%u)", bb, stmt);
+    }
+    fprintf(file, "\n");
+  }
+  fprintf(file, "%s end %s\n", DBAR, DBAR);
 }
 
 void CGIR::Print(FILE *file) {

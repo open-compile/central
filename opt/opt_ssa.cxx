@@ -1,3 +1,26 @@
+// ============================================================================
+// CLAUDE-MARKER  STATUS: REWRITE-REFERENCE (核心算法, 使用者会重写)
+// ============================================================================
+// 文件作用: SSA 主流程  —  Construction + Rename + Destruction
+// 关键类:
+//   - SSAIR           : 存储所有函数的 SSA_CFG + OPT_STAB
+//   - SSA_COMPOSITE   : 5 步流程主驱动
+//   - RENAMER (struct): DFS dom tree 时维护 version stack
+// 关键函数:
+//   - SSAIR::Get_function / Goto_function / Print / Dump
+//   - SSA_COMPOSITE::Construct_function    — 5 步流程入口
+//   - Collect_defs_bb                      — 收集每个 aux 的 def BB
+//   - Place_phi_node                       — Cytron 的 Has_already_on_stack
+//   - SSA_Rename / SSA_Rename_rhs          — DFS dom tree + version stack
+//   - Opt_destruct_ssa                     — phi → copy STID
+//   - Opt_build_ssa_all / Opt_run_cprop
+//   - Opt_run_dce / Opt_destruct_ssa_all   — 外层接口
+// 已知问题 (重写时建议):
+//   1. SSA_Rename_rhs 中 OP 子节点的 use 版本号替换没递归处理子 OP
+//   2. Place_phi_node 中 phi 的 result version 没 push 到 stack (导致 ver=1 而非新 ver)
+//   3. Destruction 走 1-1 展开, 缺 Sreedhar 的 phi-coalescing
+//   4. _build_ssa_all 用 PU_INFO 数组, 函数序与 SSAIR::Goto_function 序需一致
+// ============================================================================
 #include "opt_ssa.h"
 #include "opt_basic.h"
 #include "opt_coderep.h"
@@ -6,6 +29,8 @@
 #include "opt_dom.h"
 #include "opt_cfg_builder.h"
 #include "opt_walk.h"
+#include "opt_print.h"
+#include "opt_dbg.h"
 #include "be_export.h"
 
 #include <stack>
@@ -62,6 +87,7 @@ void SSAIR::Print(FILE *file) {
 }
 
 void SSAIR::Print(ST_IDX sym, FILE *file) {
+  if (!file) file = stderr;
   fprintf(file, "=== SSAIR function st=%d ===\n", (int)sym);
   SSA_CFG *cfg = Get_function(sym);
   for (UINT32 i = 0; i < cfg->Size(); ++i) {
@@ -70,6 +96,66 @@ void SSAIR::Print(ST_IDX sym, FILE *file) {
             bb->Get_id(), bb->Get_preds_count(), bb->Get_succs_count());
     for (auto *phi : bb->_phi_list) phi->Print(file);
     for (auto *s : bb->_stmtreps) s->Print(file);
+  }
+}
+
+// ===== 详细 Dump =====
+
+void SSAIR::Dump(INT32 dump_level, FILE *file) {
+  if (!file) file = stderr;
+  if (dump_level <= 0) return;
+  fprintf(file, "\n%s SSAIR DUMP (all functions, level=%d) %s\n",
+          SSA_DBAR, dump_level, SSA_DBAR);
+  for (auto &p : _trees) {
+    Dump(p.first, dump_level, file);
+  }
+  fprintf(file, "%s end SSAIR DUMP %s\n\n", SSA_DBAR, SSA_DBAR);
+}
+
+void SSAIR::Dump(ST_IDX sym, INT32 dump_level, FILE *file) {
+  if (!file) file = stderr;
+  if (dump_level <= 0) return;
+  SSA_CFG *cfg = Get_function(sym);
+  OPT_STAB *stab = _ssa_symtab.count(sym) ? _ssa_symtab[sym] : nullptr;
+
+  fprintf(file, "\n%s SSAIR DUMP function st=%d level=%d %s\n",
+          SSA_DBAR, (int)sym, dump_level, SSA_DBAR);
+
+  // level >= 1: CFG 拓扑（紧凑）
+  if (dump_level >= 1) {
+    Print_ssa_cfg(cfg, file, FALSE);
+  }
+  // level >= 2: DOM
+  if (dump_level >= 2) {
+    Print_dom_tree(cfg, file);
+  }
+  // level >= 3: DF
+  if (dump_level >= 3) {
+    Print_df(cfg, file);
+  }
+  // level >= 4: STAB 详细
+  if (dump_level >= 4 && stab) {
+    stab->Print_verbose(file);
+  }
+  // level >= 5: CFG pretty（带 phi 完整信息）
+  if (dump_level >= 5) {
+    Print_ssa_cfg(cfg, file, TRUE);
+  }
+  fprintf(file, "%s end function st=%d %s\n", SSA_DBAR, (int)sym, SSA_DBAR);
+}
+
+// 全局 dump 入口
+void SSADump_all(FILE *f) {
+  if (!f) f = stderr;
+  if (SSAMon() && SSAMon()->SSA_ir()) {
+    SSAMon()->SSA_ir()->Print(f);
+  }
+}
+
+void SSADump_function(ST_IDX sym, FILE *f) {
+  if (!f) f = stderr;
+  if (SSAMon() && SSAMon()->SSA_ir()) {
+    SSAMon()->SSA_ir()->Dump(sym, SSA_DUMP_FULL, f);
   }
 }
 
@@ -262,23 +348,38 @@ void SSA_COMPOSITE::Construct_function(ST_IDX func_sym, SCOPE *scope, UINT32 ir_
   SSA_CFG    *cfg     = SSA_ir()->Cfg();
   OPT_STAB   *stab    = SSA_ir()->Current_symtab();
   TREE       *tree    = SSA_ir()->Current_tree();
+  COMPILER_CONFIG *cc = Get_config();
+  OPT_CONFIG *oc = cc ? &cc->opt_cfg : nullptr;
+  FILE *dfp = (oc && oc->dump_fp) ? oc->dump_fp : stderr;
 
   // 1. IR → SSABB + STMTREP
   CFG_FROM_IR builder;
   builder.Build(tree, cfg, stab);
+  if (oc && oc->dump_after_cfg_build > 0) {
+    SSA_ir()->Dump(func_sym, oc->dump_after_cfg_build, dfp);
+  }
 
   // 2. 支配树
   DOM_BUILDER dom;
   dom.Build(cfg);
+  if (oc && oc->dump_after_dom > 0) {
+    SSA_ir()->Dump(func_sym, oc->dump_after_dom, dfp);
+  }
 
   // 3. 收集 def bb
   Collect_defs_bb();
 
   // 4. 放置 phi
   Place_phi_node();
+  if (oc && oc->dump_after_phi > 0) {
+    SSA_ir()->Dump(func_sym, oc->dump_after_phi, dfp);
+  }
 
   // 5. 重命名
   SSA_Rename();
+  if (oc && oc->dump_after_rename > 0) {
+    SSA_ir()->Dump(func_sym, oc->dump_after_rename, dfp);
+  }
 }
 
 // ===== 外层接口 =====
@@ -291,9 +392,11 @@ void Opt_build_ssa(PU_INFO *pu, FILE_MANAGER *file, IR_LEVEL level, COMPILER_CON
 }
 
 void Opt_destruct_ssa(PU_INFO *pu_info, FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &config) {
-  (void)level; (void)config;
+  (void)level;
   SSA_CFG *cfg = SSAMon()->SSA_ir()->Get_function(pu_info->Proc_sym());
   if (!cfg) return;
+  OPT_CONFIG *oc = &config.opt_cfg;
+  FILE *dfp = oc->dump_fp ? oc->dump_fp : stderr;
 
   // 把每个 phi 转成 copy：每个前驱在末尾追加 STID
   for (UINT32 i = 0; i < cfg->Size(); ++i) {
@@ -329,10 +432,20 @@ void Opt_destruct_ssa(PU_INFO *pu_info, FILE_MANAGER *file, IR_LEVEL level, COMP
     }
     bb->_phi_list.clear();
   }
+  if (oc->dump_after_destruct > 0) {
+    SSAMon()->SSA_ir()->Dump(pu_info->Proc_sym(), oc->dump_after_destruct, dfp);
+  }
 }
 
 void Opt_build_ssa_all(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &config) {
+  OPT_CONFIG *oc = &config.opt_cfg;
+  if (!oc->run_ssa_phase) {
+    Is_Trace(Tracing(COMPONENT_SSA, TRACE_INFO),
+             (TFile, "[SSA] skipped whole SSA phase (run_ssa_phase=false)\n"));
+    return;
+  }
   SSAMon()->Init();
+  SSAMon()->Set_config(&config);
   for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
     PU_INFO *pu = file->Tables()->Pu_info()->Get(it);
     if (pu->proc_sym != 0) {
@@ -342,6 +455,12 @@ void Opt_build_ssa_all(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &conf
 }
 
 void Opt_destruct_ssa_all(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &config) {
+  OPT_CONFIG *oc = &config.opt_cfg;
+  if (!oc->run_destruct_ssa) {
+    Is_Trace(Tracing(COMPONENT_SSA, TRACE_INFO),
+             (TFile, "[SSA] destruct skipped (run_destruct_ssa=false)\n"));
+    return;
+  }
   for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
     PU_INFO *pu = file->Tables()->Pu_info()->Get(it);
     if (pu->proc_sym != 0) {
@@ -354,10 +473,17 @@ void Opt_destruct_ssa_all(FILE_MANAGER *file, IR_LEVEL level, COMPILER_CONFIG &c
 
 #include "opt_dce.h"
 #include "opt_cprop.h"
+#include "options.h"
 
 void Opt_run_dce(FILE_MANAGER *file, COMPILER_CONFIG &config) {
-  (void)config;
+  OPT_CONFIG *oc = &config.opt_cfg;
+  if (!oc->enable_dce) {
+    Is_Trace(Tracing(COMPONENT_SSA, TRACE_INFO),
+             (TFile, "[DCE] skipped (disabled in config)\n"));
+    return;
+  }
   SSAIR *ssair = SSAMon()->SSA_ir();
+  FILE *dfp = oc->dump_fp ? oc->dump_fp : stderr;
   for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
     PU_INFO *pu = file->Tables()->Pu_info()->Get(it);
     if (pu->proc_sym == 0) continue;
@@ -368,12 +494,21 @@ void Opt_run_dce(FILE_MANAGER *file, COMPILER_CONFIG &config) {
     dce.Run(cfg, stab);
     Is_Trace(Tracing(COMPONENT_SSA, TRACE_INFO),
              (TFile, "[DCE] completed on pu st=%d\n", (int)pu->proc_sym));
+    if (oc->dump_after_dce > 0) {
+      ssair->Dump(pu->proc_sym, oc->dump_after_dce, dfp);
+    }
   }
 }
 
 void Opt_run_cprop(FILE_MANAGER *file, COMPILER_CONFIG &config) {
-  (void)config;
+  OPT_CONFIG *oc = &config.opt_cfg;
+  if (!oc->enable_cprop) {
+    Is_Trace(Tracing(COMPONENT_SSA, TRACE_INFO),
+             (TFile, "[CPROP] skipped (disabled in config)\n"));
+    return;
+  }
   SSAIR *ssair = SSAMon()->SSA_ir();
+  FILE *dfp = oc->dump_fp ? oc->dump_fp : stderr;
   for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
     PU_INFO *pu = file->Tables()->Pu_info()->Get(it);
     if (pu->proc_sym == 0) continue;
@@ -381,11 +516,16 @@ void Opt_run_cprop(FILE_MANAGER *file, COMPILER_CONFIG &config) {
     if (!cfg || cfg->Size() == 0) continue;
     OPT_STAB *stab = ssair->Symtab_map()[pu->proc_sym];
     CONST_PROP cp;
-    // 不动点迭代：通常 1-2 轮
-    for (int round = 0; round < 4; ++round) {
+    // 不动点迭代
+    INT32 max_iter = oc->param.cprop_max_iter > 0 ? oc->param.cprop_max_iter : 4;
+    for (INT32 round = 0; round < max_iter; ++round) {
       if (!cp.Run(cfg, stab)) break;
     }
     Is_Trace(Tracing(COMPONENT_SSA, TRACE_INFO),
-             (TFile, "[CPROP] completed on pu st=%d\n", (int)pu->proc_sym));
+             (TFile, "[CPROP] completed on pu st=%d (max_iter=%d)\n",
+              (int)pu->proc_sym, max_iter));
+    if (oc->dump_after_cprop > 0) {
+      ssair->Dump(pu->proc_sym, oc->dump_after_cprop, dfp);
+    }
   }
 }

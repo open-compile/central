@@ -1,3 +1,7 @@
+// ============================================================================
+// CLAUDE-MARKER  STATUS: REWRITE-REFERENCE (算法会重写)
+// 配套 opt_cfg_builder.h
+// ============================================================================
 #include "opt_cfg_builder.h"
 #include "tree.h"
 #include "symtab.h"
@@ -15,23 +19,37 @@ void CFG_FROM_IR::Build(TREE *tree, SSA_CFG *cfg, OPT_STAB *stab) {
 
   // 找到 FUNC_ENTRY 节点作为入口
   // 通常 root 是 BLOCK，里面是 FUNC_ENTRY，再嵌套 BLOCK
-  // 简化：直接对 root 做 pre-order 遍历，识别 OPR_FUNC_ENTRY
+  // 实际 IR 形式: FUNC_ENTRY → BLOCK(empty) → BLOCK(statements...)
+  // 所以找 FUNC_ENTRY 的 BLOCK 子节点中**有 kid 数量 > 0** 的那个
   IR_PRE_ITER pre(root);
   IR_PRE_ITER pre_end = _tree->End();
   bool found_func_entry = false;
   for (; pre != pre_end; ++pre) {
     IRNODE *n = _tree->Get_node(pre);
     if (n && OPCODE_operator(n->Opcode()) == OPR_FUNC_ENTRY) {
-      // 跳过 FUNC_ENTRY 本身，找到它的 BLOCK 子节点
       IR_ITER fe = pre;
-      // 找第一个子 BLOCK
       for (UINT32 i = 0; i < _tree->Number_of_children(fe); ++i) {
         IR_ITER child = _tree->Get_operand(fe, i);
         IRNODE *cn = _tree->Get_node(child);
         if (cn && OPCODE_operator(cn->Opcode()) == OPR_BLOCK) {
-          Build_function_body(child);
-          found_func_entry = true;
-          break;
+          // 找有孩子的 BLOCK（避免选空的 BLOCK 包装）
+          if (_tree->Number_of_children(child) > 0) {
+            Build_function_body(child);
+            found_func_entry = true;
+            break;
+          }
+        }
+      }
+      // 若都没 kid，回退到第一个 BLOCK
+      if (!found_func_entry) {
+        for (UINT32 i = 0; i < _tree->Number_of_children(fe); ++i) {
+          IR_ITER child = _tree->Get_operand(fe, i);
+          IRNODE *cn = _tree->Get_node(child);
+          if (cn && OPCODE_operator(cn->Opcode()) == OPR_BLOCK) {
+            Build_function_body(child);
+            found_func_entry = true;
+            break;
+          }
         }
       }
       break;

@@ -1,4 +1,9 @@
+// ============================================================================
+// CLAUDE-MARKER  STATUS: KEEP (data structure)
+// 配套 opt_stab.h; 实现 OPT_STAB 的增/查/版本操作 + Print
+// ============================================================================
 #include "opt_stab.h"
+#include "opt_dbg.h"
 
 AUX_ID OPT_STAB::Add_var(ST_IDX st, MTYPE_ID mtype) {
   auto it = _st_to_aux.find(st);
@@ -71,9 +76,33 @@ void OPT_STAB::Reset() {
 }
 
 void OPT_STAB::Print(FILE *f) const {
-  fprintf(f, "===== OPT_STAB: %lu vars =====\n", _vars.size());
+  if (!f) f = stderr;
+  fprintf(f, "%s OPT_STAB: %lu vars %s\n", SSA_DBAR, _vars.size(), SSA_DBAR);
   for (UINT32 i = 0; i < _vars.size(); ++i) {
-    fprintf(f, "  aux=%u st=%d ver_count=%u\n",
-            i, (int)_vars[i].st_idx, _vars[i].ver_count);
+    fprintf(f, "  aux=%u st=%d mtype=%d ver_count=%u def_bbs=%lu\n",
+            i, (int)_vars[i].st_idx, (int)_vars[i].mtype,
+            _vars[i].ver_count, (unsigned long)_vars[i].def_bbs.size());
   }
+  fprintf(f, "%s end %s\n", SSA_DBAR, SSA_DBAR);
+}
+
+void OPT_STAB::Print_verbose(FILE *f) const {
+  if (!f) f = stderr;
+  fprintf(f, "%s OPT_STAB (verbose) %s\n", SSA_DBAR, SSA_DBAR);
+  for (UINT32 i = 0; i < _vars.size(); ++i) {
+    fprintf(f, "aux=%u st=%d mtype=%d\n",
+            i, (int)_vars[i].st_idx, (int)_vars[i].mtype);
+    fprintf(f, "  def_bbs:");
+    for (auto *bb : _vars[i].def_bbs) fprintf(f, " %u", bb->Get_id());
+    fprintf(f, "\n  versions:\n");
+    for (UINT32 v = 0; v < (UINT32)_ver_tab[i].size(); ++v) {
+      const VER_ENTRY &ve = _ver_tab[i][v];
+      fprintf(f, "    v%u  def_bb=%u  def_stmt=%s  def_phi=%s\n",
+              ve.version,
+              ve.def_bb ? ve.def_bb->Get_id() : 0,
+              ve.def_stmt ? "yes" : "no",
+              ve.def_phi ? "yes" : "no");
+    }
+  }
+  fprintf(f, "%s end %s\n", SSA_DBAR, SSA_DBAR);
 }

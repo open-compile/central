@@ -1,6 +1,18 @@
 //
 // Created by xc5 on 2024/11/4.
 //
+// ============================================================================
+// CLAUDE-MARKER  STATUS: KEEP (主体为 typedef 与 class 声明, 可保留)
+// ============================================================================
+// 修改内容:
+//   - SSAIR 改用 OPT_STAB* (替代原来的 OPT_SYMTAB*)
+//   - SSAIR 增 Symtab_map() 访问器
+//   - SSAIR::Get_function 改 lazy 创建
+//   - SSA_CFG_BB_BASE<NODE_TYPE> 增 _phi_list / _stmtreps 成员
+//   - SSA_CFG_BB_BASE 增 Print / Print_pretty / Print_dom / Print_df
+//   - SSA_COMPOSITE 增 _config 字段和 Set_config / Get_config
+// 保留: SSABB / SSA_CFG typedef
+// ============================================================================
 
 #ifndef OCC_OPT_BASIC_H
 #define OCC_OPT_BASIC_H
@@ -87,8 +99,13 @@ public:
   void Add_phi(class PHI_NODE *p) { _phi_list.push_back(p); }
   void Add_stmtrep(class STMTREP *s) { _stmtreps.push_back(s); }
 
+  // Print 接口：默认紧凑，level>=1 用 pretty
+  void Print(FILE *f = stderr) const;
+  void Print_pretty(FILE *f = stderr) const;
+  void Print_dom(FILE *f = stderr) const;
+  void Print_df(FILE *f = stderr) const;
+
   SSA_CFG_BB_BASE(UINT32 block_id) : CFG_BB_BASE<NODE_TYPE>(block_id) {}
-  SSA_CFG_BB_BASE() : CFG_BB_BASE<NODE_TYPE>() {}
 };
 
 // BB definitions
@@ -138,6 +155,9 @@ public:
   // Externally defined functions.
   void          Print(FILE *file = stderr);
   void          Print(ST_IDX sym, FILE *file = stderr);
+  // 详细 dump：dump_level 越大越详细（参考 SSA_DUMP_LEVEL）
+  void          Dump(INT32 dump_level, FILE *file = stderr);
+  void          Dump(ST_IDX sym, INT32 dump_level, FILE *file = stderr);
   void          Goto_function(ST_IDX sym); // setup SSAIR
 };
 
@@ -175,12 +195,16 @@ class SSA_COMPOSITE {
 private:
   SSAIR            *_ssair = nullptr;
   SSA_BUILDER       _builder;
+  // 缓存最新的 COMPILER_CONFIG 引用（由 BE_EXTERNAL_MAIN_NAME 设置）
+  class COMPILER_CONFIG *_config = nullptr;
 public:
   void Init() {
     _ssair = new SSAIR();
     AssertThat(_ssair != nullptr, ("SSA-IR must be a valid SSA-IR"));
     _builder.Init(_ssair);
   }
+  void Set_config(class COMPILER_CONFIG *c) { _config = c; }
+  class COMPILER_CONFIG *Get_config() const { return _config; }
   SSAIR         *SSA_ir() {
     AssertThat(_ssair != nullptr,
                ("SSA-IR is not initialized in Live range analysis"));

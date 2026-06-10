@@ -1,6 +1,8 @@
 # Central 编译器现状记录（spec-old.md）
 
 > 记录时间：2026-06-09  
+> **CLAUDE-MARKER**: 本文档由 claude 撰写, 记录 SSA pipeline 实现之前的项目状态,
+>               供回看参考。
 > 目的：记录当前已实现内容，作为后续开发的基线参考
 
 ---

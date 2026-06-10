@@ -1,3 +1,17 @@
+//
+// ============================================================================
+// CLAUDE-MARKER  STATUS: KEEP (template walkers — used by SSA algos)
+// ============================================================================
+// 文件作用: 通用模板 walker, 让算法代码可读性更好
+// 关键函数:
+//   - Walk_cfg_rpo(bb_first, bb_count, fn)        — 按 RPO 遍历 BB
+//   - Walk_dom_tree(root, fn)                     — 沿 dom tree DFS
+//   - Walk_cr_postorder(cr, depth, fn)            — 表达式后序
+//   - Compute_rpo(cfg, rpo, rpo_num)              — RPO 编号
+// 模板化原因: BB/CR/OP 类型均不同; 用模板让算法可同时作用于 SSA/CG 域。
+// 重写提示: 接口稳定, 直接复用。
+// ============================================================================
+
 #ifndef OCC_OPT_WALK_H
 #define OCC_OPT_WALK_H
 

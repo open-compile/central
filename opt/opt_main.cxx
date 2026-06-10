@@ -1,3 +1,14 @@
+//
+// ============================================================================
+// CLAUDE-MARKER  STATUS: REWRITE-REFERENCE (BE_EXTERNAL_MAIN_NAME 的 SSA
+//                           pipeline 串接是参考; 算法本身在其它 .cxx)
+// ============================================================================
+// 修改内容:
+//   - 在 BE_EXTERNAL_MAIN_NAME 中 LEVEL_MID 之后插入 SSA pipeline:
+//        Opt_build_ssa_all → Opt_run_cprop → Opt_run_dce → Opt_destruct_ssa_all
+//   - 增加了 trace 联动: 开 debug 时自动 enable 所有 dump
+//   - 删除了重复的 Opt_lower(LEVEL_HIGH)
+// ============================================================================
 #include "basic.h"
 #include "host.h"
 #include "options.h"
@@ -49,6 +60,18 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
   // Optimizations on High IR
 
   // Optimizations on Mid IR, SSA, DCE, CSE ...
+
+  // 自动 dump 联动：当 trace 打开时启用所有 SSA dump
+  if (Tracing(COMPONENT_SSA, TRACE_DEBUG) ||
+      Tracing(COMPONENT_GOPT, TRACE_DEBUG)) {
+    conf.opt_cfg.dump_after_cfg_build = SSA_DUMP_FULL;
+    conf.opt_cfg.dump_after_dom       = SSA_DUMP_FULL;
+    conf.opt_cfg.dump_after_phi       = SSA_DUMP_FULL;
+    conf.opt_cfg.dump_after_rename    = SSA_DUMP_FULL;
+    conf.opt_cfg.dump_after_cprop     = SSA_DUMP_FULL;
+    conf.opt_cfg.dump_after_dce       = SSA_DUMP_FULL;
+    conf.opt_cfg.dump_after_destruct  = SSA_DUMP_FULL;
+  }
 
   // After middle level lowering & simple opt. transform to SSA and continue for opt.
   Opt_build_ssa_all(File(), LEVEL_MID, conf);

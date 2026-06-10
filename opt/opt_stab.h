@@ -1,3 +1,20 @@
+//
+// ============================================================================
+// CLAUDE-MARKER  STATUS: KEEP (data structure)
+// ============================================================================
+// 文件作用: OPT_STAB  — ST_IDX → 紧凑 AUX_ID 的映射, 加版本表 (ver_tab)
+// 关键类:
+//   - OPT_VAR    : 包含 st_idx / aux_id / mtype / ver_count / def_bbs (set)
+//   - VER_ENTRY  : 单个版本, 包含 def_stmt / def_phi / def_bb
+//   - OPT_STAB   : Add_var / Lookup / New_version / Ver / Var / Print
+// 关键函数:
+//   - OPT_STAB::Add_var — lazy 加新 aux
+//   - OPT_STAB::New_version — push 新版本
+//   - OPT_STAB::Print / Print_verbose
+// 重写提示: 数据结构完整可保留; 若要做 sparse versioning (per-BB def) 可加
+//           一个 BitSet<MAX_VER> 或者把 ver_tab 改成 per-BB 的 map。
+// ============================================================================
+
 #ifndef OCC_OPT_STAB_H
 #define OCC_OPT_STAB_H
 
@@ -62,6 +79,7 @@ public:
 
   // 打印
   void Print(FILE *f = stderr) const;
+  void Print_verbose(FILE *f = stderr) const;
 
 private:
   AUX_ID                                 _next_aux;

@@ -1,3 +1,16 @@
+//
+// ============================================================================
+// CLAUDE-MARKER  STATUS: KEEP (data structure)
+// ============================================================================
+// 文件作用: STMTREP  — 包裹 IR 语句; SSA 化之后所有语句都通过 STMTREP 表示
+// 关键类:
+//   - STMTREP : _opc (OPERATOR) / _orig (IRNODE_IDX) / _bb / _lhs / _rhs / _cond
+//               / _live / _side_effect / _next / _prev (linked list in BB)
+// 关键函数:
+//   - STMTREP::Print / Print_pretty
+// 重写提示: STMTREP 概念可保留; 若要加 RU (reuse) 字段或者 chi/mu 链, 直接加。
+// ============================================================================
+
 #ifndef OCC_OPT_STMT_H
 #define OCC_OPT_STMT_H
 
@@ -28,6 +41,7 @@ public:
 
   BOOL Has_side_effect() const;
   void Print(FILE *f = stderr) const;
+  void Print_pretty(FILE *f = stderr) const;
 };
 
 #endif //OCC_OPT_STMT_H

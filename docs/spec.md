@@ -1,6 +1,9 @@
 # SSA 设计与优化 Spec
 
 > 版本：v1.0  
+> **CLAUDE-MARKER**: 本 spec 由 claude 撰写, 描述 SSA / 基础优化的算法与数据结构设计。
+>               重写算法时可保留数据结构部分, 算法部分应按本 spec + 经典论文
+>               (Cytron'91 / Cooper'01 / Wegman-Zadeck'85) 重新实现。
 > 参考：Open64 opt_htable/opt_ssa/opt_dce/opt_prop  
 > 目标：在现有 IRNODE/TREE 之上建立 CODEREP-based SSA，支持 DCE 和常量传播
 
