@@ -205,23 +205,23 @@ PU *PU_INFO_Pu(PU_INFO_IDX pu_inf_idx) {
 void PU_INFO::Print_function_verbose(FILE *f) {
   // PU_INFO table slot 0 is a placeholder reserved by the GROWING_TABLE so that
   // valid PU_INFO_IDXes start at 1 (matching how the rest of the symtab treats
-  // idx 0 as "null"). Print a structured placeholder line that mirrors the
-  // banner format used for real functions; this is decorative output only.
+  // idx 0 as "null"). Print a one-line summary; this routine is called once
+  // per slot under the "Dumping scope manager" banner, so a heavy bar-wrapped
+  // banner here just stacks separators.
   if (pu_info_idx == 0 && pu_idx == 0 && proc_sym == 0) {
-    fprintf(f, "%s+ [%-4d] (Function_idx_0_placeholder)\n%s",
-            DBAR, 0, DBAR);
+    fprintf(f, "  [%-4d] (Function_idx_0_placeholder)\n", 0);
     return;
   }
   AssertThat(pu_idx > 0 && pu_info_idx > 0 && proc_sym > 0,
              ("Incomplete function: pu_idx=%u pu_info_idx=%u proc_sym=0x%x",
               (unsigned) pu_idx, (unsigned) pu_info_idx, (unsigned) proc_sym));
-  // One-line summary; the per-function scope tables and IR tree are printed
-  // in detail by FILE_SYMTAB::Print_functions later in the same dump, so we
-  // intentionally avoid recursing here (would duplicate the entire body).
-  fprintf(f, "%s+ [%-4d] Function %s (pu_idx=%u, proc_sym=0x%x)\n%s",
-          DBAR, (int) pu_info_idx,
+  // Per-function scope tables and IR tree are printed in detail by
+  // FILE_SYMTAB::Print_functions later in the same dump; we only emit a
+  // summary line here.
+  fprintf(f, "  [%-4d] Function %s (pu_idx=%u, proc_sym=0x%x)\n",
+          (int) pu_info_idx,
           (proc_sym > 0) ? ST_name(proc_sym) : "(anon)",
-          (unsigned) pu_idx, (unsigned) proc_sym, DBAR);
+          (unsigned) pu_idx, (unsigned) proc_sym);
 }
 
 FILE_INFO::FILE_INFO() {
