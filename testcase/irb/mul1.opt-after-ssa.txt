@@ -1,13 +1,19 @@
 === IRB File: testcase/irb/mul1.opt-after-ssa.irb ===
 
 
-== Scope Manager ==
+=======================================================
+Scope Manager
+=======================================================
   [0   ] (Function_idx_0_placeholder)
   [1   ] Function foo (pu_idx=1, proc_sym=0xa01)
 
-== Program Units ==
+=======================================================
+Program Units
+=======================================================
 
+=======================================================
 Function 1: foo
+=======================================================
 
   -- Tree --
 Printing the table size = 20, tree of size = 16 ... 
@@ -45,7 +51,9 @@ IDX[12      ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0
   -- INITO --
 [    0][0]  Inito for sym name = (null), init-values: 0
 
-== File-level Symbol Table ==
+=======================================================
+File-level Symbol Table
+=======================================================
 [    0][0] (anon)        unknown  -> unknown
 [    1][0x1] getint        extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
 [    2][0x2] getch         extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
@@ -59,7 +67,9 @@ IDX[12      ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0
 [   10][0xa] foo           text (program)  --> function = pu_id = [1], prototype = [24] 
 [   11][0xb] .predef_preg    unknown  --> preg, preg_idx = 258 
 
-== File-level Type Table ==
+=======================================================
+File-level Type Table
+=======================================================
 [    0][0] (anon)        : (f: 0x0000) size 0 : other
 [    1][0x1] MTYPE_UNKNOWN : (f: 0x0004) size 0 : SCALAR (MTYPE_UNKNOWN)
 [    2][0x2] MTYPE_B       : (f: 0x0004) size 1 MTYPE_B: SCALAR (MTYPE_B)
@@ -107,7 +117,9 @@ IDX[12      ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0
 	parameter MTYPE_V (#14) align 0
 
 
-== File-level Tylist Table ==
+=======================================================
+File-level Tylist Table
+=======================================================
 [    0][0] (type = 0)
 [    1][0x1] (type = 5)
 [    2][0x2] (type = 14)
@@ -130,13 +142,23 @@ IDX[12      ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0
 [   19][0x13] (type = 14)
 [   20][0x14] (type = 0)
 
-== File-level Array Bound Table ==
+=======================================================
+File-level Array Bound Table
+=======================================================
 [    0][0] [    1][0x1] 
-== File-level Program Unit Table ==
+=======================================================
+File-level Program Unit Table
+=======================================================
 [    0][0] [    1][0x1] 
-== File-level Program Unit Info Table ==
+=======================================================
+File-level Program Unit Info Table
+=======================================================
 [    0][0] [    1][0x1] 
-== File-level Inito Table ==
+=======================================================
+File-level Inito Table
+=======================================================
 [    0][0]  Inito for sym name = (null), init-values: 0
 
-== End of file level symtabs ==
+=======================================================
+End of file level symtabs
+=======================================================

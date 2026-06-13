@@ -60,24 +60,24 @@ TY_IDX MTYPE_kind(MTYPE_ID mtype) {
  * File Symtab
  ******************************************************************************/
 void FILE_SYMTAB::Print(FILE *f) {
-  fprintf(f, "\n== Program Units ==\n");
+  fprintf(f, "\n%sProgram Units\n%s", DBAR, DBAR);
   this->Print_functions(f);
   // Global Print
-  fprintf(f, "\n== File-level Symbol Table ==\n");
+  fprintf(f, "\n%sFile-level Symbol Table\n%s", DBAR, DBAR);
   this->Sym()->Print(f);
-  fprintf(f, "\n== File-level Type Table ==\n");
+  fprintf(f, "\n%sFile-level Type Table\n%s", DBAR, DBAR);
   this->Ty()->Print(f);
-  fprintf(f, "\n== File-level Tylist Table ==\n");
+  fprintf(f, "\n%sFile-level Tylist Table\n%s", DBAR, DBAR);
   this->Tylist()->Print(f);
-  fprintf(f, "\n== File-level Array Bound Table ==\n");
+  fprintf(f, "\n%sFile-level Array Bound Table\n%s", DBAR, DBAR);
   this->Arb()->Print(f);
-  fprintf(f, "\n== File-level Program Unit Table ==\n");
+  fprintf(f, "\n%sFile-level Program Unit Table\n%s", DBAR, DBAR);
   this->Pu()->Print(f);
-  fprintf(f, "\n== File-level Program Unit Info Table ==\n");
+  fprintf(f, "\n%sFile-level Program Unit Info Table\n%s", DBAR, DBAR);
   this->Pu_info()->Print(f);
-  fprintf(f, "\n== File-level Inito Table ==\n");
+  fprintf(f, "\n%sFile-level Inito Table\n%s", DBAR, DBAR);
   this->Inito()->Print(f);
-  fprintf(f, "\n== End of file level symtabs ==\n");
+  fprintf(f, "\n%sEnd of file level symtabs\n%s", DBAR, DBAR);
 
   //  Is_Trace(Tracing(COMPONENT_BE, TRACE_INVOCATION),
   //           ("PU st_idx: %d\n", ));
@@ -163,8 +163,9 @@ void FILE_SYMTAB::Print_functions(FILE *f) {
     const char *func_name = pu_info->proc_sym > 0
                           ? ST_name(pu_info->proc_sym)
                           : "(incomplete function)";
-    // Header — single visible line, blank line above to separate from prior PU
-    fprintf(f, "\nFunction %u: %s\n", (unsigned) cursor, func_name);
+    // Header — top-level per-function, gets the same DBAR treatment as the
+    // file-level sections above.
+    fprintf(f, "\n%sFunction %u: %s\n%s", DBAR, (unsigned) cursor, func_name, DBAR);
     // Sub-section labels are short inline tags — no banner per sub-section,
     // just blank-line separation. Keeps the per-function block clearly
     // delimited without stacking '=' bars on every nested label.
@@ -272,7 +273,7 @@ void SCOPE_MANAGER::Finish_function(ST_IDX func, PU_INFO_IDX func_info) {
 }
 
 void SCOPE_MANAGER::Print(FILE *f) {
-  fprintf(f, "\n== Scope Manager ==\n");
+  fprintf(f, "\n%sScope Manager\n%s", DBAR, DBAR);
 }
 
 
