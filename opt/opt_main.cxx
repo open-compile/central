@@ -21,6 +21,7 @@
 #include <vector>
 #include <map>
 #include "cgir.h"
+#include "ir_io.h"
 
 IR_ITER &Opt_lower_if_stmt(IR_ITER &stmt, const PU_INFO *func, TREE *tree,
                            char *name_buf);
@@ -52,11 +53,13 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
 
   Opt_lower(File(), LEVEL_HIGH, conf);
   Opt_verify(File(), LEVEL_HIGH, conf);
+  Maybe_dump_ir("opt-high", conf, File());
 
   // If OPT >= 3, enable IPA, LNO ....
 
   Opt_lower(File(), LEVEL_MID, conf);
   Opt_verify(File(), LEVEL_MID, conf);
+  Maybe_dump_ir("opt-mid", conf, File());
   // Optimizations on High IR
 
   // Optimizations on Mid IR, SSA, DCE, CSE ...
@@ -82,17 +85,21 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
 
   // 析构 SSA（phi → copy），恢复成普通 IR 继续降级
   Opt_destruct_ssa_all(File(), LEVEL_MID, conf);
+  Maybe_dump_ir("opt-after-ssa", conf, File());
 
   Opt_lower(File(), LEVEL_LOW, conf);
   Opt_verify(File(), LEVEL_LOW, conf);
+  Maybe_dump_ir("opt-low", conf, File());
   // Optimizations done in low IR, not much though
 
   Opt_lower(File(), LEVEL_VLOW, conf);
   Opt_verify(File(), LEVEL_VLOW, conf);
+  Maybe_dump_ir("opt-vlow", conf, File());
 
   // To CGIR
   Opt_lower(File(), LEVEL_CGIR, conf);
   Opt_verify(File(), LEVEL_CGIR, conf);
+  Maybe_dump_ir("opt-cgir", conf, File());
 
   if(Tracing(COMPONENT_BE, TRACE_EMIT_CORE)) {
     // Dump the tree again after all optimizations

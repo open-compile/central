@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <utility>
 #include "args.h" // MIT License
 
 using STRVEC = std::vector<std::string>;
@@ -102,6 +103,13 @@ public:
 
   // 优化器配置（新增）
   OPT_CONFIG opt_cfg;
+
+  // 二进制 IR dump / load (Step 10)
+  // 每项 (stage, path); stage ∈ {"fe", "opt-high", "opt-mid",
+  //   "opt-after-ssa", "opt-low", "opt-vlow", "opt-cgir", "pre-cg"}
+  std::vector<std::pair<std::string,std::string>> dump_ir_stages;
+  std::string load_ir_path;
+  BOOL        dump_textual_after_dump = FALSE;
 
   BOOL Opt_enabled(OPT_KIND k) {
     if (k == OPT_KIND::OPT_KIND_ARITH) {

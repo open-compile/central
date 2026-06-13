@@ -135,6 +135,22 @@ const char *FILE_SYMTAB::Get_string(STR_IDX idx) {
   return internal_str_tab_buffer + idx;
 }
 
+// 用一段已存在的 buffer 替换当前 strtab; 接管所有权 (free 旧的)
+void FILE_SYMTAB::Strtab_replace(char *new_buf, UINT64 new_used) {
+  if (internal_str_tab_buffer != NULL) free(internal_str_tab_buffer);
+  // 留出一个 block 的余量, 让后续 Save_string 有空间继续追加
+  // (Save_string 仅在 used + needed < allocated 时 realloc; 若 allocated == used
+  //  下次 Save_string 直接命中 line 125 的边界 assert)
+  UINT64 alloc = new_used + STR_TABLE_BLOCK_SIZE;
+  char *grown = (char *) malloc(alloc);
+  AssertThat(grown != NULL, ("Strtab_replace: malloc failed"));
+  if (new_used > 0 && new_buf != NULL) memcpy(grown, new_buf, new_used);
+  if (new_buf != NULL) free(new_buf);
+  internal_str_tab_buffer  = grown;
+  used_size_of_buffer      = new_used;
+  allocated_size_of_buffer = alloc;
+}
+
 void FILE_SYMTAB::Print_functions(FILE *f) {
   UINT32 cursor = 0;
   UINT32 total = Pu_info()->Length();
@@ -384,15 +400,21 @@ void FILE_MANAGER::Finish_creating_function(ST_IDX func) {
 }
 
 void FILE_MANAGER::Open_ir_file(const char *file_name) {
-  AssertThat(FALSE, ("Not implemented"));
+  // 等价于 Load_ir_file: 从二进制 IR 文件恢复整个 FILE_MANAGER 状态.
+  extern void Load_ir_file(FILE_MANAGER *, const char *);
+  Load_ir_file(this, file_name);
 }
 
 void FILE_MANAGER::Create_ir_file(const char *file_name) {
-  AssertThat(FALSE, ("Not implemented"));
+  // 这个函数原本设计是 "open for writing"; 现在我们把整个 dump 都做掉.
+  extern void Dump_ir_file(FILE_MANAGER *, const char *);
+  Dump_ir_file(this, file_name);
 }
 
 void FILE_MANAGER::Write_data_to_file(const char *file_name) {
-  AssertThat(FALSE, ("Not implemented"));
+  // 与 Create_ir_file 等价: 把当前内存状态全量序列化到磁盘.
+  extern void Dump_ir_file(FILE_MANAGER *, const char *);
+  Dump_ir_file(this, file_name);
 }
 
 ST_IDX FILE_MANAGER::Create_var(STR_IDX str, TY_IDX idx, UINT8 level,

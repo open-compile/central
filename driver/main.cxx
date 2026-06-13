@@ -11,6 +11,7 @@
 #include <string>
 #include <string.h>
 #include "ir.h"
+#include "ir_io.h"
 
 #ifdef SUBPROCESS_ENABLED
 #include "subprocess.h" // Unlicense
@@ -104,6 +105,17 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   args::ValueFlagList<std::string> include_sys_list(file_group, "includeSysDir",
                                           "Specify include directories that preceed system include dir",
                                           {'i', "include-sys"});
+  // ---- 二进制 IR Dump / Load (Step 10) ----
+  args::ValueFlagList<std::string> dump_ir_after(file_group, "dumpIrAfter",
+      "--dump-ir-after=<stage>=<path>; repeatable. Stages: fe,opt-high,"
+      "opt-mid,opt-after-ssa,opt-low,opt-vlow,opt-cgir,pre-cg",
+      {"dump-ir-after"});
+  args::ValueFlag<std::string> load_ir(file_group, "loadIr",
+      "--load-ir=<path>; load binary IR and skip front-end",
+      {"load-ir"});
+  args::Flag dump_textual(debug_group, "dumpTextual",
+      "Also call FILE_MANAGER::Print() to <path>.txt after each binary dump",
+      {"dump-textual"});
   args::PositionalList<std::string> files(parser, "files", "The file of input");
   args::CompletionFlag completion(parser, {"complete"});
 
@@ -224,6 +236,26 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     conf.run_prep = TRUE;
   }
 
+  // ---- 二进制 IR dump / load 选项解析 (Step 10) ----
+  for (auto const &kv : args::get(dump_ir_after)) {
+    auto eq = kv.find('=');
+    AssertThat(eq != std::string::npos,
+               ("--dump-ir-after expects <stage>=<path>, got '%s'", kv.c_str()));
+    conf.dump_ir_stages.emplace_back(kv.substr(0, eq), kv.substr(eq + 1));
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS),
+             (TFile, "dump-ir-after: stage=%s path=%s\n",
+              conf.dump_ir_stages.back().first.c_str(),
+              conf.dump_ir_stages.back().second.c_str()));
+  }
+  if (load_ir) {
+    conf.load_ir_path = load_ir.Get();
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS),
+             (TFile, "load-ir from: %s\n", conf.load_ir_path.c_str()));
+  }
+  if (dump_textual) {
+    conf.dump_textual_after_dump = TRUE;
+  }
+
   /***
    *  Add intermediate result file names to the list
    **/
@@ -338,12 +370,20 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
   switch (component) {
     case COMPONENT_FE: {
       Compilation_Phase = COMP_PHASE_IR_GEN;
-      for (INT32 file_id = 0; file_id < config.files.size(); file_id++) {
-        operands[0] = "fe";
-        operands[1] = config.files[file_id].c_str();
-        Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking component [%s %s]\n", operands[0], operands[1]));
-        femain(config, *File(), config.files[file_id].c_str());
+      if (!config.load_ir_path.empty()) {
+        Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS),
+                 (TFile, "Skipping front-end, load IR from %s\n",
+                  config.load_ir_path.c_str()));
+        Load_ir_file(File(), config.load_ir_path.c_str());
+      } else {
+        for (INT32 file_id = 0; file_id < config.files.size(); file_id++) {
+          operands[0] = "fe";
+          operands[1] = config.files[file_id].c_str();
+          Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking component [%s %s]\n", operands[0], operands[1]));
+          femain(config, *File(), config.files[file_id].c_str());
+        }
       }
+      Maybe_dump_ir("fe", config, File());
       break;
     }
     case COMPONENT_BE: {
@@ -355,6 +395,7 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
     case COMPONENT_CG: {
       Compilation_Phase = COMP_PHASE_CG;
       Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking direct component: code generation\n"));
+      Maybe_dump_ir("pre-cg", config, File());
       CG_full_process(config);
       break;
     }

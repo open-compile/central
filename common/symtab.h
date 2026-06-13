@@ -955,6 +955,12 @@ public:
   const char *Get_string(STR_IDX idx);
 
   void Print_functions(FILE *f);
+
+  // ---- 给 ir_io / ir_serial 用的 strtab 访问器 (Step 9) ----
+  const char *Strtab_buffer() const  { return internal_str_tab_buffer; }
+  UINT64      Strtab_used()    const { return used_size_of_buffer; }
+  // 用一段已存在的 buffer 覆盖当前 strtab; 接管所有权 (free 旧的)
+  void        Strtab_replace(char *new_buf, UINT64 new_used);
 };
 
 /**
