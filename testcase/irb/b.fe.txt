@@ -1,18 +1,12 @@
 === IRB File: testcase/irb/b.fe.irb ===
 
 
-=======================================================
-+ Dumping scope manager
-=======================================================
+== Scope Manager ==
   [0   ] (Function_idx_0_placeholder)
 
-=======================================================
-+ Program Units
-=======================================================
+== Program Units ==
 
-=======================================================
-+ File-level Symbol Table
-=======================================================
+== File-level Symbol Table ==
 [    0][0] (anon)        unknown  -> unknown
 [    1][0x1] getint        extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
 [    2][0x2] getch         extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
@@ -25,9 +19,7 @@
 [    9][0x9] __aeabi_idiv    extern (possibly syscall)  --> function = pu_id = [0], prototype = [23] 
 [   10][0xa] b             file-static  --> var, of type [5] 
 
-=======================================================
-+ File-level Type Table
-=======================================================
+== File-level Type Table ==
 [    0][0] (anon)        : (f: 0x0000) size 0 : other
 [    1][0x1] MTYPE_UNKNOWN : (f: 0x0004) size 0 : SCALAR (MTYPE_UNKNOWN)
 [    2][0x2] MTYPE_B       : (f: 0x0004) size 1 MTYPE_B: SCALAR (MTYPE_B)
@@ -71,9 +63,7 @@
 	parameter MTYPE_I4 (#5) align 0
 
 
-=======================================================
-+ File-level Tylist Table
-=======================================================
+== File-level Tylist Table ==
 [    0][0] (type = 0)
 [    1][0x1] (type = 5)
 [    2][0x2] (type = 14)
@@ -93,23 +83,13 @@
 [   16][0x10] (type = 5)
 [   17][0x11] (type = 0)
 
-=======================================================
-+ File-level Array Bound Table
-=======================================================
+== File-level Array Bound Table ==
 [    0][0] [    1][0x1] 
-=======================================================
-+ File-level Program Unit Table
-=======================================================
+== File-level Program Unit Table ==
 [    0][0] 
-=======================================================
-+ File-level Program Unit Info Table
-=======================================================
+== File-level Program Unit Info Table ==
 [    0][0] 
-=======================================================
-+ File-level Inito Table
-=======================================================
+== File-level Inito Table ==
 [    0][0]  Inito for sym name = (null), init-values: 0
 
-=======================================================
-+ End of file level symtabs
-=======================================================
+== End of file level symtabs ==

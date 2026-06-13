@@ -60,24 +60,24 @@ TY_IDX MTYPE_kind(MTYPE_ID mtype) {
  * File Symtab
  ******************************************************************************/
 void FILE_SYMTAB::Print(FILE *f) {
-  fprintf(f, "\n%s+ Program Units\n%s", DBAR, DBAR);
+  fprintf(f, "\n== Program Units ==\n");
   this->Print_functions(f);
   // Global Print
-  fprintf(f, "\n%s+ File-level Symbol Table\n%s", DBAR, DBAR);
+  fprintf(f, "\n== File-level Symbol Table ==\n");
   this->Sym()->Print(f);
-  fprintf(f, "\n%s+ File-level Type Table\n%s", DBAR, DBAR);
+  fprintf(f, "\n== File-level Type Table ==\n");
   this->Ty()->Print(f);
-  fprintf(f, "\n%s+ File-level Tylist Table\n%s", DBAR, DBAR);
+  fprintf(f, "\n== File-level Tylist Table ==\n");
   this->Tylist()->Print(f);
-  fprintf(f, "\n%s+ File-level Array Bound Table\n%s", DBAR, DBAR);
+  fprintf(f, "\n== File-level Array Bound Table ==\n");
   this->Arb()->Print(f);
-  fprintf(f, "\n%s+ File-level Program Unit Table\n%s", DBAR, DBAR);
+  fprintf(f, "\n== File-level Program Unit Table ==\n");
   this->Pu()->Print(f);
-  fprintf(f, "\n%s+ File-level Program Unit Info Table\n%s", DBAR, DBAR);
+  fprintf(f, "\n== File-level Program Unit Info Table ==\n");
   this->Pu_info()->Print(f);
-  fprintf(f, "\n%s+ File-level Inito Table\n%s", DBAR, DBAR);
+  fprintf(f, "\n== File-level Inito Table ==\n");
   this->Inito()->Print(f);
-  fprintf(f, "\n%s+ End of file level symtabs\n%s", DBAR, DBAR);
+  fprintf(f, "\n== End of file level symtabs ==\n");
 
   //  Is_Trace(Tracing(COMPONENT_BE, TRACE_INVOCATION),
   //           ("PU st_idx: %d\n", ));
@@ -160,30 +160,36 @@ void FILE_SYMTAB::Print_functions(FILE *f) {
     if (pu_info->proc_sym > 0) {
       File()->Scopes()->Goto_function(pu_info->proc_sym);
     }
-    const char *func_name = pu_info->proc_sym > 0 ? ST_name(pu_info->proc_sym) : "(incomplete function)";
-    fprintf(f, "%s+ [%-4d] Begin function %s, Tree: \n%s", DBAR, cursor, func_name, DBAR);
+    const char *func_name = pu_info->proc_sym > 0
+                          ? ST_name(pu_info->proc_sym)
+                          : "(incomplete function)";
+    // Header — single visible line, blank line above to separate from prior PU
+    fprintf(f, "\nFunction %u: %s\n", (unsigned) cursor, func_name);
+    // Sub-section labels are short inline tags — no banner per sub-section,
+    // just blank-line separation. Keeps the per-function block clearly
+    // delimited without stacking '=' bars on every nested label.
+    fprintf(f, "\n  -- Tree --\n");
     if (pu_info->entry == NULL) {
       fprintf(f, " (NULL) \n");
     } else {
       pu_info->entry->Print_recursive(f);
     }
-    fprintf(f, "%s+ [%-4d] Symtab for function %s \n%s", DBAR, cursor, func_name, DBAR);
+    fprintf(f, "\n  -- Symtab --\n");
     if (pu_info->scope.st_tab != NULL) {
       Sym()->Print(f, &(pu_info->scope));
     }
-    fprintf(f, "%s+ [%-4d] Labels for function %s \n%s", DBAR, cursor, func_name, DBAR);
+    fprintf(f, "\n  -- Labels --\n");
     if (pu_info->scope.label_tab != NULL) {
       Label()->Print(f, &(pu_info->scope));
     }
-    fprintf(f, "%s+ [%-4d] Preg for function %s \n%s", DBAR, cursor, func_name, DBAR);
+    fprintf(f, "\n  -- Preg --\n");
     if (pu_info->scope.preg_tab != NULL) {
       Preg()->Print(f, &(pu_info->scope));
     }
-    fprintf(f, "%s+ [%-4d] INITO for function %s \n%s", DBAR, cursor, func_name, DBAR);
+    fprintf(f, "\n  -- INITO --\n");
     if (pu_info->scope.inito_tab != NULL) {
       Inito()->Print(f, &(pu_info->scope));
     }
-    fprintf(f, "%s+ [%-4d] End of function %s \n%s", DBAR, cursor, func_name, DBAR);
   }
   if (old_current && old_current->st_idx != 0) {
     File()->Scopes()->Goto_function(old_current->st_idx);
@@ -266,7 +272,7 @@ void SCOPE_MANAGER::Finish_function(ST_IDX func, PU_INFO_IDX func_info) {
 }
 
 void SCOPE_MANAGER::Print(FILE *f) {
-  fprintf(f, "\n%s+ Dumping scope manager\n%s", DBAR, DBAR);
+  fprintf(f, "\n== Scope Manager ==\n");
 }
 
 

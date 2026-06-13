@@ -1,48 +1,36 @@
 === IRB File: testcase/irb/hex.fe.irb ===
 
 
-=======================================================
-+ Dumping scope manager
-=======================================================
+== Scope Manager ==
   [0   ] (Function_idx_0_placeholder)
   [1   ] Function foo (pu_idx=1, proc_sym=0xa01)
 
-=======================================================
-+ Program Units
-=======================================================
-=======================================================
-+ [1   ] Begin function foo, Tree: 
-=======================================================
+== Program Units ==
+
+Function 1: foo
+
+  -- Tree --
 Printing the table size = 5, tree of size = 5 ... 
 IDX[0       ] OPC_FUNC_ENTRY      - kid(2), index(0), depth(0)
 IDX[1       ] -OPC_BLOCK      - kid(0), index(0), depth(1)
 IDX[2       ] -OPC_BLOCK      - kid(1), index(1), depth(1)
 IDX[3       ] --OPC_I4STID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0>      - kid(1), index(0), depth(2)
 IDX[4       ] ---OPC_I4CONST const<hex = 0x12, int = 18>      - kid(0), index(0), depth(3)
-=======================================================
-+ [1   ] Symtab for function foo 
-=======================================================
+
+  -- Symtab --
 [    0][0] (anon)        unknown  -> unknown
 [    1][0x1] a             local  --> var, of type [5] 
-=======================================================
-+ [1   ] Labels for function foo 
-=======================================================
-[    0][0]  Label name = (null), kind = 0, temp_sym = 0, flags = 0x00000000 
-=======================================================
-+ [1   ] Preg for function foo 
-=======================================================
-[    0][0] [PREG] name_idx: 0, desired_reg = 0
-=======================================================
-+ [1   ] INITO for function foo 
-=======================================================
-[    0][0]  Inito for sym name = (null), init-values: 0
-=======================================================
-+ [1   ] End of function foo 
-=======================================================
 
-=======================================================
-+ File-level Symbol Table
-=======================================================
+  -- Labels --
+[    0][0]  Label name = (null), kind = 0, temp_sym = 0, flags = 0x00000000 
+
+  -- Preg --
+[    0][0] [PREG] name_idx: 0, desired_reg = 0
+
+  -- INITO --
+[    0][0]  Inito for sym name = (null), init-values: 0
+
+== File-level Symbol Table ==
 [    0][0] (anon)        unknown  -> unknown
 [    1][0x1] getint        extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
 [    2][0x2] getch         extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
@@ -55,9 +43,7 @@ IDX[4       ] ---OPC_I4CONST const<hex = 0x12, int = 18>      - kid(0), index(0)
 [    9][0x9] __aeabi_idiv    extern (possibly syscall)  --> function = pu_id = [0], prototype = [23] 
 [   10][0xa] foo           text (program)  --> function = pu_id = [1], prototype = [24] 
 
-=======================================================
-+ File-level Type Table
-=======================================================
+== File-level Type Table ==
 [    0][0] (anon)        : (f: 0x0000) size 0 : other
 [    1][0x1] MTYPE_UNKNOWN : (f: 0x0004) size 0 : SCALAR (MTYPE_UNKNOWN)
 [    2][0x2] MTYPE_B       : (f: 0x0004) size 1 MTYPE_B: SCALAR (MTYPE_B)
@@ -105,9 +91,7 @@ IDX[4       ] ---OPC_I4CONST const<hex = 0x12, int = 18>      - kid(0), index(0)
 	parameter MTYPE_V (#14) align 0
 
 
-=======================================================
-+ File-level Tylist Table
-=======================================================
+== File-level Tylist Table ==
 [    0][0] (type = 0)
 [    1][0x1] (type = 5)
 [    2][0x2] (type = 14)
@@ -130,23 +114,13 @@ IDX[4       ] ---OPC_I4CONST const<hex = 0x12, int = 18>      - kid(0), index(0)
 [   19][0x13] (type = 14)
 [   20][0x14] (type = 0)
 
-=======================================================
-+ File-level Array Bound Table
-=======================================================
+== File-level Array Bound Table ==
 [    0][0] [    1][0x1] 
-=======================================================
-+ File-level Program Unit Table
-=======================================================
+== File-level Program Unit Table ==
 [    0][0] [    1][0x1] 
-=======================================================
-+ File-level Program Unit Info Table
-=======================================================
+== File-level Program Unit Info Table ==
 [    0][0] [    1][0x1] 
-=======================================================
-+ File-level Inito Table
-=======================================================
+== File-level Inito Table ==
 [    0][0]  Inito for sym name = (null), init-values: 0
 
-=======================================================
-+ End of file level symtabs
-=======================================================
+== End of file level symtabs ==
