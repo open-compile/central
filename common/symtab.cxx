@@ -203,13 +203,25 @@ PU *PU_INFO_Pu(PU_INFO_IDX pu_inf_idx) {
 }
 
 void PU_INFO::Print_function_verbose(FILE *f) {
-  if (pu_idx == 0 || pu_info_idx == 0 || proc_sym == 0) {
-    fprintf(f, "Incomplete function\n");
+  // PU_INFO table slot 0 is a placeholder reserved by the GROWING_TABLE so that
+  // valid PU_INFO_IDXes start at 1 (matching how the rest of the symtab treats
+  // idx 0 as "null"). Print a structured placeholder line that mirrors the
+  // banner format used for real functions; this is decorative output only.
+  if (pu_info_idx == 0 && pu_idx == 0 && proc_sym == 0) {
+    fprintf(f, "%s+ [%-4d] (Function_idx_0_placeholder)\n%s",
+            DBAR, 0, DBAR);
     return;
   }
-  AssertThat(pu_idx > 0 && pu_info_idx > 0 && proc_sym > 0, ("Incomplete function"));
-  scope.Print(f);
-  this->entry->Print_recursive(f);
+  AssertThat(pu_idx > 0 && pu_info_idx > 0 && proc_sym > 0,
+             ("Incomplete function: pu_idx=%u pu_info_idx=%u proc_sym=0x%x",
+              (unsigned) pu_idx, (unsigned) pu_info_idx, (unsigned) proc_sym));
+  // One-line summary; the per-function scope tables and IR tree are printed
+  // in detail by FILE_SYMTAB::Print_functions later in the same dump, so we
+  // intentionally avoid recursing here (would duplicate the entire body).
+  fprintf(f, "%s+ [%-4d] Function %s (pu_idx=%u, proc_sym=0x%x)\n%s",
+          DBAR, (int) pu_info_idx,
+          (proc_sym > 0) ? ST_name(proc_sym) : "(anon)",
+          (unsigned) pu_idx, (unsigned) proc_sym, DBAR);
 }
 
 FILE_INFO::FILE_INFO() {
@@ -381,7 +393,11 @@ PU_INFO_IDX FILE_MANAGER::Create_function(ST_IDX func, TY_IDX prototype) {
   // Init pu_info
   PU_INFO *pu_info = PU_INFO_pu_info(pu_info_idx);
   pu_info->Set_proc_sym(func);
-  pu_info->pu_idx = pu_idx;
+  pu_info->pu_idx       = pu_idx;
+  pu_info->pu_info_idx  = pu_info_idx;   // self-back-pointer; needed by
+                                         // Print_function_verbose() and any
+                                         // future consumer that walks PU_INFO
+                                         // independently of the table index.
   // Init st_pu
   ST *st = ST_st(func);
   st->pu = pu_idx;

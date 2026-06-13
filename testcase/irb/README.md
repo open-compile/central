@@ -18,14 +18,16 @@
 
 | 用例 | 阶段 | 备注 |
 | --- | --- | --- |
-| add1 / add2_main / b / hex / if1 / if1-reduce1 / if2 / if3 / if4 / if5 / mul1 / not1 / sub1 | `fe` | FE 之后；最干净的中间表示 |
+| add1 / add2_main / array / b / hex / if1 / if1-reduce1 / if2 / if3 / if4 / if5 / mul1 / not1 / sub1 | `fe` | FE 之后；最干净的中间表示 |
 | add1 / if2 / mul1 | `opt-after-ssa` | SSA build / cprop / dce / destruct 之后 |
 | add1 / if2 / mul1 | `pre-cg` | 全部 OPT 完成、CG 之前 |
 
 跳过的源文件：
 
 - `add2.sy` / `and1.sy` / `tree.sy` — FE 直接报错
-- `array.sy` — FE 通过但 OPT 报 `not an even number of exprs for dimension/ofst in ARRAY`（pre-existing bug）
+- `array.sy` — FE 通过（所以 `array.fe.irb` 可生成）；但 OPT 后续会报
+  `not an even number of exprs for dimension/ofst in ARRAY`（pre-existing bug），
+  因此没有 `array.opt-*.irb` / `array.pre-cg.irb`
 
 ## 用途
 

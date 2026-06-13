@@ -1,4 +1,4 @@
-=== IRB File: testcase/irb/mul1.opt-after-ssa.irb ===
+=== IRB File: testcase/irb/array.fe.irb ===
 
 
 =======================================================
@@ -17,30 +17,34 @@
 =======================================================
 + [1   ] Begin function foo, Tree: 
 =======================================================
-Printing the table size = 20, tree of size = 16 ... 
+Printing the table size = 20, tree of size = 20 ... 
 IDX[0       ] OPC_FUNC_ENTRY      - kid(2), index(0), depth(0)
 IDX[1       ] -OPC_BLOCK      - kid(0), index(0), depth(1)
-IDX[2       ] -OPC_BLOCK      - kid(5), index(1), depth(1)
-IDX[3       ] --OPC_I4STID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0>      - kid(1), index(0), depth(2)
-IDX[4       ] ---OPC_I4CONST const<hex = 0x1, int = 1>      - kid(0), index(0), depth(3)
-IDX[5       ] --OPC_I4STID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(1), index(1), depth(2)
-IDX[6       ] ---OPC_I4CONST const<hex = 0x2, int = 2>      - kid(0), index(0), depth(3)
-IDX[13      ] --OPC_I4CALL <callee = 2305, name = __aeabi_idiv>       - kid(2), index(2), depth(2)
-IDX[11      ] ---OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0>      - kid(0), index(0), depth(3)
-IDX[10      ] ---OPC_I4LDID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(0), index(1), depth(3)
-IDX[16      ] --OPC_I4STID  var<.predef_preg, idx = 0xb01, level = 1, tabid = 11, ofst = 258>      - kid(1), index(3), depth(2)
-IDX[18      ] ---OPC_I4LDID  var<.predef_preg, idx = 0xb01, level = 1, tabid = 11, ofst = 514>      - kid(0), index(0), depth(3)
-IDX[7       ] --OPC_I4STID  var<c, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(1), index(4), depth(2)
-IDX[8       ] ---OPC_I4I4ADD      - kid(2), index(0), depth(3)
-IDX[19      ] ----OPC_I4LDID  var<.predef_preg, idx = 0xb01, level = 1, tabid = 11, ofst = 258>      - kid(0), index(0), depth(4)
-IDX[12      ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0>      - kid(0), index(1), depth(4)
+IDX[2       ] -OPC_BLOCK      - kid(2), index(1), depth(1)
+IDX[3       ] --OPC_I4STID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(1), index(0), depth(2)
+IDX[4       ] ---OPC_I4I4ILOAD      - kid(1), index(0), depth(3)
+IDX[5       ] ----OPC_ARRAY dimensions = 4       - kid(6), index(0), depth(4)
+IDX[6       ] -----OPC_LDA  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0>      - kid(0), index(0), depth(5)
+IDX[7       ] -----OPC_I4CONST const<hex = 0xa, int = 10>      - kid(0), index(1), depth(5)
+IDX[8       ] -----OPC_I4CONST const<hex = 0x5, int = 5>      - kid(0), index(2), depth(5)
+IDX[9       ] -----OPC_I4CONST const<hex = 0x4, int = 4>      - kid(0), index(3), depth(5)
+IDX[10      ] -----OPC_I4CONST const<hex = 0x3, int = 3>      - kid(0), index(4), depth(5)
+IDX[11      ] -----OPC_I4CONST const<hex = 0x1, int = 1>      - kid(0), index(5), depth(5)
+IDX[12      ] --OPC_I4STID  var<c, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(1), index(1), depth(2)
+IDX[13      ] ---OPC_I4I4ILOAD      - kid(1), index(0), depth(3)
+IDX[14      ] ----OPC_ARRAY dimensions = 3       - kid(5), index(0), depth(4)
+IDX[15      ] -----OPC_LDA  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(0), index(0), depth(5)
+IDX[16      ] -----OPC_I4CONST const<hex = 0x5, int = 5>      - kid(0), index(1), depth(5)
+IDX[17      ] -----OPC_I4CONST const<hex = 0x4, int = 4>      - kid(0), index(2), depth(5)
+IDX[18      ] -----OPC_I4CONST const<hex = 0x3, int = 3>      - kid(0), index(3), depth(5)
+IDX[19      ] -----OPC_I4CONST const<hex = 0x2, int = 2>      - kid(0), index(4), depth(5)
 =======================================================
 + [1   ] Symtab for function foo 
 =======================================================
 [    0][0] (anon)        unknown  -> unknown
-[    1][0x1] a             local  --> var, of type [5] 
-[    2][0x2] b             local  --> var, of type [5] 
-[    3][0x3] c             local  --> var, of type [5] 
+[    1][0x1] a             local  --> var, of type [28] 
+[    2][0x2] b             local  --> var, of type [31] 
+[    3][0x3] c             local  --> var, of type [33] 
 =======================================================
 + [1   ] Labels for function foo 
 =======================================================
@@ -49,8 +53,6 @@ IDX[12      ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0
 + [1   ] Preg for function foo 
 =======================================================
 [    0][0] [PREG] name_idx: 0, desired_reg = 0
-[    1][0x1] [PREG] name_idx: 282, desired_reg = 0
-[    2][0x2] [PREG] name_idx: 294, desired_reg = 1
 =======================================================
 + [1   ] INITO for function foo 
 =======================================================
@@ -73,7 +75,6 @@ IDX[12      ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0
 [    8][0x8] _sysy_stoptime    extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
 [    9][0x9] __aeabi_idiv    extern (possibly syscall)  --> function = pu_id = [0], prototype = [23] 
 [   10][0xa] foo           text (program)  --> function = pu_id = [1], prototype = [24] 
-[   11][0xb] .predef_preg    unknown  --> preg, preg_idx = 258 
 
 =======================================================
 + File-level Type Table
@@ -121,8 +122,26 @@ IDX[12      ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0
 	parameter MTYPE_I4 (#5) align 0
 
 [   24][0x18] foo           : (f: 0x0000) size 0 MTYPE_V: FUNCTION (f: 0x0000)
-	returns MTYPE_I4 (#5) align 0
+	returns MTYPE_V (#14) align 0
 	parameter MTYPE_V (#14) align 0
+
+[   25][0x19] a             : (f: 0x0000) size 12 : ARRAY of MTYPE_I4 (#5) align 0 ()
+
+[   26][0x1a] a             : (f: 0x0000) size 48 : ARRAY of a (#25) align 0 () ()
+
+[   27][0x1b] a             : (f: 0x0000) size 240 : ARRAY of a (#26) align 0 () () ()
+
+[   28][0x1c] a             : (f: 0x0000) size 2400 : ARRAY of a (#27) align 0 () () () ()
+
+[   29][0x1d] b             : (f: 0x0000) size 12 : ARRAY of MTYPE_I4 (#5) align 0 ()
+
+[   30][0x1e] b             : (f: 0x0000) size 48 : ARRAY of b (#29) align 0 () ()
+
+[   31][0x1f] b             : (f: 0x0000) size 240 : ARRAY of b (#30) align 0 () () ()
+
+[   32][0x20] c             : (f: 0x0000) size 12 : ARRAY of MTYPE_I4 (#5) align 0 ()
+
+[   33][0x21] c             : (f: 0x0000) size 48 : ARRAY of c (#32) align 0 () ()
 
 
 =======================================================
@@ -146,14 +165,14 @@ IDX[12      ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0
 [   15][0xf] (type = 5)
 [   16][0x10] (type = 5)
 [   17][0x11] (type = 0)
-[   18][0x12] (type = 5)
+[   18][0x12] (type = 14)
 [   19][0x13] (type = 14)
 [   20][0x14] (type = 0)
 
 =======================================================
 + File-level Array Bound Table
 =======================================================
-[    0][0] [    1][0x1] 
+[    0][0] [    1][0x1] [    2][0x2] [    3][0x3] [    4][0x4] [    5][0x5] [    6][0x6] [    7][0x7] [    8][0x8] [    9][0x9] [   10][0xa] 
 =======================================================
 + File-level Program Unit Table
 =======================================================
