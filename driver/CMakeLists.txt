@@ -17,3 +17,20 @@ INSTALL(TARGETS ${DRIVER_TARGET_NAME}
   RUNTIME DESTINATION bin
   RENAME compiler
 )
+
+# ---------------------------------------------------------------------------
+# irprint -- standalone tool: read a .irb binary IR file and Print it
+# ---------------------------------------------------------------------------
+set(IRPRINT_TARGET_NAME irprint)
+add_executable(${IRPRINT_TARGET_NAME} irprint_main.cxx)
+target_include_directories(${IRPRINT_TARGET_NAME} PRIVATE
+        ${OCC_MAIN_DIR}/common
+        ${OCC_MAIN_DIR}/lib/subprocess
+        ${OCC_MAIN_DIR}/lib)
+# 仅链接 common (含 ir_io / ir_serial / FILE_MANAGER::Print)
+target_link_libraries(${IRPRINT_TARGET_NAME} PRIVATE common)
+
+INSTALL(TARGETS ${IRPRINT_TARGET_NAME}
+  RUNTIME DESTINATION bin
+  RENAME irprint
+)

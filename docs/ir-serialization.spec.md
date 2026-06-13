@@ -342,7 +342,7 @@ void Load_ir_file(FILE_MANAGER *fm, const char *path);
 
 ## 5. 命令行使用
 
-### 5.1 新增 flags
+### 5.1 新增 flags（`compiler`）
 
 | Flag                                  | 含义                                                                            |
 | ------------------------------------- | ------------------------------------------------------------------------------- |
@@ -395,6 +395,94 @@ compiler --load-ir=foo.irb --feonly --dump-ir-after=fe=foo.reload.irb \
          --dump-textual foo.sy
 diff foo.irb.txt foo.reload.irb.txt    # 必须 empty
 ```
+
+### 5.4 `irprint` — 离线打印工具
+
+`compiler` 旁边还有一个独立可执行 `irprint`，专门用来事后解析 `.irb` 文件并打印内容。
+不需要原始 `.sy` 源码，也不会触发 FE/OPT/CG。安装路径同 `compiler`：`build/driver/irprint`
+（CMake 安装后位于 `bin/irprint`）。
+
+#### 5.4.1 用法
+
+```
+irprint <input.irb>                    # 打印 FILE_MANAGER 全部内容到 stdout
+irprint <input.irb> -o <out.txt>       # 写到文件
+irprint <input.irb> --header-only      # 只打印 file header + section table
+irprint <input.irb> -v                 # verbose tracing (与 driver -v 等价)
+irprint -h                             # help
+```
+
+#### 5.4.2 典型场景
+
+**(A) 看 .irb 长啥样、有哪些 section**：
+
+```bash
+$ irprint --header-only /tmp/foo.fe.irb
+=== IRB File: /tmp/foo.fe.irb ===
+file_format_version  = 1
+flags                = 0x0003
+
+Sections:
+  kind   name           offset    size      version
+  1      STRTAB         40        290       1
+  2      TY_TAB         330       804       1
+  3      TYLIST_TAB     1134      88        1
+  ...
+  11     FUNC_TAB       2490      24        1
+  12     FUNC_BLOB      1750      740       1
+```
+
+**(B) 把 dump 的 IR 内容打到屏幕（等价于 `compiler --dump-textual`，但只对已有文件离线跑）**：
+
+```bash
+$ irprint /tmp/foo.fe.irb | less
+=== IRB File: /tmp/foo.fe.irb ===
+=======================================================
++ Dumping scope manager
+=======================================================
+...
+```
+
+**(C) bisect 流程：先 dump 多个阶段，再用 irprint 逐个比对**：
+
+```bash
+compiler -S foo.sy -o foo.s \
+    --dump-ir-after=fe=foo.fe.irb \
+    --dump-ir-after=opt-mid=foo.mid.irb \
+    --dump-ir-after=opt-after-ssa=foo.ssa.irb \
+    --dump-ir-after=pre-cg=foo.precg.irb
+
+irprint foo.fe.irb     -o foo.fe.txt
+irprint foo.mid.irb    -o foo.mid.txt
+irprint foo.ssa.irb    -o foo.ssa.txt
+irprint foo.precg.irb  -o foo.precg.txt
+diff foo.fe.txt foo.mid.txt | less       # 看 OPT 改了什么
+diff foo.mid.txt foo.ssa.txt | less      # 看 SSA 阶段改了什么
+```
+
+**(D) 验证 round-trip 是否字节相同（含工具自身的 oracle）**：
+
+```bash
+compiler --feonly --dump-ir-after=fe=foo.irb foo.sy
+compiler --load-ir=foo.irb --feonly --dump-ir-after=fe=foo.reload.irb foo.sy
+irprint foo.irb        -o foo.txt
+irprint foo.reload.irb -o foo.reload.txt
+diff foo.txt foo.reload.txt   # 应当 empty
+```
+
+#### 5.4.3 实现要点
+
+`driver/irprint_main.cxx` 是个大约 130 行的小工具：
+
+```cpp
+FILE_MANAGER *fm = File();           // 单例首次访问 -> 自动 Initialize
+Load_ir_file(fm, path.c_str());      // 复用 ir_io 的 loader
+fm->Print(out);                      // 复用 FILE_MANAGER::Print
+```
+
+只链接 `common`（含 `ir_io` / `ir_serial` / `FILE_MANAGER`），**不**链接 `fe / opt / cg`。
+`--header-only` 模式更轻：只跑 `IR_READER::Read_header()` 不解析任何 section 内容，
+适合检查损坏文件 / 看 layout。
 
 ---
 
@@ -521,6 +609,8 @@ common/symtab.cxx               # Strtab_replace headroom 修复 + 三个 stub �
 common/symtab_test.cxx          # L1 单测
 common/options.h                # COMPILER_CONFIG.dump_ir_stages 等
 driver/main.cxx                 # CLI args + Run_component 注入
+driver/irprint_main.cxx         # 独立工具 `irprint`：load + Print
+driver/CMakeLists.txt           # 注册 compiler / irprint 两个可执行
 opt/opt_main.cxx                # BE 各 verify 后插 Maybe_dump_ir
 test.sh                         # L2/L3 自动化测试
 docs/ir-serialization.spec.md   # 本文件
