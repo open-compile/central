@@ -1,0 +1,160 @@
+=== IRB File: testcase/irb/add1.opt-after-ssa.irb ===
+
+
+=======================================================
++ Dumping scope manager
+=======================================================
+Incomplete function
+Incomplete function
+
+=======================================================
++ Program Units
+=======================================================
+=======================================================
++ [1   ] Begin function foo, Tree: 
+=======================================================
+Printing the table size = 11, tree of size = 11 ... 
+IDX[0       ] OPC_FUNC_ENTRY      - kid(2), index(0), depth(0)
+IDX[1       ] -OPC_BLOCK      - kid(0), index(0), depth(1)
+IDX[2       ] -OPC_BLOCK      - kid(3), index(1), depth(1)
+IDX[3       ] --OPC_I4STID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0>      - kid(1), index(0), depth(2)
+IDX[4       ] ---OPC_I4CONST const<hex = 0x1, int = 1>      - kid(0), index(0), depth(3)
+IDX[5       ] --OPC_I4STID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(1), index(1), depth(2)
+IDX[6       ] ---OPC_I4CONST const<hex = 0x2, int = 2>      - kid(0), index(0), depth(3)
+IDX[7       ] --OPC_I4STID  var<c, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(1), index(2), depth(2)
+IDX[8       ] ---OPC_I4I4ADD      - kid(2), index(0), depth(3)
+IDX[9       ] ----OPC_I4LDID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(0), index(0), depth(4)
+IDX[10      ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0>      - kid(0), index(1), depth(4)
+=======================================================
++ [1   ] Symtab for function foo 
+=======================================================
+[    0][0] (anon)        unknown  -> unknown
+[    1][0x1] a             local  --> var, of type [5] 
+[    2][0x2] b             local  --> var, of type [5] 
+[    3][0x3] c             local  --> var, of type [5] 
+=======================================================
++ [1   ] Labels for function foo 
+=======================================================
+[    0][0]  Label name = (null), kind = 0, temp_sym = 0, flags = 0x00000000 
+=======================================================
++ [1   ] Preg for function foo 
+=======================================================
+[    0][0] [PREG] name_idx: 0, desired_reg = 0
+=======================================================
++ [1   ] INITO for function foo 
+=======================================================
+[    0][0]  Inito for sym name = (null), init-values: 0
+=======================================================
++ [1   ] End of function foo 
+=======================================================
+
+=======================================================
++ File-level Symbol Table
+=======================================================
+[    0][0] (anon)        unknown  -> unknown
+[    1][0x1] getint        extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
+[    2][0x2] getch         extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
+[    3][0x3] getarray      extern (possibly syscall)  --> function = pu_id = [0], prototype = [20] 
+[    4][0x4] putint        extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    5][0x5] putch         extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    6][0x6] putarray      extern (possibly syscall)  --> function = pu_id = [0], prototype = [22] 
+[    7][0x7] _sysy_starttime    extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    8][0x8] _sysy_stoptime    extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    9][0x9] __aeabi_idiv    extern (possibly syscall)  --> function = pu_id = [0], prototype = [23] 
+[   10][0xa] foo           text (program)  --> function = pu_id = [1], prototype = [24] 
+
+=======================================================
++ File-level Type Table
+=======================================================
+[    0][0] (anon)        : (f: 0x0000) size 0 : other
+[    1][0x1] MTYPE_UNKNOWN : (f: 0x0004) size 0 : SCALAR (MTYPE_UNKNOWN)
+[    2][0x2] MTYPE_B       : (f: 0x0004) size 1 MTYPE_B: SCALAR (MTYPE_B)
+[    3][0x3] MTYPE_I1      : (f: 0x0004) size 1 MTYPE_I1: SCALAR (MTYPE_I1)
+[    4][0x4] MTYPE_I2      : (f: 0x0004) size 2 MTYPE_I2: SCALAR (MTYPE_I2)
+[    5][0x5] MTYPE_I4      : (f: 0x0004) size 4 MTYPE_I4: SCALAR (MTYPE_I4)
+[    6][0x6] MTYPE_I8      : (f: 0x0004) size 8 MTYPE_I8: SCALAR (MTYPE_I8)
+[    7][0x7] MTYPE_U1      : (f: 0x0004) size 1 MTYPE_U1: SCALAR (MTYPE_U1)
+[    8][0x8] MTYPE_U2      : (f: 0x0004) size 2 MTYPE_U2: SCALAR (MTYPE_U2)
+[    9][0x9] MTYPE_U4      : (f: 0x0004) size 4 MTYPE_U4: SCALAR (MTYPE_U4)
+[   10][0xa] MTYPE_U8      : (f: 0x0004) size 8 MTYPE_U8: SCALAR (MTYPE_U8)
+[   11][0xb] MTYPE_F4      : (f: 0x0004) size 4 MTYPE_F4: SCALAR (MTYPE_F4)
+[   12][0xc] MTYPE_F8      : (f: 0x0004) size 8 MTYPE_F8: SCALAR (MTYPE_F8)
+[   13][0xd] MTYPE_M       : (f: 0x0004) size 0 MTYPE_M: other
+[   14][0xe] MTYPE_V       : (f: 0x0004) size 0 MTYPE_V: other
+[   15][0xf] MTYPE_A4      : (f: 0x0004) size 4 MTYPE_A4: SCALAR (MTYPE_A4)
+[   16][0x10] MTYPE_A8      : (f: 0x0004) size 8 MTYPE_A8: SCALAR (MTYPE_A8)
+[   17][0x11] MTYPE_BS      : (f: 0x0004) size 0 MTYPE_BS: SCALAR (MTYPE_BS)
+[   18][0x12] .internal.i4  : (f: 0x0000) size 0 : ARRAY of MTYPE_I4 (#5) align 0 ()
+
+[   19][0x13] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter MTYPE_V (#14) align 0
+
+[   20][0x14] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter .internal.i4 (#18) align 0
+
+[   21][0x15] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_V (#14) align 0
+	parameter MTYPE_I4 (#5) align 0
+
+[   22][0x16] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_V (#14) align 0
+	parameter MTYPE_I4 (#5) align 0
+	parameter .internal.i4 (#18) align 0
+
+[   23][0x17] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter MTYPE_I4 (#5) align 0
+	parameter MTYPE_I4 (#5) align 0
+
+[   24][0x18] foo           : (f: 0x0000) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter MTYPE_V (#14) align 0
+
+
+=======================================================
++ File-level Tylist Table
+=======================================================
+[    0][0] (type = 0)
+[    1][0x1] (type = 5)
+[    2][0x2] (type = 14)
+[    3][0x3] (type = 0)
+[    4][0x4] (type = 5)
+[    5][0x5] (type = 18)
+[    6][0x6] (type = 0)
+[    7][0x7] (type = 14)
+[    8][0x8] (type = 5)
+[    9][0x9] (type = 0)
+[   10][0xa] (type = 14)
+[   11][0xb] (type = 5)
+[   12][0xc] (type = 18)
+[   13][0xd] (type = 0)
+[   14][0xe] (type = 5)
+[   15][0xf] (type = 5)
+[   16][0x10] (type = 5)
+[   17][0x11] (type = 0)
+[   18][0x12] (type = 5)
+[   19][0x13] (type = 14)
+[   20][0x14] (type = 0)
+
+=======================================================
++ File-level Array Bound Table
+=======================================================
+[    0][0] [    1][0x1] 
+=======================================================
++ File-level Program Unit Table
+=======================================================
+[    0][0] [    1][0x1] 
+=======================================================
++ File-level Program Unit Info Table
+=======================================================
+[    0][0] [    1][0x1] 
+=======================================================
++ File-level Inito Table
+=======================================================
+[    0][0]  Inito for sym name = (null), init-values: 0
+
+=======================================================
++ End of file level symtabs
+=======================================================
