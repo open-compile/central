@@ -5,6 +5,7 @@
 #include "options.h"
 #include "cgir.h"
 #include "cg_main.h"
+#include "cg_pass.h"
 #include "tn.h"
 
 INLINE BOOL TR_EMIT() {
@@ -20,6 +21,7 @@ CG_COMPOSITE *Cgmon() {
   return _cgir_opt;
 }
 
+
 /**
  * CG processing of one function
  * CG_Expand, Exapnsion,
@@ -28,6 +30,9 @@ CG_COMPOSITE *Cgmon() {
  */
 void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
   CGIR *main_cgir = Cgmon()->Cgir();
+
+  CG_PASS *pass = nullptr;
+  
   // TODO(cg-pipeline): 当前是单 pass 串, 一次性走完 convert + alloc + layout + emit.
   //   真正的实现应该走 pass pipeline (见 cg.spec.md §1):
   //     Pass chain = [ Build → LiveRange → IFG → Color → SpillRewrite → FrameLayout → Emit ]

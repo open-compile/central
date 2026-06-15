@@ -16,4 +16,5 @@ INT32 Emit_section_data(FILE *out, FILE_MANAGER *man);
 void Emit_section_code(FILE *output, FILE_MANAGER *file);
 void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file);
 
+
 #endif //OCC_CG_MAIN_H
