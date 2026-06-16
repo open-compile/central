@@ -9,37 +9,37 @@ INLINE BOOL TR_LRA() {
   return Tracing(COMPONENT_CG_LRA, TRACE_DATA);
 }
 
-void CG_COMPOSITE::CG_convert_function(SCOPE *scope) {
-  // Do data layout
-  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
-           (TFile, "CGIR::CG_Expand\n"));
-  ST_IDX func_sym = scope->getSt();
-  File()->Scopes()->Goto_function(func_sym);
-  AssertThat(func_sym != 0, ("Incorrect function symbol idx = 0x%08x", func_sym));
-  Cgir()->Get_function(func_sym);
-
-  // Do data layout & calculate frame (activation) size
-  Cgir_builder().Data_layout(scope);
-  AssertThat(Cgir()->Layouts().find(func_sym) != Cgir()->Layouts().end(), ("Layout should have this function now. 0x%08x", func_sym));
-  Cgir()->Layout()->Calculate_stack_frame_size(); // Calc frame size
-
-  // Do IR to CGIR conversion
-  Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
-           (TFile, "Perform IR to CGIR conversion in CGIR::IR_to_CGIR\n"));
-  CG_CFG    *function_cgir = Cgir()->Get_function(func_sym);
-  Cgir()->Set_current_cgir(function_cgir, func_sym);
-  Cgir_builder().Handle_func_body(Cgir()->Current_tree()->Get_root(), 0);
-}
-
 void CGIR_BUILDER::Data_layout(SCOPE *scope) {
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "Perform data layout in CGIR::Data_layout\n"));
   ST_IDX func_sym = scope->getSt();
   AssertThat(func_sym != 0, ("Incorrect function symbol idx = 0x%08x", func_sym));
-  DATA_LAYOUT *onelayout = new DATA_LAYOUT();
-  Cgir()->Layouts().insert(std::make_pair(func_sym, onelayout));
-  AssertThat(Cgir()->Layouts().find(func_sym) != Cgir()->Layouts().end(), ("Layout should have this function now. 0x%08x", func_sym));
-  Cgir()->Layouts()[func_sym]->Initialize_frame(scope, func_sym);
+
+  // Get a reference to the map (crucial to avoid copying!)
+  auto &layouts_map = Cgir()->Layouts(); 
+  
+  // Try to find if it already exists
+  auto it = layouts_map.find(func_sym);
+  DATA_LAYOUT *onelayout = nullptr;
+
+  if (it != layouts_map.end()) {
+    // 1. Key exists! Reuse the previously allocated one
+    onelayout = it->second;
+    
+    // Safety check: if the existing pointer is somehow null, fix it
+    if (onelayout == nullptr) {
+        onelayout = new DATA_LAYOUT();
+        it->second = onelayout;
+    }
+  } else {
+    // 2. Key does not exist! Allocate a new one and insert it
+    onelayout = new DATA_LAYOUT();
+    layouts_map.insert(std::make_pair(func_sym, onelayout));
+  }
+  
+  // 3. Proceed using the correct pointer safely
+  onelayout->Frame_final_size();
+  onelayout->Initialize_frame(scope, func_sym);
   Cgir()->Set_current_layout(onelayout);
 }
 
@@ -627,6 +627,9 @@ void CG_LIVE_RANGE::Analyze_live_range(PU_INFO *info) {
   // 见 cg.spec.md
   Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_WARN),
            (TFile, "[CG-LRA] Analyze_live_range is a STUB; RA will fall back to linear scan.\n"));
+
+
+  // visit all bb.
 }
 
 void CG_LIVE_RANGE::Print(FILE *file) {
@@ -886,7 +889,7 @@ void CGIR::Print(ST_IDX sym, FILE *file) {
   AssertThat(ST_st(sym) != nullptr, ("invalid function ST_IDX to print in CGIR"));
   fprintf(file, "%sPrinting the CGIR's function with sym : name = %s, sym = 0x%08x\n%s",
           DBAR, ST_name(sym), sym, DBAR);
-  Get_function(sym)->Print(file);
+  Get_cg_cfg(sym)->Print(file);
 
   if (Tracing(COMPONENT_CG_CONV, TRACE_DEBUG)) {
     fprintf(file, "%sPrinting the TN info\n%s", DBAR, DBAR);
@@ -1077,7 +1080,7 @@ VARIANT CGIR_BUILDER::Memop_Variant(IR_ITER iterator) {
   return V_BR_NONE;
 }
 
-void CG_EMITTER::Emit_label(PU_INFO *func, FILE *out, LABEL_IDX label_idx) {
+void CG_EMITTER::Emit_label(FILE *out, LABEL_IDX label_idx) {
   fprintf(out, "%s:\n", LABEL_name(label_idx));
 }
 

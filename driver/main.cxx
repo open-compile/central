@@ -10,12 +10,138 @@
 #include <vector>
 #include <string>
 #include <string.h>
+#include <ctype.h>
 #include "ir.h"
 #include "ir_io.h"
 
 #ifdef SUBPROCESS_ENABLED
 #include "subprocess.h" // Unlicense
 #endif
+
+static std::string Lower_string(std::string s) {
+  for (size_t i = 0; i < s.size(); ++i) {
+    s[i] = static_cast<char>(tolower(static_cast<unsigned char>(s[i])));
+  }
+  return s;
+}
+
+static BOOL Parse_on_off_value(const std::string &value, INT32 *out) {
+  std::string v = Lower_string(value);
+  if (v == "1" || v == "on" || v == "true" || v == "yes") {
+    *out = TRUE;
+    return TRUE;
+  }
+  if (v == "0" || v == "off" || v == "false" || v == "no") {
+    *out = FALSE;
+    return TRUE;
+  }
+  return FALSE;
+}
+
+static BOOL Split_prefixed_option(const std::string &arg,
+                                  const std::string &prefix,
+                                  std::string *key,
+                                  std::string *value) {
+  if (arg.find(prefix) != 0) return FALSE;
+  std::string body = arg.substr(prefix.size());
+  size_t eq = body.find('=');
+  if (eq == std::string::npos) {
+    *key = Lower_string(body);
+    *value = "1";
+  } else {
+    *key = Lower_string(body.substr(0, eq));
+    *value = body.substr(eq + 1);
+  }
+  return !key->empty();
+}
+
+static void Apply_opt_option(COMPILER_CONFIG &conf,
+                             const std::string &key,
+                             INT32 value) {
+  conf.opt_options[key] = value;
+  if (key == "ssa") {
+    conf.opt_cfg.run_ssa_phase = value;
+    if (!value) {
+      conf.opt_cfg.run_destruct_ssa = FALSE;
+      conf.opt_cfg.enable_cprop = FALSE;
+      conf.opt_cfg.enable_dce = FALSE;
+    }
+  } else if (key == "dce") {
+    conf.opt_cfg.enable_dce = value;
+  } else if (key == "cprop") {
+    conf.opt_cfg.enable_cprop = value;
+  } else if (key == "ssa-destruct" || key == "destruct-ssa") {
+    conf.opt_cfg.run_destruct_ssa = value;
+  }
+}
+
+static void Apply_cg_option(COMPILER_CONFIG &conf,
+                            const std::string &key,
+                            INT32 value) {
+  conf.cg_options[key] = value;
+  if (key == "lra") {
+    conf.cg_cfg.enable_lra = value;
+  } else if (key == "regalloc") {
+    conf.cg_cfg.enable_regalloc = value;
+  } else if (key == "sched") {
+    conf.cg_cfg.enable_sched = value;
+  } else if (key == "resched") {
+    conf.cg_cfg.enable_resched = value;
+  } else if (key == "vdg") {
+    conf.cg_cfg.enable_vdg = value;
+  }
+}
+
+static void Apply_phase_option(COMPILER_CONFIG &conf,
+                               const std::string &key,
+                               INT32 value) {
+  conf.phase_options[key] = value;
+  if (key == "ssa") {
+    Apply_opt_option(conf, "ssa", value);
+  }
+}
+
+static BOOL Parse_grouped_driver_option(const std::string &arg,
+                                        COMPILER_CONFIG &conf,
+                                        std::string *err) {
+  std::string key;
+  std::string value_text;
+  std::string opt_arg = arg;
+  if (opt_arg.find("--") == 0) {
+    opt_arg = "-" + opt_arg.substr(2);
+  }
+
+  enum { GROUP_NONE, GROUP_OPT, GROUP_CG, GROUP_PHASE, GROUP_SSA } group = GROUP_NONE;
+  if (Split_prefixed_option(opt_arg, "-OPT:", &key, &value_text)) {
+    group = GROUP_OPT;
+  } else if (Split_prefixed_option(opt_arg, "-CG:", &key, &value_text)) {
+    group = GROUP_CG;
+  } else if (Split_prefixed_option(opt_arg, "-PHASE:", &key, &value_text)) {
+    group = GROUP_PHASE;
+  } else if (opt_arg.find("-ssa=") == 0) {
+    key = "ssa";
+    value_text = opt_arg.substr(strlen("-ssa="));
+    group = GROUP_SSA;
+  } else {
+    return FALSE;
+  }
+
+  INT32 value = 0;
+  if (!Parse_on_off_value(value_text, &value)) {
+    *err = "Invalid value '" + value_text + "' in option '" + arg +
+           "'; use 0/1/on/off/true/false";
+    return TRUE;
+  }
+
+  switch (group) {
+    case GROUP_OPT: Apply_opt_option(conf, key, value); break;
+    case GROUP_CG: Apply_cg_option(conf, key, value); break;
+    case GROUP_PHASE:
+    case GROUP_SSA: Apply_phase_option(conf, key, value); break;
+    default: break;
+  }
+  return TRUE;
+}
 
 /**
  * Parsing the user input command line options
@@ -63,6 +189,12 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   args::Flag front_end_only(debug_group, "feonly",
                             "Run up to front-end, skip opt and further stages",
                             {"feonly"});
+  args::Flag disable_ssa(debug_group, "disable_ssa",
+                         "Disable the SSA optimization pipeline",
+                         {"no-ssa", "disable-ssa"});
+  args::Flag disable_cprop(debug_group, "disable_cprop",
+                           "Disable SSA constant propagation",
+                           {"no-cprop", "disable-cprop"});
   args::ValueFlag<std::string> output_file(file_group, "output",
                                           "Output file location",
                                           {'o', "output"});
@@ -121,9 +253,28 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
 
   // Init tracing options first.
   Init_trace_opts();
+  std::vector<std::string> filtered_args;
+  filtered_args.reserve(argc);
+  filtered_args.push_back(argv[0]);
+  for (INT32 i = 1; i < argc; ++i) {
+    std::string err;
+    if (Parse_grouped_driver_option(argv[i], conf, &err)) {
+      if (!err.empty()) {
+        std::cerr << err << std::endl;
+        exit(EXIT_OPTION_ERR);
+      }
+      continue;
+    }
+    filtered_args.push_back(argv[i]);
+  }
+  std::vector<char *> filtered_argv;
+  filtered_argv.reserve(filtered_args.size());
+  for (UINT32 i = 0; i < filtered_args.size(); ++i) {
+    filtered_argv.push_back(const_cast<char *>(filtered_args[i].c_str()));
+  }
   // Parse the cmd line args.
   try {
-    parser.ParseCLI(argc, argv);
+    parser.ParseCLI(static_cast<int>(filtered_argv.size()), filtered_argv.data());
   }
   catch (const args::Completion &e) {
     std::cout << e.what();
@@ -210,14 +361,14 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     Set_mod_tracing_option(COMPONENT_CG_IR_IN, static_cast<TRACE_KIND>(res));
     Set_mod_tracing_option(COMPONENT_CG_CONV, static_cast<TRACE_KIND>(res));
     Set_mod_tracing_option(COMPONENT_CG_LRA, static_cast<TRACE_KIND>(res));
-    Set_mod_tracing_option(COMPONENT_CG_GRA, static_cast<TRACE_KIND>(res));
-    Set_mod_tracing_option(CO_CG_EMIT, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_CG_REGALLOC, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_CG_EMIT, static_cast<TRACE_KIND>(res));
   }
 
   if (graloglevel) {
     INT32 res = graloglevel.Get();
     Set_mod_tracing_option(COMPONENT_CG_LRA, static_cast<TRACE_KIND>(res));
-    Set_mod_tracing_option(COMPONENT_CG_GRA, static_cast<TRACE_KIND>(res));
+    Set_mod_tracing_option(COMPONENT_CG_REGALLOC, static_cast<TRACE_KIND>(res));
   }
 
   if (linkerloglevel) {
@@ -229,6 +380,23 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   if (front_end_only) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Run only up to front-end, skip opt and cg \n"));
     conf.fe_only = TRUE;
+  }
+
+  if (disable_ssa) {
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Disable SSA optimization pipeline\n"));
+    conf.opt_cfg.run_ssa_phase = FALSE;
+    conf.opt_cfg.run_destruct_ssa = FALSE;
+    conf.opt_cfg.enable_cprop = FALSE;
+    conf.opt_cfg.enable_dce = FALSE;
+    conf.opt_options["ssa"] = FALSE;
+    conf.opt_options["cprop"] = FALSE;
+    conf.opt_options["dce"] = FALSE;
+  }
+
+  if (disable_cprop) {
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Disable SSA constant propagation\n"));
+    conf.opt_cfg.enable_cprop = FALSE;
+    conf.opt_options["cprop"] = FALSE;
   }
 
   if (real_preprocess) {

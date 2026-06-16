@@ -138,7 +138,7 @@ private:
   TN_IDX                       _func_tn_begin;
 
 public:
-  CG_CFG       *Get_function(ST_IDX func_sym) {
+  CG_CFG       *Get_cg_cfg(ST_IDX func_sym) {
     if(trees.find(func_sym) == trees.end()) {
       trees[func_sym] = new CG_CFG();
     }
@@ -153,6 +153,8 @@ public:
     AssertThat(_current_tree != nullptr, ("current tree must be set first."));
     return _current_tree;
   };
+
+  ST_IDX        Current_func_sym()  {  return _current_sym;  }
   CG_CFG       *Cfg() { return _current; }
   void          Print(FILE *file = stderr);
   void          Print(ST_IDX sym, FILE *file = stderr);
@@ -415,9 +417,9 @@ public:
     return _builder;
   }
   // Emitting result.
-  void          Emit_label(PU_INFO *func, FILE *out, UINT32 label_idx);
+  void          Emit_label(FILE *out, UINT32 label_idx);
   void          Emit_operand(CGOP *oper, CGOPR_KIND k, UINT32 ch_id, FILE*out);
-  void          Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file);
+  void          Emit_tree(ST_IDX func_sym, FILE *out, FILE_MANAGER *file);
 };
 
 
@@ -448,10 +450,11 @@ public:
   CG_EMITTER     &Emitter() {
     return _emitter;
   }
-  CGIR_BUILDER   &Cgir_builder() {
+  CGIR_BUILDER   &Builder() {
     return _builder;
   }
   CG_REG_ALLOC   &Reg_alloc() { return _reg_alloc; }
+  CG_LIVE_RANGE  &Lra()       { return _lra;       }
   void          CG_convert_function(SCOPE *scope);        // Initialize the CG stuff
 };
 

@@ -88,6 +88,14 @@ struct OPT_CONFIG {
   OPT_PARAM param;
 };
 
+struct CG_CONFIG {
+  BOOL enable_lra      = TRUE;
+  BOOL enable_regalloc = TRUE;
+  BOOL enable_sched    = FALSE;
+  BOOL enable_resched  = FALSE;
+  BOOL enable_vdg      = FALSE;
+};
+
 class COMPILER_CONFIG {
 public:
   INT32  opt_level   = 2;
@@ -103,6 +111,10 @@ public:
 
   // 优化器配置（新增）
   OPT_CONFIG opt_cfg;
+  CG_CONFIG  cg_cfg;
+  std::map<string, INT32> opt_options;
+  std::map<string, INT32> cg_options;
+  std::map<string, INT32> phase_options;
 
   // 二进制 IR dump / load (Step 10)
   // 每项 (stage, path); stage ∈ {"fe", "opt-high", "opt-mid",

@@ -9,7 +9,7 @@
 #include "tn.h"
 
 INLINE BOOL TR_EMIT() {
-  return Tracing(CO_CG_EMIT, TRACE_EMIT_CORE);
+  return Tracing(COMPONENT_CG_EMIT, TRACE_EMIT_CORE);
 }
 
 // Single instance for the program to use, for now.
@@ -28,11 +28,24 @@ CG_COMPOSITE *Cgmon() {
  * @param file
  * @param config
  */
-void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
+void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *outfile) {
   CGIR *main_cgir = Cgmon()->Cgir();
-
-  CG_PASS *pass = nullptr;
   
+  CG_BUILD_PASS           build_cg_pass;
+  CG_LIVE_RANGE_PASS      lra_pass;
+  CG_REG_ALLOC_PASS       reg_alloc_pass;
+  CG_FRAME_LAYOUT_PASS    layout_pass;
+  CG_EMITTER_PASS         emit_pass;
+
+  build_cg_pass.Init(Cgmon());
+  lra_pass.Init(Cgmon());
+  reg_alloc_pass.Init(Cgmon());
+  layout_pass.Init(Cgmon());
+  emit_pass.Init(Cgmon());
+
+  // Setup emit output file.
+  emit_pass.Set_outfile(outfile);
+
   // TODO(cg-pipeline): 当前是单 pass 串, 一次性走完 convert + alloc + layout + emit.
   //   真正的实现应该走 pass pipeline (见 cg.spec.md §1):
   //     Pass chain = [ Build → LiveRange → IFG → Color → SpillRewrite → FrameLayout → Emit ]
@@ -42,37 +55,73 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config) {
   for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
     // Iterate over each pu_info (functions), dump each of the function
     PU_INFO *pu_info = file->Tables()->Pu_info()->Get(it);
-    main_cgir->Start_function_TN();
-    if (pu_info->proc_sym == 0) {
+    if (pu_info->Proc_sym() == 0) {
       AssertThat(false, ("Incomoplete pu_info for PU_INFO_IDX = %u, or %0#x", it, it));
       return;
     }
-    Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_OPTIONS),
+    Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
     (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
-    Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DEBUG),
-             (TFile, "Converting function to CGIR for pu_info_id = %u\n", it));
-    File()->Scopes()->Goto_function(pu_info->proc_sym);
-    Cgmon()->CG_convert_function(&pu_info->scope); // Expansion
+    
+    // 原逻辑：Cgmon()->CG_convert_function(&pu->scope)
+    ST_IDX func_sym = pu_info->Proc_sym();
+    File()->Scopes()->Goto_function(func_sym);
+    AssertThat(func_sym != 0, ("Incorrect function symbol idx = 0x%08x", func_sym));
+    
+    // Setup current builder/emitter/lra/regalloc sutff.
+    main_cgir->Start_function_TN();
+    main_cgir->Get_cg_cfg(func_sym);
+    CG_CFG    *function_cgir = main_cgir->Get_cg_cfg(func_sym);
+    main_cgir->Set_current_cgir(function_cgir, func_sym);
+
+    // Build pass
+    build_cg_pass.Run(pu_info);
     if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
       // Printing the cgir exapnsion result.
       main_cgir->Print(pu_info->proc_sym, TFile);
     }
+
     // TODO(pipeline-call): 真正 pipeline 应该分两步:
     //   1) LRA.Pre_alloc(): 调 Cgmon()->Lra().Analyze_live_range(pu_info)
     //                      建 IFG → 染色 → spill rewrite
     //   2) 调 Reg_alloc().Register_allocate(pu_info)  (只剩 layout)
     // 当前是直接调 Register_allocate, 内部走 naive linear scan.
-    Cgmon()->Reg_alloc().Register_allocate(pu_info); // GRA/LRA
-    main_cgir->Layout()->Calculate_stack_frame_size();
-    main_cgir->Recalibrate_offset(pu_info);
-    if(Tracing(COMPONENT_CG, TRACE_DATA)) {
+    if (config.cg_cfg.enable_lra) {
+      lra_pass.Run(pu_info);
+      if (Tracing(COMPONENT_CG_LRA, TRACE_DATA)) {
+        // Printing the lra results
+        lra_pass.Print(TFile);
+      }
+    } else {
+      Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_OPTIONS),
+               (TFile, "Skipping CG LRA pass\n"));
+    }
+
+    if (config.cg_cfg.enable_regalloc) {
+      reg_alloc_pass.Run(pu_info);
+      if (Tracing(COMPONENT_CG_REGALLOC, TRACE_DATA)) {
+        // Printing the lra results
+        reg_alloc_pass.Print(TFile);
+      }
+    } else {
+      Is_Trace(Tracing(COMPONENT_CG_REGALLOC, TRACE_OPTIONS),
+               (TFile, "Skipping CG register allocation pass\n"));
+    }
+    
+    // Frame Layout
+    layout_pass.Run(pu_info);
+    if(Tracing(COMPONENT_CG_LAYOUT, TRACE_DATA)) {
       // Printing the layout table.
-      main_cgir->Layout()->Print(TFile);
+      layout_pass.Print(TFile);
     }
     if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
       // Printing the cgir exapnsion result.
       main_cgir->Print(pu_info->proc_sym, TFile);
     }
+
+    // Emit pass
+    emit_pass.Run(pu_info);
+
+    // Cleanup
     main_cgir->Cleanup_function_TN();
   }
 }
@@ -103,17 +152,24 @@ INT32 CG_full_process(COMPILER_CONFIG &conf) {
   REGISTER_Begin();	/* initialize the register package */
   Init_Dedicated_TNs ();
 
-  // Convert OCIR to CGIR
-  CG_process_funcs(File(), conf);
-
   // Run emitting of assembly code.
   FILE *output_assembly_file = fopen(conf.output_file.c_str(), "w+");
   if (!output_assembly_file) {
     Comp_Failure("Cannot open output file to write = %s",
                  conf.output_file.c_str());
   }
+  // Emit starting prologue
+  Emit_section_code_prologue(output_assembly_file, File());
+
+  // Do CG on PUs, pu by pu.
+  CG_process_funcs(File(), conf, output_assembly_file);
+
+  // After all PU done, dump the data section and epilogues.
+  Emit_section_code_epilogue(output_assembly_file, File());
+  
+  // Emit data section
   Emit_section_data(output_assembly_file, File());
-  Emit_section_code(output_assembly_file, File());
+
   if (fclose(output_assembly_file) != 0) {
     Comp_Failure("Cannot close output file to write = %s",
                  conf.output_file.c_str());
@@ -123,67 +179,18 @@ INT32 CG_full_process(COMPILER_CONFIG &conf) {
 
 
 
-void Emit_section_code(FILE *out, FILE_MANAGER *file) {
-  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (TFile, "%sEmitting section: code\n%s", DBAR, DBAR));
+void Emit_section_code_prologue(FILE *out, FILE_MANAGER *file) {
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (TFile, "%sEmitting section: code prologue\n%s", DBAR, DBAR));
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Debugging info enabled, writing file-level code section\n"));
   fprintf(out, ".text\n\n");
   fprintf(out, ".global __aeabi_idiv \n");
-  for (UINT32 it = 1; it < file->Tables()->Pu_info()->Length(); it++) {
-    // Iterate over each pu_info (functions), dump each of the function
-    PU_INFO *pu_info = file->Tables()->Pu_info()->Get(it);
-    if (pu_info->proc_sym != 0) {
-      // Valid pu_info.
-      Emit_function(pu_info, out, file);
-    } else {
-      Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Skip PU_INFO for id = %d, due to unknown proc_symid = %d \n", it, pu_info->proc_sym));
-    }
-  }
 }
 
-
-/**
- * Emitting function, the @deprecated way
- * @deprecated
- * @param func
- * @param out
- * @param file
- */
-void Emit_function(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
-  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO),
-           (out, "# Emitting function ST_IDX = %d, name = %s \n", func->proc_sym, ST_name(
-             func->proc_sym)));
-  file->Scopes()->Goto_function(func->proc_sym);
-  Cgmon()->Cgir()->Set_current_cgir(Cgmon()->Cgir()->Get_function(func->proc_sym), func->proc_sym);
-  // Inside the function now, emitting all symtab info
-  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO),
-           (out, "# Function has %d non-trivial symbols\n",
-             file->Tables()->Sym()->Length(&(func->scope)) - 1));
-  for (UINT32 i = 1; i < file->Tables()->Sym()->Length(&(func->scope)); i++) {
-    ST_IDX one = (i << 8) | LOCAL_SYMTAB;
-    fprintf(out, "# Id: 0x%08x, Symbol : %s, Type: %d, Ofst: %d\n", one,
-            ST_name(one), ST_ty(one), Cgmon()->Cgir()->Layout()->Get_sym_sp_ofst(one));
-    // Find INITO matching this.
-    INITO_IDX inito_idx = ST_st(one)->getInitoIdx();
-    // Generate initv
-    INITO *inito = INITO_inito(inito_idx);
-    for (UINT32 j = 0; j < inito->Size(); j++) {
-      if (inito->Value(j)->kind == INITVKIND_VAL) {
-        fprintf(out, ".word %lld\n", inito->Value(j)->Val());
-      } else if (inito->Value(j)->kind == INITVKIND_PAD) {
-        fprintf(out, ".zero %lld\n", inito->Value(j)->Val());
-      }
-    }
-  }
-  // Dump the instructions
-  const char *func_name = ST_name(func->proc_sym);
-  fprintf(out, ".global %s\n", func_name);
-  fprintf(out, "%s: \n", func_name);
-  // Letting Cgir to point to current function.
-  Cgmon()->Emitter().Emit_tree(func, out, file);
-  // TODO: Use CGIR's emission instead.
+void Emit_section_code_epilogue(FILE *out, FILE_MANAGER *file) {
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# End of all functions, code .... \n"));
 }
 
-void CG_EMITTER::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
+void CG_EMITTER::Emit_tree(ST_IDX func_sym, FILE *out, FILE_MANAGER *file) {
   IR_ITER it = Tree()->Get_root();
   AssertThat(Tree()->Get_node(it)->Opcode() == OPC_FUNC_ENTRY, ("Incorrect root opcode"));
   // Get the function body.
@@ -200,7 +207,7 @@ void CG_EMITTER::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
     }
     // label to be set
     if (cgbb->Get_label_id() != 0) {
-      Emit_label(func, out, cgbb->Get_label_id());
+      Emit_label(out, cgbb->Get_label_id());
     }
     const int FUNC_PUSH_SIZE = 28 + 8;
     const int SP_EXTRA = FUNC_PUSH_SIZE - 4;
@@ -273,7 +280,7 @@ void CG_EMITTER::Emit_tree(PU_INFO *func, FILE *out, FILE_MANAGER *file) {
   // Dumping temp labels
   fprintf(out, "# Dumping temp labels : total = %lu \n", temp_labels.size());
   for (auto local_temp_it : temp_labels) {
-    fprintf(out, ".TL%s_%u:\t.word %s\n", ST_name(func->proc_sym), local_temp_it.second, ST_name(local_temp_it.first));
+    fprintf(out, ".TL%s_%u:\t.word %s\n", ST_name(func_sym), local_temp_it.second, ST_name(local_temp_it.first));
   }
   LABEL_TABLE *tbl = File()->Tables()->Label();
   SCOPE *scope = File()->Scopes()->Current();
