@@ -160,3 +160,13 @@ void PHI_NODE::Print(FILE *f) const {
   fprintf(f, ")  live=%d dead=%d\n",
           (int)_live, (int)_dead);
 }
+
+void CR_POOL::Reset() {
+  for (auto *p : _crs)   delete p;
+  for (auto *p : _phis)  delete p;
+  for (auto *p : _stmts) delete p;
+  _crs.clear();
+  _phis.clear();
+  _stmts.clear();
+  _next_id = 1;
+}

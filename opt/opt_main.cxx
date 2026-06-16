@@ -76,16 +76,21 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
     conf.opt_cfg.dump_after_destruct  = SSA_DUMP_FULL;
   }
 
-  // After middle level lowering & simple opt. transform to SSA and continue for opt.
-  Opt_build_ssa_all(File(), LEVEL_MID, conf);
+  if (conf.opt_cfg.run_ssa_phase) {
+    // After middle level lowering & simple opt. transform to SSA and continue for opt.
+    Opt_build_ssa_all(File(), LEVEL_MID, conf);
 
-  // SSA-based optimization passes
-  Opt_run_cprop(File(), conf);
-  Opt_run_dce(File(), conf);
+    // SSA-based optimization passes
+    Opt_run_cprop(File(), conf);
+    Opt_run_dce(File(), conf);
 
-  // 析构 SSA（phi → copy），恢复成普通 IR 继续降级
-  Opt_destruct_ssa_all(File(), LEVEL_MID, conf);
-  Maybe_dump_ir("opt-after-ssa", conf, File());
+    // 析构 SSA（phi → copy），恢复成普通 IR 继续降级
+    Opt_destruct_ssa_all(File(), LEVEL_MID, conf);
+    Maybe_dump_ir("opt-after-ssa", conf, File());
+  } else {
+    Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
+             (TFile, "Skipping SSA optimization pipeline\n"));
+  }
 
   Opt_lower(File(), LEVEL_LOW, conf);
   Opt_verify(File(), LEVEL_LOW, conf);
