@@ -6,6 +6,12 @@
 **/.vscode
 **/.eclipse
 
+.cache
+.debcache
+
+compile_commands.json
+deb-uris.txt
+
 # Python
 **/__pycache__
 **/*.pyc
