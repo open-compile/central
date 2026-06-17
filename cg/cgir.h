@@ -159,6 +159,10 @@ public:
     _stmt_defs.resize(stmt_count);
     _stmt_uses.resize(stmt_count);
   }
+  BOOL          Has_stmt_def_use() {
+    UINT32 stmt_count = this->Get_stmt_count();
+    return _stmt_defs.size() == stmt_count && _stmt_uses.size() == stmt_count;
+  }
   TN_SET  &Stmt_defs(UINT32 idx) { 
     UINT32 stmt_count = this->Get_stmt_count();
     AssertThat(idx < stmt_count && stmt_count == _stmt_defs.size(), (

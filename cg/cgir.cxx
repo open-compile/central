@@ -608,13 +608,27 @@ void CGIR::Print_cfg_detail(ST_IDX sym, FILE *file) {
     Print_tn_set(file, bb->Uses());
     fprintf(file, "\n");
 
+    BOOL has_stmt_def_use = bb->Has_stmt_def_use();
+    if (!has_stmt_def_use) {
+      fprintf(file,
+              "  stmt def/use unavailable: stmt cache is stale after CG rewrites\n");
+    }
+
     UINT32 stmt_idx = 0;
     for (auto it = bb->Begin_stmt(); it != bb->End_stmt(); ++it, ++stmt_idx) {
       (*it)->setIndexInBb(stmt_idx);
       fprintf(file, "    def/use: [");
-      Print_tn_set(file, bb->Stmt_defs(stmt_idx));
+      if (has_stmt_def_use) {
+        Print_tn_set(file, bb->Stmt_defs(stmt_idx));
+      } else {
+        fprintf(file, "?");
+      }
       fprintf(file, "] / [");
-      Print_tn_set(file, bb->Stmt_uses(stmt_idx));
+      if (has_stmt_def_use) {
+        Print_tn_set(file, bb->Stmt_uses(stmt_idx));
+      } else {
+        fprintf(file, "?");
+      }
       fprintf(file, "]\n");
       Print_cgop_compact(this, *it, file);
     }
