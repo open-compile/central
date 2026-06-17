@@ -9,6 +9,10 @@
 #include <unordered_map>
 #include <vector>
 
+BOOL TR_BUILD() {
+  return Tracing(COMPONENT_CG_CONV, TRACE_OPTIONS);
+}
+
 /**
  * Building the predecessor list for each CG_CFG_BB
  */
@@ -52,30 +56,38 @@ void CGIR_BUILDER::Build_def_use() {
     // def of bb
     CGBB *cgbb         = cfg->BB(cur_bb);
     CFG_BB_EDGES &succ = cfg->Edges(cur_bb);
-    // Is_Trace(TR_LRA(), (TFile, "[LRA] Visiting BB : %d \n", cur_bb));
-    // UINT32 stmt_id = 0;
-    // for (auto stmt_it = cgbb->First_stmt(); 
-    //      stmt_it != cgbb->Last_stmt(); stmt_it++, stmt_id++) {
-    //   CGOP *cgop = (*stmt_it);
-    //   Is_Trace(TR_LRA(),
-    //           (TFile, "Def-use builder: %s\n",
-    //             Get_cg_opc_info(cgop->getOpcode())->ins_token));
-    //   Cgmon
-    //   // TODO(step1: count-uses): 这里是 step 1 — 扫描所有 CGOP, 统计每个 TN
-    //   //   的 use/def 数, 并把它塞进 _tn_freq_map / _tn_live_range.
-    //   //   真正的 RA 流水线要把这一步的结果:
-    //   //     - "每个 TN 被 use 几次" → 用来算 spill cost (cost = uses / degree)
-    //   //     - "每个 TN 在哪些 BB 里被 use" → 用来构造 IFG
-    //   //   见 cg.spec.md §4.4
-    //   if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
-    //     i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 0);
-    //   }
-    //   if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
-    //     i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 1);
-    //   }
-    //   if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
-    //     i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 2);
-    //   }
-    // }
+    Is_Trace(TR_BUILD(), (TFile, "[LRA] Visiting BB : %d \n", cur_bb));
+    UINT32 stmt_id = 0;
+    for (auto stmt_it = cgbb->First_stmt(); 
+         stmt_it != cgbb->Last_stmt(); stmt_it++, stmt_id++) {
+      CGOP *cgop = (*stmt_it);
+      Is_Trace(TR_BUILD(),
+              (TFile, "Def-use builder: %s\n",
+                Get_cg_opc_info(cgop->getOpcode())->ins_token));
+      CGOPC_INFO *opc_info = Get_cg_opc_info(cgop->getOpcode());
+      UINT32 ch_id = opc_info->getNOprs();
+      AssertThat(ch_id < 4, ("operand count must be less than 4."));
+      CG_OPRAND cgoper = oper->getResOpnd()[ch_id];
+      AssertThat(cgoper != 0,
+                ("Should not be empty, cgopc = %s", Get_cg_opc_info(
+                  oper->getOpcode())->getName()));
+      if (CGOPR_R == kind) {
+      }
+      // TODO(step1: count-uses): 这里是 step 1 — 扫描所有 CGOP, 统计每个 TN
+      //   的 use/def 数, 并把它塞进 _tn_freq_map / _tn_live_range.
+      //   真正的 RA 流水线要把这一步的结果:
+      //     - "每个 TN 被 use 几次" → 用来算 spill cost (cost = uses / degree)
+      //     - "每个 TN 在哪些 BB 里被 use" → 用来构造 IFG
+      //   见 cg.spec.md §4.4
+      if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
+        i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 0);
+      }
+      if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
+        i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 1);
+      }
+      if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
+        i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 2);
+      }
+    }
   }
 }
