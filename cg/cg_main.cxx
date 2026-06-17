@@ -91,6 +91,7 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *outfile
         // Printing the lra results
         lra_pass.Print(TFile);
       }
+      Cgmon()->Builder().Build_def_use();
     } else {
       Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_OPTIONS),
                (TFile, "Skipping CG LRA pass\n"));
@@ -98,6 +99,7 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *outfile
 
     if (config.cg_cfg.enable_regalloc) {
       reg_alloc_pass.Run(pu_info);
+      Cgmon()->Builder().Build_def_use();
       if (Tracing(COMPONENT_CG_REGALLOC, TRACE_DATA)) {
         // Printing the lra results
         reg_alloc_pass.Print(TFile);
@@ -109,6 +111,7 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *outfile
     
     // Frame Layout
     layout_pass.Run(pu_info);
+    Cgmon()->Builder().Build_def_use();
     if(Tracing(COMPONENT_CG_LAYOUT, TRACE_DATA)) {
       // Printing the layout table.
       layout_pass.Print(TFile);
