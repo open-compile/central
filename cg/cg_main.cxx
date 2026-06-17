@@ -118,6 +118,16 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *outfile
       main_cgir->Print(pu_info->proc_sym, TFile);
     }
 
+    if (config.cg_cfg.dump_cfg_graph) {
+      main_cgir->Print_cfg_graph(pu_info->Proc_sym(), TFile);
+    }
+    if (config.cg_cfg.dump_cfg) {
+      main_cgir->Print_cfg_detail(pu_info->Proc_sym(), TFile);
+    }
+    if (config.cg_cfg.dump_tn) {
+      main_cgir->Print_tn_table(pu_info->Proc_sym(), TFile, TRUE);
+    }
+
     // Emit pass
     emit_pass.Run(pu_info);
 

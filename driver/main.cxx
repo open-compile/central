@@ -89,6 +89,16 @@ static void Apply_cg_option(COMPILER_CONFIG &conf,
     conf.cg_cfg.enable_resched = value;
   } else if (key == "vdg") {
     conf.cg_cfg.enable_vdg = value;
+  } else if (key == "cfg") {
+    conf.cg_cfg.dump_cfg = value;
+  } else if (key == "cfggraph" || key == "cfg-graph") {
+    conf.cg_cfg.dump_cfg_graph = value;
+  } else if (key == "tn" || key == "tns") {
+    conf.cg_cfg.dump_tn = value;
+  } else if (key == "dump") {
+    conf.cg_cfg.dump_cfg = value;
+    conf.cg_cfg.dump_cfg_graph = value;
+    conf.cg_cfg.dump_tn = value;
   }
 }
 

@@ -94,6 +94,9 @@ struct CG_CONFIG {
   BOOL enable_sched    = FALSE;
   BOOL enable_resched  = FALSE;
   BOOL enable_vdg      = FALSE;
+  BOOL dump_cfg        = FALSE;
+  BOOL dump_cfg_graph  = FALSE;
+  BOOL dump_tn         = FALSE;
 };
 
 class COMPILER_CONFIG {

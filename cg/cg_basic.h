@@ -236,6 +236,8 @@ public:
   }
   void Print(FILE * file = stderr);
   UINT32 getFlags() { return _flags; };
+  UINT32 getTreeNodeId() const { return _tree_node_id; }
+  UINT16 getVariant() const { return variant; }
 
   UINT16 getSpillGenerated() const {
     return spill_generated;

@@ -303,8 +303,8 @@ void CGIR_BUILDER::Handle_ret(IR_ITER stmt, CFG_BB_IDX cur_bb, CG_CONV_INFO &bui
  */
 void CGIR_BUILDER::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
   // There could be global stuff here.
-  CG_CONV_INFO builder;
-  builder.Init(Cfg());
+  CG_CONV_INFO convinfo;
+  convinfo.Init(Cfg());
 
   Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INVOCATION),
            (TFile, "CGIR_BUILDER::Handle_Entry\n"));
@@ -348,12 +348,12 @@ void CGIR_BUILDER::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
         break;
       }
       case OPR_RETURN: {
-        Handle_ret(stmt, cur_bb, builder);
+        Handle_ret(stmt, cur_bb, convinfo);
         cur_bb_stmt_processed ++;
         break;
       }
       case OPR_RETURN_VAL: {
-        Handle_ret_val(stmt, cur_bb, builder);
+        Handle_ret_val(stmt, cur_bb, convinfo);
         cur_bb_stmt_processed ++;
         break;
       }
@@ -367,7 +367,7 @@ void CGIR_BUILDER::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
         } else {
           next_bb = Cfg()->Add_bb(cur_bb);
         }
-        Handle_goto(stmt, cur_bb, next_bb, builder);
+        Handle_goto(stmt, cur_bb, next_bb, convinfo);
         Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
                  (TFile, "After [goto], end of BB = %d, start next BB = %d\n",
                   cur_bb, next_bb));
@@ -391,7 +391,7 @@ void CGIR_BUILDER::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
           Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_DATA),
                  (TFile, "set lbl(%d) for BB(%d)\n", lbl, cur_bb));
           Cfg()->BB(cur_bb)->Set_label_id(lbl);
-          builder.Bind_label_to_bb(lbl, cur_bb);
+          convinfo.Bind_label_to_bb(lbl, cur_bb);
           cur_bb_stmt_processed ++;
         } else {
           // Ending the current-BB, and creating a new-BB
@@ -404,7 +404,7 @@ void CGIR_BUILDER::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
             ("Before setting up the new bb, bb should contain no label, yet given %d",
               next_bb, Cfg()->BB(next_bb)->Get_label_id()));
           Cfg()->BB(next_bb)->Set_label_id(lbl);
-          builder.Bind_label_to_bb(lbl, next_bb);
+          convinfo.Bind_label_to_bb(lbl, next_bb);
           cur_bb = next_bb;
           cur_bb_stmt_processed = 1;
         }
@@ -426,8 +426,12 @@ void CGIR_BUILDER::Handle_func_body(IR_ITER entry, CFG_BB_IDX cur_bb) {
   Add_epilog(cur_bb);
 
   // Fixup the predecessor / successor info for the BB CFG.
-  builder.Fixup_pred_succ();
-  builder.Unbind_all_labels();
+  convinfo.Fixup_pred_succ();
+  convinfo.Unbind_all_labels();
+
+  // Build auxiliary info
+  Build_pred_succ();
+  Build_def_use();
 }
 
 /**
@@ -648,12 +652,11 @@ void CG_LIVE_RANGE::Analyze_live_range(PU_INFO *info) {
   live_outs.assign(bb_cnt, {});
 
   // LRA Algorithm
-  UINT32 cur_bb = 0; // currently visited bb;
   BOOL changed = TRUE;
   while(changed) {
     changed = FALSE;
     // reverse order
-    for (cur_bb = bb_cnt - 1; cur_bb >= 0; cur_bb--) {
+    for (INT32 cur_bb = (INT32)bb_cnt - 1; cur_bb >= 0; cur_bb--) {
       unordered_set<int> old_in = live_ins[cur_bb]; // copy
       unordered_set<int> old_out = live_outs[cur_bb]; // copy
       // def of bb
@@ -671,15 +674,17 @@ void CG_LIVE_RANGE::Analyze_live_range(PU_INFO *info) {
         //     - "每个 TN 被 use 几次" → 用来算 spill cost (cost = uses / degree)
         //     - "每个 TN 在哪些 BB 里被 use" → 用来构造 IFG
         //   见 cg.spec.md §4.4
-        if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
-          i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 0);
-        }
-        if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
-          i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 1);
-        }
-        if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
-          i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 2);
-        }
+
+
+        // if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
+        //   i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 0);
+        // }
+        // if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
+        //   i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 1);
+        // }
+        // if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
+        //   i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 2);
+        // }
       }
       // use of bb
     }
@@ -899,7 +904,7 @@ void CG_REG_ALLOC::Spill_tn(TN_IDX tid, TN *tn) {// We could put the spill on r8
 // 调试输出: 把当前 _tn_freq_map 打到 FILE*; 无副作用
 void CG_REG_ALLOC::Print_freq_map(FILE *file) {
   if (!file) file = stderr;
-  fprintf(file, "%s CG_REG_ALLOC::_tn_freq_map (%lu entries) %s\n",
+  fprintf(file, "%s CG_REG_ALLOC::_tn_freq_map (%lu entries) \n%s",
           DBAR, _tn_freq_map.size(), DBAR);
   for (auto &p : _tn_freq_map) {
     TN *tn = TN_tn(p.first);
@@ -908,13 +913,13 @@ void CG_REG_ALLOC::Print_freq_map(FILE *file) {
             TN_register_class(tn), TN_register(tn),
             TN_is_dedicated(tn), TN_is_preallocated(tn));
   }
-  fprintf(file, "%s end %s\n", DBAR, DBAR);
+  fprintf(file, "%s end \n%s", DBAR, DBAR);
 }
 
 // 调试输出: 把每个 TN 的 live range (bb_stmt 序列) 打到 FILE*
 void CG_REG_ALLOC::Print_live_range(FILE *file) {
   if (!file) file = stderr;
-  fprintf(file, "%s CG_REG_ALLOC::_tn_live_range (%lu entries) %s\n",
+  fprintf(file, "%s CG_REG_ALLOC::_tn_live_range (%lu entries) \n%s",
           DBAR, _tn_live_range.size(), DBAR);
   for (auto &p : _tn_live_range) {
     fprintf(file, "  TN %u : live points =", p.first);
@@ -925,7 +930,89 @@ void CG_REG_ALLOC::Print_live_range(FILE *file) {
     }
     fprintf(file, "\n");
   }
-  fprintf(file, "%s end %s\n", DBAR, DBAR);
+  fprintf(file, "%s end \n%s", DBAR, DBAR);
+}
+
+static UINT32 CGBB_stmt_count(CGBB *bb) {
+  UINT32 count = 0;
+  for (auto it = bb->First_stmt(); it != bb->Last_stmt(); ++it) {
+    count++;
+  }
+  return count;
+}
+
+static void Print_cgbb_flags(FILE *file, UINT32 flags) {
+  BOOL any = FALSE;
+#define PRINT_BB_FLAG(flag, name) \
+  if (flags & flag) { fprintf(file, "%s%s", any ? "|" : "", name); any = TRUE; }
+  PRINT_BB_FLAG(BB_FLAG_ENTRY, "entry");
+  PRINT_BB_FLAG(BB_FLAG_EXIT, "exit");
+  PRINT_BB_FLAG(BB_FLAG_HANDLER, "handler");
+  PRINT_BB_FLAG(BB_FLAG_CALL, "call");
+  PRINT_BB_FLAG(BB_FLAG_LABEL, "label");
+  PRINT_BB_FLAG(BB_FLAG_UNREACH, "unreach");
+  PRINT_BB_FLAG(BB_FLAG_SCHED, "sched");
+  PRINT_BB_FLAG(BB_FLAG_SPILL, "spill");
+  PRINT_BB_FLAG(BB_FLAG_LRA, "lra");
+#undef PRINT_BB_FLAG
+  if (!any) fprintf(file, "-");
+}
+
+static void Print_tn_compact(CGIR *cgir, TN_IDX tn_idx, FILE *file) {
+  if (tn_idx == 0 || tn_idx >= cgir->TN_tab_size()) {
+    fprintf(file, "-");
+    return;
+  }
+
+  TN *tn = cgir->TN_tn(tn_idx);
+  fprintf(file, "t%u", tn_idx);
+  if (TN_is_constant(tn)) {
+    if (TN_is_label(tn)) {
+      LABEL_IDX lbl = TN_label(tn);
+      fprintf(file, "<label:%s>", lbl ? LABEL_name(lbl) : "0");
+    } else {
+      fprintf(file, "<#%lld>", TN_value(tn));
+    }
+    return;
+  }
+
+  if (TN_is_register(tn)) {
+    fprintf(file, "<r%d,c%d", TN_register(tn), TN_register_class(tn));
+    if (TN_is_preallocated(tn)) fprintf(file, ",pre");
+    if (TN_is_dedicated(tn)) fprintf(file, ",ded");
+    if (TN_flags(tn) & TN_SPILL) fprintf(file, ",spill=0x%x", TN_spill(tn));
+    fprintf(file, ">");
+  }
+}
+
+static void Print_cgop_compact(CGIR *cgir, CGOP *op, FILE *file) {
+  UINT8 nres = op->getResults();
+  UINT8 noprs = op->getOperands();
+  fprintf(file, "    [%02u] %-12s tree=%u",
+          op->getIndexInBb(), ISA_OPCODE_name(op->getOpcode()),
+          op->getTreeNodeId());
+
+  if (nres > 0) {
+    fprintf(file, "  res:");
+    for (UINT8 i = 0; i < nres; ++i) {
+      fprintf(file, " ");
+      Print_tn_compact(cgir, op->getResOpnd()[i], file);
+    }
+  }
+
+  if (noprs > 0) {
+    fprintf(file, "  opr:");
+    for (UINT8 i = 0; i < noprs; ++i) {
+      UINT8 slot = nres + i;
+      fprintf(file, " ");
+      Print_tn_compact(cgir, op->getResOpnd()[slot], file);
+    }
+  }
+
+  if (op->getFlags() != 0) {
+    fprintf(file, "  flags=0x%x", op->getFlags());
+  }
+  fprintf(file, "\n");
 }
 
 void CGIR::Print(FILE *file) {
@@ -940,6 +1027,97 @@ void CGIR::Print(FILE *file) {
   }
 }
 
+void CGIR::Print_cfg_detail(ST_IDX sym, FILE *file) {
+  AssertThat(ST_st(sym) != nullptr, ("invalid function ST_IDX to print in CGIR"));
+  CG_CFG *cfg = Get_cg_cfg(sym);
+  fprintf(file, "%sCG CFG detail: %s (sym=0x%08x), BBs=%u\n%s",
+          DBAR, ST_name(sym), sym, cfg->Size(), DBAR);
+
+  for (UINT32 i = 0; i < cfg->Size(); ++i) {
+    CGBB *bb = cfg->Node(i);
+    LABEL_IDX lbl = bb->Get_label_id();
+    fprintf(file, "BB%u", bb->Get_id());
+    if (lbl != 0) fprintf(file, " label=%s(0x%04x)", LABEL_name(lbl), lbl);
+    fprintf(file, " flags=");
+    Print_cgbb_flags(file, bb->Get_flags());
+    fprintf(file, " stmts=%u\n", CGBB_stmt_count(bb));
+
+    fprintf(file, "  preds:");
+    if (bb->Get_preds_count() == 0) fprintf(file, " -");
+    for (auto it = bb->Pred_begin(); it != bb->Pred_end(); ++it) {
+      fprintf(file, " BB%u", (*it)->Get_id());
+    }
+    fprintf(file, "\n");
+
+    fprintf(file, "  succs:");
+    if (bb->Get_succs_count() == 0) fprintf(file, " -");
+    for (auto it = bb->Succ_begin(); it != bb->Succ_end(); ++it) {
+      fprintf(file, " BB%u", (*it)->Get_id());
+    }
+    fprintf(file, "\n");
+
+    UINT32 stmt_idx = 0;
+    for (auto it = bb->First_stmt(); it != bb->Last_stmt(); ++it, ++stmt_idx) {
+      (*it)->setIndexInBb(stmt_idx);
+      Print_cgop_compact(this, *it, file);
+    }
+  }
+  fprintf(file, "%sEnd CG CFG detail\n%s", DBAR, DBAR);
+}
+
+void CGIR::Print_cfg_graph(ST_IDX sym, FILE *file) {
+  AssertThat(ST_st(sym) != nullptr, ("invalid function ST_IDX to print in CGIR"));
+  CG_CFG *cfg = Get_cg_cfg(sym);
+  fprintf(file, "%sCG CFG ASCII graph: %s (sym=0x%08x)\n%s",
+          DBAR, ST_name(sym), sym, DBAR);
+
+  for (UINT32 i = 0; i < cfg->Size(); ++i) {
+    CGBB *bb = cfg->Node(i);
+    LABEL_IDX lbl = bb->Get_label_id();
+    fprintf(file, "BB%u", bb->Get_id());
+    if (lbl != 0) fprintf(file, "[%s]", LABEL_name(lbl));
+    fprintf(file, " {stmts=%u, flags=", CGBB_stmt_count(bb));
+    Print_cgbb_flags(file, bb->Get_flags());
+    fprintf(file, "}\n");
+
+    if (bb->Get_succs_count() == 0) {
+      fprintf(file, "  `-> <exit>\n");
+    } else {
+      INT32 succ_pos = 0;
+      for (auto it = bb->Succ_begin(); it != bb->Succ_end(); ++it, ++succ_pos) {
+        const char *edge = (succ_pos + 1 == bb->Get_succs_count()) ? "`->" : "|->";
+        fprintf(file, "  %s BB%u\n", edge, (*it)->Get_id());
+      }
+    }
+  }
+
+  fprintf(file, "\nEdges:\n");
+  for (UINT32 i = 0; i < cfg->Size(); ++i) {
+    CGBB *bb = cfg->Node(i);
+    if (bb->Get_succs_count() == 0) {
+      fprintf(file, "  BB%u -> <exit>\n", bb->Get_id());
+      continue;
+    }
+    for (auto it = bb->Succ_begin(); it != bb->Succ_end(); ++it) {
+      fprintf(file, "  BB%u -> BB%u\n", bb->Get_id(), (*it)->Get_id());
+    }
+  }
+  fprintf(file, "%sEnd CG CFG ASCII graph\n%s", DBAR, DBAR);
+}
+
+void CGIR::Print_tn_table(ST_IDX sym, FILE *file, BOOL function_only) {
+  AssertThat(ST_st(sym) != nullptr, ("invalid function ST_IDX to print in CGIR"));
+  INT32 begin = function_only ? _func_tn_begin : 0;
+  fprintf(file, "%sCG TN table: %s (sym=0x%08x), range=[%d,%u)\n%s",
+          DBAR, ST_name(sym), sym, begin, TN_tab_size(), DBAR);
+  for (INT32 i = TN_tab_size() - 1; i >= begin; --i) {
+    TN *tn_obj = TN_tn(i);
+    fprintf(file, "[TN %-8d, 0x%04x]  ", i, i);
+    tn_obj->Print(file);
+  }
+  fprintf(file, "%sEnd CG TN table\n%s", DBAR, DBAR);
+}
+
 void CGIR::Print(ST_IDX sym, FILE *file) {
   // Print a functions detail.
   AssertThat(ST_st(sym) != nullptr, ("invalid function ST_IDX to print in CGIR"));
@@ -948,21 +1126,9 @@ void CGIR::Print(ST_IDX sym, FILE *file) {
   Get_cg_cfg(sym)->Print(file);
 
   if (Tracing(COMPONENT_CG_CONV, TRACE_DEBUG)) {
-    fprintf(file, "%sPrinting the TN info\n%s", DBAR, DBAR);
-    // Printing TNs
-    for (INT32 i = TN_tab_size() - 1; i >= 0; i--) {
-      TN *tn_obj = TN_tn(i);
-      fprintf(file, "[TN %-8d, 0x%04x]  ", i, i);
-      tn_obj->Print(file);
-    }
+    Print_tn_table(sym, file, FALSE);
   } else if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
-    fprintf(file, "%sPrinting the TN info\n%s", DBAR, DBAR);
-    // Printing TNs
-    for (INT32 i = TN_tab_size() - 1; i >= _func_tn_begin; i--) {
-      TN *tn_obj = TN_tn(i);
-      fprintf(file, "[TN %-8d, 0x%04x]  ", i, i);
-      tn_obj->Print(file);
-    }
+    Print_tn_table(sym, file, TRUE);
   }
 }
 

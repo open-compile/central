@@ -39,14 +39,30 @@ class CGIR_BUILDER;
 template <typename NODE_TYPE>
 class CG_CFG_BASE : public CFG_BASE<NODE_TYPE, CG_CFG_BB_BASE<NODE_TYPE>> {
 private:
+  BOOL                             _is_pred_ready = FALSE;
   map<TN_IDX, ST_IDX>              _recal_map;
   map<TN_IDX, INT64>               _exceed_map;
+  CFG_BB_EDGES_STORE               _preds;
 public:
   map<TN_IDX, INT64> & Get_exceed_map() {
     return _exceed_map;
   }
   map<TN_IDX, ST_IDX> & Get_recalibrate_map() {
     return _recal_map;
+  }
+  void                  Set_preds(const CFG_BB_EDGES_STORE &given) {
+    _preds = given;
+    _is_pred_ready = TRUE;
+  }
+  CFG_BB_EDGES_STORE &Get_preds() { 
+    AssertThat(_is_pred_ready, ("Pred has not be set you have to set it first."));
+    return _preds; 
+  }
+  CFG_BB_EDGES       &Preds(CFG_BB_IDX idx) { 
+    AssertThat(_is_pred_ready, ("Pred has not be set you have to set it first."));
+    AssertThat(idx < _preds.size(), ("Index exceed Preds's container size, idx = %u, size = %u",
+                                idx, _preds.size()));
+    return _preds.at(idx); 
   }
 };
 
@@ -117,7 +133,7 @@ typedef vector<CGBB *>                    CGBB_VECTOR;
 typedef typename vector<CGBB *>::iterator CGBB_ITER;
 typedef CG_CFG_BASE<CGOP>                 CG_CFG;
 typedef CG_CONV_EXTRAINFO<CGOP, CGBB>     CG_CONV_INFO;
-
+typedef map<TN_IDX, INT32>                TN_FREQ_MAP;
 
 extern std::vector<TN *>              _global_tn_vec;
 
@@ -127,8 +143,9 @@ private:
   map<ST_IDX, CG_CFG *>        trees;
   map<ST_IDX, DATA_LAYOUT*>    _layouts;
   map<PREG_IDX, TN_IDX>        _preg_to_tn;
-  IR_TN_MAP                    ir_to_tn_map;
-  TN_IR_MAP                    tn_to_ir_map;
+  IR_TN_MAP                    _ir_to_tn_map;
+  TN_IR_MAP                    _tn_to_ir_map;
+  TN_FREQ_MAP                  _use_cnts;
   // Memory Layout
   CG_FRAME_SECT                sections[8];
   CG_CFG                     *_current;
@@ -158,6 +175,12 @@ public:
   CG_CFG       *Cfg() { return _current; }
   void          Print(FILE *file = stderr);
   void          Print(ST_IDX sym, FILE *file = stderr);
+  void          Print_cfg_detail(ST_IDX sym, FILE *file = stderr);
+  void          Print_cfg_graph(ST_IDX sym, FILE *file = stderr);
+  void          Print_tn_table(ST_IDX sym, FILE *file = stderr,
+                               BOOL function_only = TRUE);
+
+  TN_FREQ_MAP  &TN_freq_map() { return _use_cnts; } 
 
   // Data layout
   void          Set_current_layout(DATA_LAYOUT *pLayout) { _current_layout = pLayout; }
@@ -187,16 +210,16 @@ public:
 
   // TN ir mapping
   TN           *Get_tn_by_ir(IRNODE_IDX ir) {
-    if (ir_to_tn_map.find(ir) != ir_to_tn_map.end()) {
-      return ir_to_tn_map[ir];
+    if (_ir_to_tn_map.find(ir) != _ir_to_tn_map.end()) {
+      return _ir_to_tn_map[ir];
     }
     Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INFO),
              (TFile, "IR not found in ir_to_tn_map, ir = %lld", ir));
     return nullptr;
   }
   IRNODE_IDX    Get_ir_by_tn(TN *tn) {
-    if (tn_to_ir_map.find(tn) != tn_to_ir_map.end()) {
-      return tn_to_ir_map[tn];
+    if (_tn_to_ir_map.find(tn) != _tn_to_ir_map.end()) {
+      return _tn_to_ir_map[tn];
     }
     Is_Trace(Tracing(COMPONENT_CG_CONV, TRACE_INFO),
              (TFile, "TN not found in tn_to_ir, tn = 0x%016llx", (UINT64) tn));
@@ -304,6 +327,7 @@ public:
   void          Print_live_range(FILE *file = stderr);
 };
 
+
 /**
  * CGIR's builder utility.
  */
@@ -388,6 +412,8 @@ public:
     _spill_recording = false;
     _spill_related.clear();
   }
+  void          Build_pred_succ();
+  void          Build_def_use();
 };
 
 class CG_EMITTER {
