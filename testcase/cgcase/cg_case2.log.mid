@@ -1,0 +1,21 @@
+Workdir : /home/gtx/dev/central
+Starting to build ...
+Workdir : /home/gtx/dev/central
+Please use (cd) to choose another directory and run ./configure again
+Workdir : /home/gtx/dev/central
+Workdir : /home/gtx/dev/central/build
+-- =================================
+--    Start to build OCC Compiler   
+-- =================================
+-- CMake install destination: /home/gtx/dev/central/build/install.
+-- Configuring done (0.0s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/gtx/dev/central/build
+[  3%] Built target jsoncppamal
+[ 24%] Built target common
+[ 27%] Built target symtab_test
+[ 38%] Built target fe
+[ 51%] Built target fe_test
+[ 72%] Built target opt
+[ 74%] Building CXX object cg/CMakeFiles/cg.dir/cg_main.cxx.o
+[ 75%] Building CXX object cg/CMakeFiles/cg.dir/cgir.cxx.o

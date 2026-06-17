@@ -49,7 +49,7 @@ template <typename NODE_TYPE> class CFG_BB_BASE;
 
 // Define CFG related type renames.
 typedef UINT32                              CFG_BB_IDX;
-typedef vector<set<CFG_BB_IDX>> CFG_BB_EDGES_STORE;
+typedef vector<set<CFG_BB_IDX>>             CFG_BB_EDGES_STORE;
 typedef set<CFG_BB_IDX>                     CFG_BB_EDGES;
 
 // TODO: maybe we need a second template type to

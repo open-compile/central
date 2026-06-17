@@ -34,6 +34,8 @@ class CG_BUILD_PASS : public CG_PASS {
 public:
   CG_BUILD_PASS() { _name = "build"; }
   BOOL Run(PU_INFO *pu) override;
+  void Build_pred_succ(PU_INFO *pu);
+  void Build_def_use(PU_INFO *pu);
   void Dump(FILE *file) override {
     Cgir()->Print(file);   // 原 CG_process_funcs 里的 Print
   }

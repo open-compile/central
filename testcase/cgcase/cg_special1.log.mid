@@ -1,0 +1,1470 @@
+Input file base name : cg_simple2.c
+Default output file : cg_simple2.s
+Before running component [250]
+Invoking component [fe ./testcase/cgcase/cg_simple2.c]
+--NBlock:
+----NFunctionDeclaration:
+------NIdentifier:int
+------NIdentifier:foo1
+------NVariableDeclaration:isArray = 0
+--------NIdentifier:int
+--------NIdentifier:a
+------NVariableDeclaration:isArray = 0
+--------NIdentifier:int
+--------NIdentifier:b
+------NBlock:
+--------NVariableDeclaration:isArray = 0
+----------NIdentifier:int
+----------NIdentifier:x
+----------NInteger:3
+--------NExpressionStatement:
+----------NAssignment:
+------------NIdentifier:x
+------------NBinaryOperator:292
+--------------NIdentifier:a
+--------------NIdentifier:b
+--------NExpressionStatement:
+----------NAssignment:
+------------NIdentifier:x
+------------NBinaryOperator:292
+--------------NBinaryOperator:294
+----------------NIdentifier:x
+----------------NIdentifier:b
+--------------NBinaryOperator:294
+----------------NIdentifier:b
+----------------NIdentifier:b
+--------NReturnStatement:
+----------NBinaryOperator:292
+------------NIdentifier:x
+------------NInteger:30
+Visit Global Block
+  Decl Kind : NFunctionDeclaration
+  func typename : int
+Creating TREE, size = 0
+Creating a TREE.Initialize() ... 
+Visit Var Decl
+Visit Var Decl
+Visit Stmt
+Visit Var Decl
+Visit Expression : NInteger 
+Adding dummy child to parent = 3
+Visit Stmt
+Visit Stmt
+Visit Expression : NBinaryOperator 
+Visit Expression : NIdentifier 
+Visit Expression : NIdentifier 
+Adding dummy child to parent = 6
+Adding dummy child to parent = 6
+Adding dummy child to parent = 5
+Visit Stmt
+Visit Stmt
+Visit Expression : NBinaryOperator 
+Visit Expression : NBinaryOperator 
+Visit Expression : NIdentifier 
+Visit Expression : NIdentifier 
+Adding dummy child to parent = 11
+Adding dummy child to parent = 11
+Visit Expression : NBinaryOperator 
+Visit Expression : NIdentifier 
+Visit Expression : NIdentifier 
+Adding dummy child to parent = 14
+Adding dummy child to parent = 14
+Adding dummy child to parent = 10
+Adding dummy child to parent = 10
+Adding dummy child to parent = 9
+Visit Stmt
+Visit Return Stmt
+Visit Expression : NBinaryOperator 
+Visit Expression : NIdentifier 
+Visit Expression : NInteger 
+Adding dummy child to parent = 18
+Adding dummy child to parent = 18
+Adding dummy child to parent = 17
+Finishing creating func = foo1
+=======================================================
+Scope Manager
+=======================================================
+  [0   ] (Function_idx_0_placeholder)
+  [1   ] Function foo1 (pu_idx=1, proc_sym=0xa01)
+
+=======================================================
+Program Units
+=======================================================
+
+=======================================================
+Function 1: foo1
+=======================================================
+
+  -- Tree --
+Printing the table size = 21, tree of size = 21 ... 
+IDX[0       ] OPC_FUNC_ENTRY      - kid(2), index(0), depth(0)
+IDX[1       ] -OPC_BLOCK      - kid(0), index(0), depth(1)
+IDX[2       ] -OPC_BLOCK      - kid(4), index(1), depth(1)
+IDX[3       ] --OPC_I4STID  var<x, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(1), index(0), depth(2)
+IDX[4       ] ---OPC_I4CONST const<hex = 0x3, int = 3>      - kid(0), index(0), depth(3)
+IDX[5       ] --OPC_I4STID  var<x, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(1), index(1), depth(2)
+IDX[6       ] ---OPC_I4I4ADD      - kid(2), index(0), depth(3)
+IDX[7       ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0>      - kid(0), index(0), depth(4)
+IDX[8       ] ----OPC_I4LDID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(0), index(1), depth(4)
+IDX[9       ] --OPC_I4STID  var<x, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(1), index(2), depth(2)
+IDX[10      ] ---OPC_I4I4ADD      - kid(2), index(0), depth(3)
+IDX[11      ] ----OPC_I4I4MPY      - kid(2), index(0), depth(4)
+IDX[12      ] -----OPC_I4LDID  var<x, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(0), index(0), depth(5)
+IDX[13      ] -----OPC_I4LDID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(0), index(1), depth(5)
+IDX[14      ] ----OPC_I4I4MPY      - kid(2), index(1), depth(4)
+IDX[15      ] -----OPC_I4LDID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(0), index(0), depth(5)
+IDX[16      ] -----OPC_I4LDID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(0), index(1), depth(5)
+IDX[17      ] --OPC_RETURN_VAL      - kid(1), index(3), depth(2)
+IDX[18      ] ---OPC_I4I4ADD      - kid(2), index(0), depth(3)
+IDX[19      ] ----OPC_I4LDID  var<x, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(0), index(0), depth(4)
+IDX[20      ] ----OPC_I4CONST const<hex = 0x1e, int = 30>      - kid(0), index(1), depth(4)
+
+  -- Symtab --
+[    0][0] (anon)        unknown  -> unknown
+[    1][0x1] a             formal  --> var, of type [5] 
+[    2][0x2] b             formal  --> var, of type [5] 
+[    3][0x3] x             local  --> var, of type [5] 
+
+  -- Labels --
+[    0][0]  Label name = (null), kind = 0, temp_sym = 0, flags = 0x00000000 
+
+  -- Preg --
+[    0][0] [PREG] name_idx: 0, desired_reg = 0
+
+  -- INITO --
+[    0][0]  Inito for sym name = (null), init-values: 0
+
+=======================================================
+File-level Symbol Table
+=======================================================
+[    0][0] (anon)        unknown  -> unknown
+[    1][0x1] getint        extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
+[    2][0x2] getch         extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
+[    3][0x3] getarray      extern (possibly syscall)  --> function = pu_id = [0], prototype = [20] 
+[    4][0x4] putint        extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    5][0x5] putch         extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    6][0x6] putarray      extern (possibly syscall)  --> function = pu_id = [0], prototype = [22] 
+[    7][0x7] _sysy_starttime    extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    8][0x8] _sysy_stoptime    extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    9][0x9] __aeabi_idiv    extern (possibly syscall)  --> function = pu_id = [0], prototype = [23] 
+[   10][0xa] foo1          text (program)  --> function = pu_id = [1], prototype = [24] 
+
+=======================================================
+File-level Type Table
+=======================================================
+[    0][0] (anon)        : (f: 0x0000) size 0 : other
+[    1][0x1] MTYPE_UNKNOWN : (f: 0x0004) size 0 : SCALAR (MTYPE_UNKNOWN)
+[    2][0x2] MTYPE_B       : (f: 0x0004) size 1 MTYPE_B: SCALAR (MTYPE_B)
+[    3][0x3] MTYPE_I1      : (f: 0x0004) size 1 MTYPE_I1: SCALAR (MTYPE_I1)
+[    4][0x4] MTYPE_I2      : (f: 0x0004) size 2 MTYPE_I2: SCALAR (MTYPE_I2)
+[    5][0x5] MTYPE_I4      : (f: 0x0004) size 4 MTYPE_I4: SCALAR (MTYPE_I4)
+[    6][0x6] MTYPE_I8      : (f: 0x0004) size 8 MTYPE_I8: SCALAR (MTYPE_I8)
+[    7][0x7] MTYPE_U1      : (f: 0x0004) size 1 MTYPE_U1: SCALAR (MTYPE_U1)
+[    8][0x8] MTYPE_U2      : (f: 0x0004) size 2 MTYPE_U2: SCALAR (MTYPE_U2)
+[    9][0x9] MTYPE_U4      : (f: 0x0004) size 4 MTYPE_U4: SCALAR (MTYPE_U4)
+[   10][0xa] MTYPE_U8      : (f: 0x0004) size 8 MTYPE_U8: SCALAR (MTYPE_U8)
+[   11][0xb] MTYPE_F4      : (f: 0x0004) size 4 MTYPE_F4: SCALAR (MTYPE_F4)
+[   12][0xc] MTYPE_F8      : (f: 0x0004) size 8 MTYPE_F8: SCALAR (MTYPE_F8)
+[   13][0xd] MTYPE_M       : (f: 0x0004) size 0 MTYPE_M: other
+[   14][0xe] MTYPE_V       : (f: 0x0004) size 0 MTYPE_V: other
+[   15][0xf] MTYPE_A4      : (f: 0x0004) size 4 MTYPE_A4: SCALAR (MTYPE_A4)
+[   16][0x10] MTYPE_A8      : (f: 0x0004) size 8 MTYPE_A8: SCALAR (MTYPE_A8)
+[   17][0x11] MTYPE_BS      : (f: 0x0004) size 0 MTYPE_BS: SCALAR (MTYPE_BS)
+[   18][0x12] .internal.i4  : (f: 0x0000) size 0 : ARRAY of MTYPE_I4 (#5) align 0 ()
+
+[   19][0x13] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter MTYPE_V (#14) align 0
+
+[   20][0x14] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter .internal.i4 (#18) align 0
+
+[   21][0x15] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_V (#14) align 0
+	parameter MTYPE_I4 (#5) align 0
+
+[   22][0x16] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_V (#14) align 0
+	parameter MTYPE_I4 (#5) align 0
+	parameter .internal.i4 (#18) align 0
+
+[   23][0x17] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter MTYPE_I4 (#5) align 0
+	parameter MTYPE_I4 (#5) align 0
+
+[   24][0x18] foo1          : (f: 0x0000) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter MTYPE_I4 (#5) align 0
+	parameter MTYPE_I4 (#5) align 0
+
+
+=======================================================
+File-level Tylist Table
+=======================================================
+[    0][0] (type = 0)
+[    1][0x1] (type = 5)
+[    2][0x2] (type = 14)
+[    3][0x3] (type = 0)
+[    4][0x4] (type = 5)
+[    5][0x5] (type = 18)
+[    6][0x6] (type = 0)
+[    7][0x7] (type = 14)
+[    8][0x8] (type = 5)
+[    9][0x9] (type = 0)
+[   10][0xa] (type = 14)
+[   11][0xb] (type = 5)
+[   12][0xc] (type = 18)
+[   13][0xd] (type = 0)
+[   14][0xe] (type = 5)
+[   15][0xf] (type = 5)
+[   16][0x10] (type = 5)
+[   17][0x11] (type = 0)
+[   18][0x12] (type = 5)
+[   19][0x13] (type = 5)
+[   20][0x14] (type = 5)
+[   21][0x15] (type = 0)
+
+=======================================================
+File-level Array Bound Table
+=======================================================
+[    0][0] [    1][0x1] 
+=======================================================
+File-level Program Unit Table
+=======================================================
+[    0][0] [    1][0x1] 
+=======================================================
+File-level Program Unit Info Table
+=======================================================
+[    0][0] [    1][0x1] 
+=======================================================
+File-level Inito Table
+=======================================================
+[    0][0]  Inito for sym name = (null), init-values: 0
+
+=======================================================
+End of file level symtabs
+=======================================================
+Front end finishing, dump file info 1
+After running component [250]
+Before running component [300]
+Invoking direct component: back-end
+Lowering function for pu_info_id = 1
+Lowering function for pu_info_id = 1
+
+=========================================================== SSAIR DUMP function st=2561 level=5 ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3 preds=succs=
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#1[aux=0 ver=0 def=null] = CONST#2[3]
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#3[aux=0 ver=0 def=null] = OP#6[OPC_I4I4ADD k=2 (VAR#4[aux=1 ver=0 def=null], VAR#5[aux=2 ver=0 def=null])]
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#7[aux=0 ver=0 def=null] = OP#14[OPC_I4I4ADD k=2 (OP#10[OPC_I4I4MPY k=2 (VAR#8[aux=0 ver=0 def=null], VAR#9[aux=2 ver=0 def=null])], OP#13[OPC_I4I4MPY k=2 (VAR#11[aux=2 ver=0 def=null], VAR#12[aux=2 ver=0 def=null])])]
+  stmt[bb=0 opc=OPC_RETURN_VAL live=0]   -
+BB[1] flags=0x0 preds=succs=
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== Dominator Tree ===========================================================
+BB[0] idom=0 dom_kids=
+BB[1] idom=0 dom_kids=
+=========================================================== end ===========================================================
+=========================================================== Dominance Frontier ===========================================================
+BB[0] DF=[ ]
+BB[1] DF=[ ]
+=========================================================== end ===========================================================
+=========================================================== OPT_STAB (verbose) ===========================================================
+aux=0 st=770 mtype=13
+  def_bbs:
+  versions:
+aux=1 st=258 mtype=4
+  def_bbs:
+  versions:
+aux=2 st=514 mtype=4
+  def_bbs:
+  versions:
+=========================================================== end ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3
+  preds:
+  succs:
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=1 aux=0 ver=0 def=null
+    rhs:
+    CONST mtype=4 id=2 val=3
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=3 aux=0 ver=0 def=null
+    rhs:
+    OP mtype=4 id=6 OPC_I4I4ADD kids=2
+      VAR mtype=4 id=4 aux=1 ver=0 def=null
+      VAR mtype=4 id=5 aux=2 ver=0 def=null
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=7 aux=0 ver=0 def=null
+    rhs:
+    OP mtype=4 id=14 OPC_I4I4ADD kids=2
+      OP mtype=4 id=10 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=8 aux=0 ver=0 def=null
+        VAR mtype=4 id=9 aux=2 ver=0 def=null
+      OP mtype=4 id=13 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=11 aux=2 ver=0 def=null
+        VAR mtype=4 id=12 aux=2 ver=0 def=null
+  stmt opc=OPC_RETURN_VAL live=0 side_effect=1
+BB[1] flags=0x0
+  preds:
+  succs:
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== end function st=2561 ===========================================================
+
+=========================================================== SSAIR DUMP function st=2561 level=5 ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3 preds=succs=
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#1[aux=0 ver=0 def=null] = CONST#2[3]
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#3[aux=0 ver=0 def=null] = OP#6[OPC_I4I4ADD k=2 (VAR#4[aux=1 ver=0 def=null], VAR#5[aux=2 ver=0 def=null])]
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#7[aux=0 ver=0 def=null] = OP#14[OPC_I4I4ADD k=2 (OP#10[OPC_I4I4MPY k=2 (VAR#8[aux=0 ver=0 def=null], VAR#9[aux=2 ver=0 def=null])], OP#13[OPC_I4I4MPY k=2 (VAR#11[aux=2 ver=0 def=null], VAR#12[aux=2 ver=0 def=null])])]
+  stmt[bb=0 opc=OPC_RETURN_VAL live=0]   -
+BB[1] flags=0x0 preds=succs=
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== Dominator Tree ===========================================================
+BB[0] idom=0 dom_kids=
+BB[1] idom=0 dom_kids=
+=========================================================== end ===========================================================
+=========================================================== Dominance Frontier ===========================================================
+BB[0] DF=[ ]
+BB[1] DF=[ ]
+=========================================================== end ===========================================================
+=========================================================== OPT_STAB (verbose) ===========================================================
+aux=0 st=770 mtype=13
+  def_bbs:
+  versions:
+aux=1 st=258 mtype=4
+  def_bbs:
+  versions:
+aux=2 st=514 mtype=4
+  def_bbs:
+  versions:
+=========================================================== end ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3
+  preds:
+  succs:
+  idom=0
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=1 aux=0 ver=0 def=null
+    rhs:
+    CONST mtype=4 id=2 val=3
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=3 aux=0 ver=0 def=null
+    rhs:
+    OP mtype=4 id=6 OPC_I4I4ADD kids=2
+      VAR mtype=4 id=4 aux=1 ver=0 def=null
+      VAR mtype=4 id=5 aux=2 ver=0 def=null
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=7 aux=0 ver=0 def=null
+    rhs:
+    OP mtype=4 id=14 OPC_I4I4ADD kids=2
+      OP mtype=4 id=10 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=8 aux=0 ver=0 def=null
+        VAR mtype=4 id=9 aux=2 ver=0 def=null
+      OP mtype=4 id=13 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=11 aux=2 ver=0 def=null
+        VAR mtype=4 id=12 aux=2 ver=0 def=null
+  stmt opc=OPC_RETURN_VAL live=0 side_effect=1
+BB[1] flags=0x0
+  preds:
+  succs:
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== end function st=2561 ===========================================================
+
+=========================================================== SSAIR DUMP function st=2561 level=5 ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3 preds=succs=
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#1[aux=0 ver=0 def=null] = CONST#2[3]
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#3[aux=0 ver=0 def=null] = OP#6[OPC_I4I4ADD k=2 (VAR#4[aux=1 ver=0 def=null], VAR#5[aux=2 ver=0 def=null])]
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#7[aux=0 ver=0 def=null] = OP#14[OPC_I4I4ADD k=2 (OP#10[OPC_I4I4MPY k=2 (VAR#8[aux=0 ver=0 def=null], VAR#9[aux=2 ver=0 def=null])], OP#13[OPC_I4I4MPY k=2 (VAR#11[aux=2 ver=0 def=null], VAR#12[aux=2 ver=0 def=null])])]
+  stmt[bb=0 opc=OPC_RETURN_VAL live=0]   -
+BB[1] flags=0x0 preds=succs=
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== Dominator Tree ===========================================================
+BB[0] idom=0 dom_kids=
+BB[1] idom=0 dom_kids=
+=========================================================== end ===========================================================
+=========================================================== Dominance Frontier ===========================================================
+BB[0] DF=[ ]
+BB[1] DF=[ ]
+=========================================================== end ===========================================================
+=========================================================== OPT_STAB (verbose) ===========================================================
+aux=0 st=770 mtype=13
+  def_bbs: 0
+  versions:
+aux=1 st=258 mtype=4
+  def_bbs:
+  versions:
+aux=2 st=514 mtype=4
+  def_bbs:
+  versions:
+=========================================================== end ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3
+  preds:
+  succs:
+  idom=0
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=1 aux=0 ver=0 def=null
+    rhs:
+    CONST mtype=4 id=2 val=3
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=3 aux=0 ver=0 def=null
+    rhs:
+    OP mtype=4 id=6 OPC_I4I4ADD kids=2
+      VAR mtype=4 id=4 aux=1 ver=0 def=null
+      VAR mtype=4 id=5 aux=2 ver=0 def=null
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=7 aux=0 ver=0 def=null
+    rhs:
+    OP mtype=4 id=14 OPC_I4I4ADD kids=2
+      OP mtype=4 id=10 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=8 aux=0 ver=0 def=null
+        VAR mtype=4 id=9 aux=2 ver=0 def=null
+      OP mtype=4 id=13 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=11 aux=2 ver=0 def=null
+        VAR mtype=4 id=12 aux=2 ver=0 def=null
+  stmt opc=OPC_RETURN_VAL live=0 side_effect=1
+BB[1] flags=0x0
+  preds:
+  succs:
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== end function st=2561 ===========================================================
+
+=========================================================== SSAIR DUMP function st=2561 level=5 ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3 preds=succs=
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#1[aux=0 ver=1 def=stmt] = CONST#2[3]
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#3[aux=0 ver=2 def=stmt] = OP#6[OPC_I4I4ADD k=2 (VAR#4[aux=1 ver=0 def=null], VAR#5[aux=2 ver=0 def=null])]
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#7[aux=0 ver=3 def=stmt] = OP#14[OPC_I4I4ADD k=2 (OP#10[OPC_I4I4MPY k=2 (VAR#8[aux=0 ver=2 def=stmt], VAR#9[aux=2 ver=0 def=null])], OP#13[OPC_I4I4MPY k=2 (VAR#11[aux=2 ver=0 def=null], VAR#12[aux=2 ver=0 def=null])])]
+  stmt[bb=0 opc=OPC_RETURN_VAL live=0]   -
+BB[1] flags=0x0 preds=succs=
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== Dominator Tree ===========================================================
+BB[0] idom=0 dom_kids=
+BB[1] idom=0 dom_kids=
+=========================================================== end ===========================================================
+=========================================================== Dominance Frontier ===========================================================
+BB[0] DF=[ ]
+BB[1] DF=[ ]
+=========================================================== end ===========================================================
+=========================================================== OPT_STAB (verbose) ===========================================================
+aux=0 st=770 mtype=13
+  def_bbs: 0
+  versions:
+    v1  def_bb=0  def_stmt=yes  def_phi=no
+    v2  def_bb=0  def_stmt=yes  def_phi=no
+    v3  def_bb=0  def_stmt=yes  def_phi=no
+aux=1 st=258 mtype=4
+  def_bbs:
+  versions:
+aux=2 st=514 mtype=4
+  def_bbs:
+  versions:
+=========================================================== end ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3
+  preds:
+  succs:
+  idom=0
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=1 aux=0 ver=1 def=stmt
+    rhs:
+    CONST mtype=4 id=2 val=3
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=3 aux=0 ver=2 def=stmt
+    rhs:
+    OP mtype=4 id=6 OPC_I4I4ADD kids=2
+      VAR mtype=4 id=4 aux=1 ver=0 def=null
+      VAR mtype=4 id=5 aux=2 ver=0 def=null
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=7 aux=0 ver=3 def=stmt
+    rhs:
+    OP mtype=4 id=14 OPC_I4I4ADD kids=2
+      OP mtype=4 id=10 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=8 aux=0 ver=2 def=stmt
+        VAR mtype=4 id=9 aux=2 ver=0 def=null
+      OP mtype=4 id=13 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=11 aux=2 ver=0 def=null
+        VAR mtype=4 id=12 aux=2 ver=0 def=null
+  stmt opc=OPC_RETURN_VAL live=0 side_effect=1
+BB[1] flags=0x0
+  preds:
+  succs:
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== end function st=2561 ===========================================================
+[CPROP] completed on pu st=2561 (max_iter=4)
+
+=========================================================== SSAIR DUMP function st=2561 level=5 ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3 preds=succs=
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#1[aux=0 ver=1 def=stmt] = CONST#2[3]
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#3[aux=0 ver=2 def=stmt] = OP#6[OPC_I4I4ADD k=2 (VAR#4[aux=1 ver=0 def=null], VAR#5[aux=2 ver=0 def=null])]
+  stmt[bb=0 opc=OPC_I4STID live=0] lhs=VAR#7[aux=0 ver=3 def=stmt] = OP#14[OPC_I4I4ADD k=2 (OP#10[OPC_I4I4MPY k=2 (VAR#8[aux=0 ver=2 def=stmt], VAR#9[aux=2 ver=0 def=null])], OP#13[OPC_I4I4MPY k=2 (VAR#11[aux=2 ver=0 def=null], VAR#12[aux=2 ver=0 def=null])])]
+  stmt[bb=0 opc=OPC_RETURN_VAL live=0]   -
+BB[1] flags=0x0 preds=succs=
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== Dominator Tree ===========================================================
+BB[0] idom=0 dom_kids=
+BB[1] idom=0 dom_kids=
+=========================================================== end ===========================================================
+=========================================================== Dominance Frontier ===========================================================
+BB[0] DF=[ ]
+BB[1] DF=[ ]
+=========================================================== end ===========================================================
+=========================================================== OPT_STAB (verbose) ===========================================================
+aux=0 st=770 mtype=13
+  def_bbs: 0
+  versions:
+    v1  def_bb=0  def_stmt=yes  def_phi=no
+    v2  def_bb=0  def_stmt=yes  def_phi=no
+    v3  def_bb=0  def_stmt=yes  def_phi=no
+aux=1 st=258 mtype=4
+  def_bbs:
+  versions:
+aux=2 st=514 mtype=4
+  def_bbs:
+  versions:
+=========================================================== end ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3
+  preds:
+  succs:
+  idom=0
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=1 aux=0 ver=1 def=stmt
+    rhs:
+    CONST mtype=4 id=2 val=3
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=3 aux=0 ver=2 def=stmt
+    rhs:
+    OP mtype=4 id=6 OPC_I4I4ADD kids=2
+      VAR mtype=4 id=4 aux=1 ver=0 def=null
+      VAR mtype=4 id=5 aux=2 ver=0 def=null
+  stmt opc=OPC_I4STID live=0 side_effect=1
+    lhs:
+    VAR mtype=13 id=7 aux=0 ver=3 def=stmt
+    rhs:
+    OP mtype=4 id=14 OPC_I4I4ADD kids=2
+      OP mtype=4 id=10 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=8 aux=0 ver=2 def=stmt
+        VAR mtype=4 id=9 aux=2 ver=0 def=null
+      OP mtype=4 id=13 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=11 aux=2 ver=0 def=null
+        VAR mtype=4 id=12 aux=2 ver=0 def=null
+  stmt opc=OPC_RETURN_VAL live=0 side_effect=1
+BB[1] flags=0x0
+  preds:
+  succs:
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== end function st=2561 ===========================================================
+[DCE] completed on pu st=2561
+
+=========================================================== SSAIR DUMP function st=2561 level=5 ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3 preds=succs=
+  stmt[bb=0 opc=OPC_I4STID live=1] lhs=VAR#1[aux=0 ver=1 def=stmt] = CONST#2[3]
+  stmt[bb=0 opc=OPC_I4STID live=1] lhs=VAR#3[aux=0 ver=2 def=stmt] = OP#6[OPC_I4I4ADD k=2 (VAR#4[aux=1 ver=0 def=null], VAR#5[aux=2 ver=0 def=null])]
+  stmt[bb=0 opc=OPC_I4STID live=1] lhs=VAR#7[aux=0 ver=3 def=stmt] = OP#14[OPC_I4I4ADD k=2 (OP#10[OPC_I4I4MPY k=2 (VAR#8[aux=0 ver=2 def=stmt], VAR#9[aux=2 ver=0 def=null])], OP#13[OPC_I4I4MPY k=2 (VAR#11[aux=2 ver=0 def=null], VAR#12[aux=2 ver=0 def=null])])]
+  stmt[bb=0 opc=OPC_RETURN_VAL live=1]   -
+BB[1] flags=0x0 preds=succs=
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== Dominator Tree ===========================================================
+BB[0] idom=0 dom_kids=
+BB[1] idom=0 dom_kids=
+=========================================================== end ===========================================================
+=========================================================== Dominance Frontier ===========================================================
+BB[0] DF=[ ]
+BB[1] DF=[ ]
+=========================================================== end ===========================================================
+=========================================================== OPT_STAB (verbose) ===========================================================
+aux=0 st=770 mtype=13
+  def_bbs: 0
+  versions:
+    v1  def_bb=0  def_stmt=yes  def_phi=no
+    v2  def_bb=0  def_stmt=yes  def_phi=no
+    v3  def_bb=0  def_stmt=yes  def_phi=no
+aux=1 st=258 mtype=4
+  def_bbs:
+  versions:
+aux=2 st=514 mtype=4
+  def_bbs:
+  versions:
+=========================================================== end ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3
+  preds:
+  succs:
+  idom=0
+  stmt opc=OPC_I4STID live=1 side_effect=1
+    lhs:
+    VAR mtype=13 id=1 aux=0 ver=1 def=stmt
+    rhs:
+    CONST mtype=4 id=2 val=3
+  stmt opc=OPC_I4STID live=1 side_effect=1
+    lhs:
+    VAR mtype=13 id=3 aux=0 ver=2 def=stmt
+    rhs:
+    OP mtype=4 id=6 OPC_I4I4ADD kids=2
+      VAR mtype=4 id=4 aux=1 ver=0 def=null
+      VAR mtype=4 id=5 aux=2 ver=0 def=null
+  stmt opc=OPC_I4STID live=1 side_effect=1
+    lhs:
+    VAR mtype=13 id=7 aux=0 ver=3 def=stmt
+    rhs:
+    OP mtype=4 id=14 OPC_I4I4ADD kids=2
+      OP mtype=4 id=10 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=8 aux=0 ver=2 def=stmt
+        VAR mtype=4 id=9 aux=2 ver=0 def=null
+      OP mtype=4 id=13 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=11 aux=2 ver=0 def=null
+        VAR mtype=4 id=12 aux=2 ver=0 def=null
+  stmt opc=OPC_RETURN_VAL live=1 side_effect=1
+BB[1] flags=0x0
+  preds:
+  succs:
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== end function st=2561 ===========================================================
+
+=========================================================== SSAIR DUMP function st=2561 level=5 ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3 preds=succs=
+  stmt[bb=0 opc=OPC_I4STID live=1] lhs=VAR#1[aux=0 ver=1 def=stmt] = CONST#2[3]
+  stmt[bb=0 opc=OPC_I4STID live=1] lhs=VAR#3[aux=0 ver=2 def=stmt] = OP#6[OPC_I4I4ADD k=2 (VAR#4[aux=1 ver=0 def=null], VAR#5[aux=2 ver=0 def=null])]
+  stmt[bb=0 opc=OPC_I4STID live=1] lhs=VAR#7[aux=0 ver=3 def=stmt] = OP#14[OPC_I4I4ADD k=2 (OP#10[OPC_I4I4MPY k=2 (VAR#8[aux=0 ver=2 def=stmt], VAR#9[aux=2 ver=0 def=null])], OP#13[OPC_I4I4MPY k=2 (VAR#11[aux=2 ver=0 def=null], VAR#12[aux=2 ver=0 def=null])])]
+  stmt[bb=0 opc=OPC_RETURN_VAL live=1]   -
+BB[1] flags=0x0 preds=succs=
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== Dominator Tree ===========================================================
+BB[0] idom=0 dom_kids=
+BB[1] idom=0 dom_kids=
+=========================================================== end ===========================================================
+=========================================================== Dominance Frontier ===========================================================
+BB[0] DF=[ ]
+BB[1] DF=[ ]
+=========================================================== end ===========================================================
+=========================================================== OPT_STAB (verbose) ===========================================================
+aux=0 st=770 mtype=13
+  def_bbs: 0
+  versions:
+    v1  def_bb=0  def_stmt=yes  def_phi=no
+    v2  def_bb=0  def_stmt=yes  def_phi=no
+    v3  def_bb=0  def_stmt=yes  def_phi=no
+aux=1 st=258 mtype=4
+  def_bbs:
+  versions:
+aux=2 st=514 mtype=4
+  def_bbs:
+  versions:
+=========================================================== end ===========================================================
+=========================================================== SSA_CFG: 2 BBs ===========================================================
+BB[0] flags=0x3
+  preds:
+  succs:
+  idom=0
+  stmt opc=OPC_I4STID live=1 side_effect=1
+    lhs:
+    VAR mtype=13 id=1 aux=0 ver=1 def=stmt
+    rhs:
+    CONST mtype=4 id=2 val=3
+  stmt opc=OPC_I4STID live=1 side_effect=1
+    lhs:
+    VAR mtype=13 id=3 aux=0 ver=2 def=stmt
+    rhs:
+    OP mtype=4 id=6 OPC_I4I4ADD kids=2
+      VAR mtype=4 id=4 aux=1 ver=0 def=null
+      VAR mtype=4 id=5 aux=2 ver=0 def=null
+  stmt opc=OPC_I4STID live=1 side_effect=1
+    lhs:
+    VAR mtype=13 id=7 aux=0 ver=3 def=stmt
+    rhs:
+    OP mtype=4 id=14 OPC_I4I4ADD kids=2
+      OP mtype=4 id=10 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=8 aux=0 ver=2 def=stmt
+        VAR mtype=4 id=9 aux=2 ver=0 def=null
+      OP mtype=4 id=13 OPC_I4I4MPY kids=2
+        VAR mtype=4 id=11 aux=2 ver=0 def=null
+        VAR mtype=4 id=12 aux=2 ver=0 def=null
+  stmt opc=OPC_RETURN_VAL live=1 side_effect=1
+BB[1] flags=0x0
+  preds:
+  succs:
+=========================================================== end SSA_CFG ===========================================================
+=========================================================== end function st=2561 ===========================================================
+Lowering function for pu_info_id = 1
+Lowering function for pu_info_id = 1
+Lowering function for pu_info_id = 1
+Completed all lowering, dumping the IR again. 
+
+=======================================================
+Scope Manager
+=======================================================
+  [0   ] (Function_idx_0_placeholder)
+  [1   ] Function foo1 (pu_idx=1, proc_sym=0xa01)
+
+=======================================================
+Program Units
+=======================================================
+
+=======================================================
+Function 1: foo1
+=======================================================
+
+  -- Tree --
+Printing the table size = 21, tree of size = 21 ... 
+IDX[0       ] OPC_FUNC_ENTRY      - kid(2), index(0), depth(0)
+IDX[1       ] -OPC_BLOCK      - kid(0), index(0), depth(1)
+IDX[2       ] -OPC_BLOCK      - kid(4), index(1), depth(1)
+IDX[3       ] --OPC_I4STID  var<x, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(1), index(0), depth(2)
+IDX[4       ] ---OPC_I4CONST const<hex = 0x3, int = 3>      - kid(0), index(0), depth(3)
+IDX[5       ] --OPC_I4STID  var<x, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(1), index(1), depth(2)
+IDX[6       ] ---OPC_I4I4ADD      - kid(2), index(0), depth(3)
+IDX[7       ] ----OPC_I4LDID  var<a, idx = 0x102, level = 2, tabid = 1, ofst = 0>      - kid(0), index(0), depth(4)
+IDX[8       ] ----OPC_I4LDID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(0), index(1), depth(4)
+IDX[9       ] --OPC_I4STID  var<x, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(1), index(2), depth(2)
+IDX[10      ] ---OPC_I4I4ADD      - kid(2), index(0), depth(3)
+IDX[11      ] ----OPC_I4I4MPY      - kid(2), index(0), depth(4)
+IDX[12      ] -----OPC_I4LDID  var<x, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(0), index(0), depth(5)
+IDX[13      ] -----OPC_I4LDID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(0), index(1), depth(5)
+IDX[14      ] ----OPC_I4I4MPY      - kid(2), index(1), depth(4)
+IDX[15      ] -----OPC_I4LDID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(0), index(0), depth(5)
+IDX[16      ] -----OPC_I4LDID  var<b, idx = 0x202, level = 2, tabid = 2, ofst = 0>      - kid(0), index(1), depth(5)
+IDX[17      ] --OPC_RETURN_VAL      - kid(1), index(3), depth(2)
+IDX[18      ] ---OPC_I4I4ADD      - kid(2), index(0), depth(3)
+IDX[19      ] ----OPC_I4LDID  var<x, idx = 0x302, level = 2, tabid = 3, ofst = 0>      - kid(0), index(0), depth(4)
+IDX[20      ] ----OPC_I4CONST const<hex = 0x1e, int = 30>      - kid(0), index(1), depth(4)
+
+  -- Symtab --
+[    0][0] (anon)        unknown  -> unknown
+[    1][0x1] a             formal  --> var, of type [5] 
+[    2][0x2] b             formal  --> var, of type [5] 
+[    3][0x3] x             local  --> var, of type [5] 
+
+  -- Labels --
+[    0][0]  Label name = (null), kind = 0, temp_sym = 0, flags = 0x00000000 
+
+  -- Preg --
+[    0][0] [PREG] name_idx: 0, desired_reg = 0
+
+  -- INITO --
+[    0][0]  Inito for sym name = (null), init-values: 0
+
+=======================================================
+File-level Symbol Table
+=======================================================
+[    0][0] (anon)        unknown  -> unknown
+[    1][0x1] getint        extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
+[    2][0x2] getch         extern (possibly syscall)  --> function = pu_id = [0], prototype = [19] 
+[    3][0x3] getarray      extern (possibly syscall)  --> function = pu_id = [0], prototype = [20] 
+[    4][0x4] putint        extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    5][0x5] putch         extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    6][0x6] putarray      extern (possibly syscall)  --> function = pu_id = [0], prototype = [22] 
+[    7][0x7] _sysy_starttime    extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    8][0x8] _sysy_stoptime    extern (possibly syscall)  --> function = pu_id = [0], prototype = [21] 
+[    9][0x9] __aeabi_idiv    extern (possibly syscall)  --> function = pu_id = [0], prototype = [23] 
+[   10][0xa] foo1          text (program)  --> function = pu_id = [1], prototype = [24] 
+
+=======================================================
+File-level Type Table
+=======================================================
+[    0][0] (anon)        : (f: 0x0000) size 0 : other
+[    1][0x1] MTYPE_UNKNOWN : (f: 0x0004) size 0 : SCALAR (MTYPE_UNKNOWN)
+[    2][0x2] MTYPE_B       : (f: 0x0004) size 1 MTYPE_B: SCALAR (MTYPE_B)
+[    3][0x3] MTYPE_I1      : (f: 0x0004) size 1 MTYPE_I1: SCALAR (MTYPE_I1)
+[    4][0x4] MTYPE_I2      : (f: 0x0004) size 2 MTYPE_I2: SCALAR (MTYPE_I2)
+[    5][0x5] MTYPE_I4      : (f: 0x0004) size 4 MTYPE_I4: SCALAR (MTYPE_I4)
+[    6][0x6] MTYPE_I8      : (f: 0x0004) size 8 MTYPE_I8: SCALAR (MTYPE_I8)
+[    7][0x7] MTYPE_U1      : (f: 0x0004) size 1 MTYPE_U1: SCALAR (MTYPE_U1)
+[    8][0x8] MTYPE_U2      : (f: 0x0004) size 2 MTYPE_U2: SCALAR (MTYPE_U2)
+[    9][0x9] MTYPE_U4      : (f: 0x0004) size 4 MTYPE_U4: SCALAR (MTYPE_U4)
+[   10][0xa] MTYPE_U8      : (f: 0x0004) size 8 MTYPE_U8: SCALAR (MTYPE_U8)
+[   11][0xb] MTYPE_F4      : (f: 0x0004) size 4 MTYPE_F4: SCALAR (MTYPE_F4)
+[   12][0xc] MTYPE_F8      : (f: 0x0004) size 8 MTYPE_F8: SCALAR (MTYPE_F8)
+[   13][0xd] MTYPE_M       : (f: 0x0004) size 0 MTYPE_M: other
+[   14][0xe] MTYPE_V       : (f: 0x0004) size 0 MTYPE_V: other
+[   15][0xf] MTYPE_A4      : (f: 0x0004) size 4 MTYPE_A4: SCALAR (MTYPE_A4)
+[   16][0x10] MTYPE_A8      : (f: 0x0004) size 8 MTYPE_A8: SCALAR (MTYPE_A8)
+[   17][0x11] MTYPE_BS      : (f: 0x0004) size 0 MTYPE_BS: SCALAR (MTYPE_BS)
+[   18][0x12] .internal.i4  : (f: 0x0000) size 0 : ARRAY of MTYPE_I4 (#5) align 0 ()
+
+[   19][0x13] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter MTYPE_V (#14) align 0
+
+[   20][0x14] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter .internal.i4 (#18) align 0
+
+[   21][0x15] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_V (#14) align 0
+	parameter MTYPE_I4 (#5) align 0
+
+[   22][0x16] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_V (#14) align 0
+	parameter MTYPE_I4 (#5) align 0
+	parameter .internal.i4 (#18) align 0
+
+[   23][0x17] .internal.func: (f: 0x0001) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter MTYPE_I4 (#5) align 0
+	parameter MTYPE_I4 (#5) align 0
+
+[   24][0x18] foo1          : (f: 0x0000) size 0 MTYPE_V: FUNCTION (f: 0x0000)
+	returns MTYPE_I4 (#5) align 0
+	parameter MTYPE_I4 (#5) align 0
+	parameter MTYPE_I4 (#5) align 0
+
+
+=======================================================
+File-level Tylist Table
+=======================================================
+[    0][0] (type = 0)
+[    1][0x1] (type = 5)
+[    2][0x2] (type = 14)
+[    3][0x3] (type = 0)
+[    4][0x4] (type = 5)
+[    5][0x5] (type = 18)
+[    6][0x6] (type = 0)
+[    7][0x7] (type = 14)
+[    8][0x8] (type = 5)
+[    9][0x9] (type = 0)
+[   10][0xa] (type = 14)
+[   11][0xb] (type = 5)
+[   12][0xc] (type = 18)
+[   13][0xd] (type = 0)
+[   14][0xe] (type = 5)
+[   15][0xf] (type = 5)
+[   16][0x10] (type = 5)
+[   17][0x11] (type = 0)
+[   18][0x12] (type = 5)
+[   19][0x13] (type = 5)
+[   20][0x14] (type = 5)
+[   21][0x15] (type = 0)
+
+=======================================================
+File-level Array Bound Table
+=======================================================
+[    0][0] [    1][0x1] 
+=======================================================
+File-level Program Unit Table
+=======================================================
+[    0][0] [    1][0x1] 
+=======================================================
+File-level Program Unit Info Table
+=======================================================
+[    0][0] [    1][0x1] 
+=======================================================
+File-level Inito Table
+=======================================================
+[    0][0]  Inito for sym name = (null), init-values: 0
+
+=======================================================
+End of file level symtabs
+=======================================================
+After running component [300]
+Before running component [410]
+Invoking direct component: code generation
+Writing assembly to cg_simple2.s
+Removing old output file under cg_simple2.s
+=======================================================
+Emitting section: code prologue
+=======================================================
+Converting function to CGIR for pu_info_id = 1
+Perform data layout in CGIR::Data_layout
+CGIR_BUILDER::Handle_Entry
+Adding function prologue BB.
+Exp_LDST sym = 258, ofst = 0
+Exp_LDST sym = 514, ofst = 0
+CGIR_BUILDER::Handle_STID
+CGIR_BUILDER::Handle_Expr
+Exp_LDST sym = 770, ofst = 0
+CGIR_BUILDER::Handle_STID
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_LDID
+Exp_LDST sym = 258, ofst = 0
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_LDID
+Exp_LDST sym = 514, ofst = 0
+Exp_LDST sym = 770, ofst = 0
+CGIR_BUILDER::Handle_STID
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_LDID
+Exp_LDST sym = 770, ofst = 0
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_LDID
+Exp_LDST sym = 514, ofst = 0
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_LDID
+Exp_LDST sym = 514, ofst = 0
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_LDID
+Exp_LDST sym = 514, ofst = 0
+Exp_LDST sym = 770, ofst = 0
+CGIR_BUILDER::Handle_ret_val
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_Expr
+CGIR_BUILDER::Handle_LDID
+Exp_LDST sym = 770, ofst = 0
+CGIR_BUILDER::Handle_Expr
+Ending function body.
+Adding function epilog BB.
+[CFG-Builder] Fixing up BB's pred / succ relations..
+=======================================================
+Printing the CGIR's function with sym : name = foo1, sym = 0x00000a01
+=======================================================
+=======================================================
+Printing control flow graph, of size : 3
+=======================================================
+#  --------- Printing BB : 0, label = 0 = 0x0000  ---------  
+#  --------- (Pred: , Succ: 1 ) --------- 
+#  --------- with 0 statements inside  --------- 
+#  --------- Printing BB : 1, label = 0 = 0x0000  ---------  
+#  --------- (Pred: 0 , Succ: 2 ) --------- 
+#  --------- with 20 statements inside  --------- 
+[CGOP] node = 0, opc = CGOPC_STR(2), index:0, res/opnd: [69] [66] [70] [0] 
+[CGOP] node = 0, opc = CGOPC_STR(2), index:0, res/opnd: [71] [66] [72] [0] 
+[CGOP] node = 4, opc = CGOPC_MOV(0), index:0, res/opnd: [73] [74] [0] [0] 
+[CGOP] node = 3, opc = CGOPC_STR(2), index:0, res/opnd: [73] [66] [75] [0] 
+[CGOP] node = 7, opc = CGOPC_LDR(4), index:0, res/opnd: [76] [66] [77] [0] 
+[CGOP] node = 8, opc = CGOPC_LDR(4), index:0, res/opnd: [78] [66] [79] [0] 
+[CGOP] node = 6, opc = CGOPC_ADD(19), index:0, res/opnd: [80] [76] [78] [0] 
+[CGOP] node = 5, opc = CGOPC_STR(2), index:0, res/opnd: [80] [66] [81] [0] 
+[CGOP] node = 12, opc = CGOPC_LDR(4), index:0, res/opnd: [82] [66] [83] [0] 
+[CGOP] node = 13, opc = CGOPC_LDR(4), index:0, res/opnd: [84] [66] [85] [0] 
+[CGOP] node = 11, opc = CGOPC_MUL(20), index:0, res/opnd: [86] [82] [84] [0] 
+[CGOP] node = 15, opc = CGOPC_LDR(4), index:0, res/opnd: [87] [66] [88] [0] 
+[CGOP] node = 16, opc = CGOPC_LDR(4), index:0, res/opnd: [89] [66] [90] [0] 
+[CGOP] node = 14, opc = CGOPC_MUL(20), index:0, res/opnd: [91] [87] [89] [0] 
+[CGOP] node = 10, opc = CGOPC_ADD(19), index:0, res/opnd: [92] [86] [91] [0] 
+[CGOP] node = 9, opc = CGOPC_STR(2), index:0, res/opnd: [92] [66] [93] [0] 
+[CGOP] node = 19, opc = CGOPC_LDR(4), index:0, res/opnd: [95] [66] [96] [0] 
+[CGOP] node = 20, opc = CGOPC_MOV(0), index:0, res/opnd: [97] [98] [0] [0] 
+[CGOP] node = 18, opc = CGOPC_ADD(19), index:0, res/opnd: [94] [95] [97] [0] 
+[CGOP] node = 17, opc = CGOPC_B(9), index:0, res/opnd: [0] [99] [0] [0] 
+#  --------- Printing BB : 2, label = 258 = 0x0102  ---------  
+#  --------- (Pred: 1 , Succ: ) --------- 
+#  --------- with 1 statements inside  --------- 
+[CGOP] node = 0, opc = CGOPC_BX(11), index:0, res/opnd: [0] [67] [0] [0] 
+=======================================================
+Printing the TN info
+=======================================================
+[TN 99      , 0x0063]  flags : , kv : const = 0 label = 258 
+[TN 98      , 0x0062]  flags : , kv : const = 30 
+[TN 97      , 0x0061]  flags : , kv : register = 0, class = 0 (fp)
+[TN 96      , 0x0060]  flags : , kv : const = 12 
+[TN 95      , 0x005f]  flags : , kv : register = 0, class = 0 (fp)
+[TN 94      , 0x005e]  flags : preallocated , kv : register = 0, class = 1 
+[TN 93      , 0x005d]  flags : , kv : const = 12 
+[TN 92      , 0x005c]  flags : , kv : register = 0, class = 0 (fp)
+[TN 91      , 0x005b]  flags : , kv : register = 0, class = 0 (fp)
+[TN 90      , 0x005a]  flags : , kv : const = 8 
+[TN 89      , 0x0059]  flags : , kv : register = 0, class = 0 (fp)
+[TN 88      , 0x0058]  flags : , kv : const = 8 
+[TN 87      , 0x0057]  flags : , kv : register = 0, class = 0 (fp)
+[TN 86      , 0x0056]  flags : , kv : register = 0, class = 0 (fp)
+[TN 85      , 0x0055]  flags : , kv : const = 8 
+[TN 84      , 0x0054]  flags : , kv : register = 0, class = 0 (fp)
+[TN 83      , 0x0053]  flags : , kv : const = 12 
+[TN 82      , 0x0052]  flags : , kv : register = 0, class = 0 (fp)
+[TN 81      , 0x0051]  flags : , kv : const = 12 
+[TN 80      , 0x0050]  flags : , kv : register = 0, class = 0 (fp)
+[TN 79      , 0x004f]  flags : , kv : const = 8 
+[TN 78      , 0x004e]  flags : , kv : register = 0, class = 0 (fp)
+[TN 77      , 0x004d]  flags : , kv : const = 4 
+[TN 76      , 0x004c]  flags : , kv : register = 0, class = 0 (fp)
+[TN 75      , 0x004b]  flags : , kv : const = 12 
+[TN 74      , 0x004a]  flags : , kv : const = 3 
+[TN 73      , 0x0049]  flags : , kv : register = 0, class = 0 (fp)
+[TN 72      , 0x0048]  flags : , kv : const = 8 
+[TN 71      , 0x0047]  flags : preallocated , kv : register = 1, class = 1 
+[TN 70      , 0x0046]  flags : , kv : const = 4 
+[TN 69      , 0x0045]  flags : preallocated , kv : register = 0, class = 1 
+[TN 68      , 0x0044]  flags : dedicated , kv : register = 16, class = 1 
+[TN 67      , 0x0043]  flags : dedicated r0(ret-value) , kv : register = 15, class = 1 
+[TN 66      , 0x0042]  flags : dedicated sp(stack pointer) , kv : register = 14, class = 1 
+[TN 65      , 0x0041]  flags : dedicated , kv : register = 13, class = 1 
+[TN 64      , 0x0040]  flags : dedicated , kv : register = 12, class = 1 
+[TN 63      , 0x003f]  flags : dedicated , kv : register = 11, class = 1 
+[TN 62      , 0x003e]  flags : dedicated , kv : register = 10, class = 1 
+[TN 61      , 0x003d]  flags : dedicated , kv : register = 9, class = 1 
+[TN 60      , 0x003c]  flags : dedicated , kv : register = 8, class = 1 
+[TN 59      , 0x003b]  flags : dedicated , kv : register = 7, class = 1 
+[TN 58      , 0x003a]  flags : dedicated , kv : register = 6, class = 1 
+[TN 57      , 0x0039]  flags : dedicated , kv : register = 5, class = 1 
+[TN 56      , 0x0038]  flags : dedicated , kv : register = 4, class = 1 
+[TN 55      , 0x0037]  flags : dedicated , kv : register = 3, class = 1 
+[TN 54      , 0x0036]  flags : dedicated , kv : register = 2, class = 1 
+[TN 53      , 0x0035]  flags : dedicated , kv : register = 1, class = 1 
+[TN 52      , 0x0034]  flags : dedicated , kv : register = 1, class = 8 
+[TN 51      , 0x0033]  flags : dedicated , kv : register = 8, class = 7 
+[TN 50      , 0x0032]  flags : dedicated , kv : register = 7, class = 7 
+[TN 49      , 0x0031]  flags : dedicated , kv : register = 6, class = 7 
+[TN 48      , 0x0030]  flags : dedicated , kv : register = 5, class = 7 
+[TN 47      , 0x002f]  flags : dedicated , kv : register = 4, class = 7 
+[TN 46      , 0x002e]  flags : dedicated , kv : register = 3, class = 7 
+[TN 45      , 0x002d]  flags : dedicated , kv : register = 2, class = 7 
+[TN 44      , 0x002c]  flags : dedicated , kv : register = 1, class = 7 
+[TN 43      , 0x002b]  flags : dedicated , kv : register = 1, class = 6 
+[TN 42      , 0x002a]  flags : dedicated , kv : register = 8, class = 5 
+[TN 41      , 0x0029]  flags : dedicated , kv : register = 7, class = 5 
+[TN 40      , 0x0028]  flags : dedicated , kv : register = 6, class = 5 
+[TN 39      , 0x0027]  flags : dedicated , kv : register = 5, class = 5 
+[TN 38      , 0x0026]  flags : dedicated , kv : register = 4, class = 5 
+[TN 37      , 0x0025]  flags : dedicated , kv : register = 3, class = 5 
+[TN 36      , 0x0024]  flags : dedicated , kv : register = 2, class = 5 
+[TN 35      , 0x0023]  flags : dedicated , kv : register = 1, class = 5 
+[TN 34      , 0x0022]  flags : dedicated , kv : register = 1, class = 4 
+[TN 33      , 0x0021]  flags : dedicated , kv : register = 1, class = 3 
+[TN 32      , 0x0020]  flags : dedicated , kv : register = 16, class = 2 
+[TN 31      , 0x001f]  flags : dedicated r0(ret-value) , kv : register = 15, class = 2 
+[TN 30      , 0x001e]  flags : dedicated sp(stack pointer) , kv : register = 14, class = 2 
+[TN 29      , 0x001d]  flags : dedicated , kv : register = 13, class = 2 
+[TN 28      , 0x001c]  flags : dedicated , kv : register = 12, class = 2 
+[TN 27      , 0x001b]  flags : dedicated , kv : register = 11, class = 2 
+[TN 26      , 0x001a]  flags : dedicated , kv : register = 10, class = 2 
+[TN 25      , 0x0019]  flags : dedicated , kv : register = 9, class = 2 
+[TN 24      , 0x0018]  flags : dedicated , kv : register = 8, class = 2 
+[TN 23      , 0x0017]  flags : dedicated , kv : register = 7, class = 2 
+[TN 22      , 0x0016]  flags : dedicated , kv : register = 6, class = 2 
+[TN 21      , 0x0015]  flags : dedicated , kv : register = 5, class = 2 
+[TN 20      , 0x0014]  flags : dedicated , kv : register = 4, class = 2 
+[TN 19      , 0x0013]  flags : dedicated , kv : register = 3, class = 2 
+[TN 18      , 0x0012]  flags : dedicated , kv : register = 2, class = 2 
+[TN 17      , 0x0011]  flags : dedicated , kv : register = 1, class = 2 
+[TN 16      , 0x0010]  flags : dedicated , kv : register = 16, class = 1 
+[TN 15      , 0x000f]  flags : dedicated r0(ret-value) , kv : register = 15, class = 1 
+[TN 14      , 0x000e]  flags : dedicated sp(stack pointer) , kv : register = 14, class = 1 
+[TN 13      , 0x000d]  flags : dedicated , kv : register = 13, class = 1 
+[TN 12      , 0x000c]  flags : dedicated , kv : register = 12, class = 1 
+[TN 11      , 0x000b]  flags : dedicated , kv : register = 11, class = 1 
+[TN 10      , 0x000a]  flags : dedicated , kv : register = 10, class = 1 
+[TN 9       , 0x0009]  flags : dedicated , kv : register = 9, class = 1 
+[TN 8       , 0x0008]  flags : dedicated , kv : register = 8, class = 1 
+[TN 7       , 0x0007]  flags : dedicated , kv : register = 7, class = 1 
+[TN 6       , 0x0006]  flags : dedicated , kv : register = 6, class = 1 
+[TN 5       , 0x0005]  flags : dedicated , kv : register = 5, class = 1 
+[TN 4       , 0x0004]  flags : dedicated , kv : register = 4, class = 1 
+[TN 3       , 0x0003]  flags : dedicated , kv : register = 3, class = 1 
+[TN 2       , 0x0002]  flags : dedicated , kv : register = 2, class = 1 
+[TN 1       , 0x0001]  flags : dedicated , kv : register = 1, class = 1 
+[TN 0       , 0x0000]  flags : dedicated , kv : register = 0, class = 1 
+[CG-LRA] Analyze_live_range is a STUB; RA will fall back to linear scan.
+=======================================================
+ CG_LIVE_RANGE (currently empty - stub) =======================================================
+
+CGIR::Local_register_allocate 
+ --------- Processing BB : 0 ---------  
+Found 0 registers to allocate for 
+ --------- Processing BB : 1 ---------  
+LRA: Processing op = str
+Found tn 69 no need to allocate 
+Found tn 66 no need to allocate 
+Found tn 70 no need to allocate 
+LRA: Processing op = str
+Found tn 71 no need to allocate 
+Found tn 66 no need to allocate 
+Found tn 72 no need to allocate 
+LRA: Processing op = mov
+Found tn 73 to allocate 
+Found tn 74 no need to allocate 
+LRA: Processing op = str
+Found tn 73 to allocate 
+Found tn 66 no need to allocate 
+Found tn 75 no need to allocate 
+LRA: Processing op = ldr
+Found tn 76 to allocate 
+Found tn 66 no need to allocate 
+Found tn 77 no need to allocate 
+LRA: Processing op = ldr
+Found tn 78 to allocate 
+Found tn 66 no need to allocate 
+Found tn 79 no need to allocate 
+LRA: Processing op = add
+Found tn 80 to allocate 
+Found tn 76 to allocate 
+Found tn 78 to allocate 
+LRA: Processing op = str
+Found tn 80 to allocate 
+Found tn 66 no need to allocate 
+Found tn 81 no need to allocate 
+LRA: Processing op = ldr
+Found tn 82 to allocate 
+Found tn 66 no need to allocate 
+Found tn 83 no need to allocate 
+LRA: Processing op = ldr
+Found tn 84 to allocate 
+Found tn 66 no need to allocate 
+Found tn 85 no need to allocate 
+LRA: Processing op = mul
+Found tn 86 to allocate 
+Found tn 82 to allocate 
+Found tn 84 to allocate 
+LRA: Processing op = ldr
+Found tn 87 to allocate 
+Found tn 66 no need to allocate 
+Found tn 88 no need to allocate 
+LRA: Processing op = ldr
+Found tn 89 to allocate 
+Found tn 66 no need to allocate 
+Found tn 90 no need to allocate 
+LRA: Processing op = mul
+Found tn 91 to allocate 
+Found tn 87 to allocate 
+Found tn 89 to allocate 
+LRA: Processing op = add
+Found tn 92 to allocate 
+Found tn 86 to allocate 
+Found tn 91 to allocate 
+LRA: Processing op = str
+Found tn 92 to allocate 
+Found tn 66 no need to allocate 
+Found tn 93 no need to allocate 
+LRA: Processing op = ldr
+Found tn 95 to allocate 
+Found tn 66 no need to allocate 
+Found tn 96 no need to allocate 
+LRA: Processing op = mov
+Found tn 97 to allocate 
+Found tn 98 no need to allocate 
+LRA: Processing op = add
+Found tn 94 no need to allocate 
+Found tn 95 to allocate 
+Found tn 97 to allocate 
+LRA: Processing op = b
+Found tn 99 no need to allocate 
+Found 13 registers to allocate for 
+LRA: Assigning reg 1 to TN : 73
+LRA: Assigning reg 2 to TN : 76
+LRA: Assigning reg 3 to TN : 78
+LRA: Assigning reg 4 to TN : 80
+LRA: Assigning reg 5 to TN : 82
+LRA: Assigning reg 6 to TN : 84
+Need to spill the TN 86 
+Need to spill the TN 87 
+Need to spill the TN 89 
+Need to spill the TN 91 
+Need to spill the TN 92 
+Need to spill the TN 95 
+Need to spill the TN 97 
+ --------- Processing BB : 2 ---------  
+LRA: Processing op = bx
+Found tn 67 no need to allocate 
+Found 0 registers to allocate for 
+ --------- Post-LRA-Spill BB : 0 ---------  
+ --------- Post-LRA-Spill BB : 1 ---------  
+Processing : str
+Processing : str
+Processing : mov
+Processing : str
+Processing : ldr
+Processing : ldr
+Processing : add
+Processing : str
+Processing : ldr
+Processing : ldr
+Processing : mul
+Create store temp tn 100 to r8
+Spill tn 86 to r8
+Exp_LDST sym = 1026, ofst = 0
+Processing : ldr
+Create store temp tn 102 to r8
+Spill tn 87 to r8
+Exp_LDST sym = 1282, ofst = 0
+Processing : ldr
+Create store temp tn 104 to r8
+Spill tn 89 to r8
+Exp_LDST sym = 1538, ofst = 0
+Processing : mul
+Create store temp tn 106 to r8
+Spill tn 91 to r8
+Exp_LDST sym = 1794, ofst = 0
+Spill tn 87 to r10
+Create store temp tn 108 to r10
+Exp_LDST sym = 1282, ofst = 0
+Spill tn 89 to r7
+Create store temp tn 110 to r7
+Exp_LDST sym = 1538, ofst = 0
+Processing : add
+Create store temp tn 112 to r8
+Spill tn 92 to r8
+Exp_LDST sym = 2050, ofst = 0
+Spill tn 86 to r10
+Create store temp tn 114 to r10
+Exp_LDST sym = 1026, ofst = 0
+Spill tn 91 to r7
+Create store temp tn 116 to r7
+Exp_LDST sym = 1794, ofst = 0
+Processing : str
+Spill tn 92 to r8
+Create store temp tn 118 to r8
+Exp_LDST sym = 2050, ofst = 0
+Processing : ldr
+Create store temp tn 120 to r8
+Spill tn 95 to r8
+Exp_LDST sym = 2306, ofst = 0
+Processing : mov
+Create store temp tn 122 to r8
+Spill tn 97 to r8
+Exp_LDST sym = 2562, ofst = 0
+Processing : add
+Spill tn 95 to r10
+Create store temp tn 124 to r10
+Exp_LDST sym = 2306, ofst = 0
+Spill tn 97 to r7
+Create store temp tn 126 to r7
+Exp_LDST sym = 2562, ofst = 0
+Processing : b
+ --------- Post-LRA-Spill BB : 2 ---------  
+Processing : bx
+=======================================================
+ CG_REG_ALLOC::_tn_freq_map (0 entries) =======================================================
+
+=======================================================
+ end =======================================================
+
+=======================================================
+ CG_REG_ALLOC::_tn_live_range (13 entries) =======================================================
+
+  TN 73 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 76 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 78 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 80 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 82 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 84 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 86 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 87 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 89 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 91 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 92 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 95 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+  TN 97 : live points = (bb=0,stmt=0) (bb=0,stmt=0)
+=======================================================
+ end =======================================================
+
+=======================================================
+ Printing data layout for func foo1  
+=======================================================
+Total Stack Size: 112 
+Total Local Size: 40 
+Total Formal Size: 36 
+Padding calculated: 4 
+Stack-elem ID : 0     , Kind: FORMAL , Sym = a       , Sp-offset = 0     
+Stack-elem ID : 1     , Kind: FORMAL , Sym = b       , Sp-offset = 4     
+Stack-elem ID : 2     , Kind: LOCAL  , Sym = x       , Sp-offset = 8     
+Stack-elem ID : 3     , Kind: LOCAL  , Sym = .spill_86, Sp-offset = 12    
+Stack-elem ID : 4     , Kind: LOCAL  , Sym = .spill_87, Sp-offset = 16    
+Stack-elem ID : 5     , Kind: LOCAL  , Sym = .spill_89, Sp-offset = 20    
+Stack-elem ID : 6     , Kind: LOCAL  , Sym = .spill_91, Sp-offset = 24    
+Stack-elem ID : 7     , Kind: LOCAL  , Sym = .spill_92, Sp-offset = 28    
+Stack-elem ID : 8     , Kind: LOCAL  , Sym = .spill_95, Sp-offset = 32    
+Stack-elem ID : 9     , Kind: LOCAL  , Sym = .spill_97, Sp-offset = 36    
+=======================================================
+ End of data layout for func foo1  
+=======================================================
+=======================================================
+Printing the CGIR's function with sym : name = foo1, sym = 0x00000a01
+=======================================================
+=======================================================
+Printing control flow graph, of size : 3
+=======================================================
+#  --------- Printing BB : 0, label = 0 = 0x0000  ---------  
+#  --------- (Pred: , Succ: 1 ) --------- 
+#  --------- with 0 statements inside  --------- 
+#  --------- Printing BB : 1, label = 0 = 0x0000  ---------  
+#  --------- (Pred: 0 , Succ: 2 ) --------- 
+#  --------- with 34 statements inside  --------- 
+[CGOP] node = 0, opc = CGOPC_STR(2), index:0, res/opnd: [69] [66] [70] [0] 
+[CGOP] node = 0, opc = CGOPC_STR(2), index:0, res/opnd: [71] [66] [72] [0] 
+[CGOP] node = 4, opc = CGOPC_MOV(0), index:0, res/opnd: [73] [74] [0] [0] 
+[CGOP] node = 3, opc = CGOPC_STR(2), index:0, res/opnd: [73] [66] [75] [0] 
+[CGOP] node = 7, opc = CGOPC_LDR(4), index:0, res/opnd: [76] [66] [77] [0] 
+[CGOP] node = 8, opc = CGOPC_LDR(4), index:0, res/opnd: [78] [66] [79] [0] 
+[CGOP] node = 6, opc = CGOPC_ADD(19), index:0, res/opnd: [80] [76] [78] [0] 
+[CGOP] node = 5, opc = CGOPC_STR(2), index:0, res/opnd: [80] [66] [81] [0] 
+[CGOP] node = 12, opc = CGOPC_LDR(4), index:0, res/opnd: [82] [66] [83] [0] 
+[CGOP] node = 13, opc = CGOPC_LDR(4), index:0, res/opnd: [84] [66] [85] [0] 
+[CGOP] node = 11, opc = CGOPC_MUL(20), index:0, res/opnd: [100] [82] [84] [0] 
+[CGOP] node = 15, opc = CGOPC_LDR(4), index:0, res/opnd: [102] [66] [88] [0] 
+[CGOP] node = 16, opc = CGOPC_LDR(4), index:0, res/opnd: [104] [66] [90] [0] 
+[CGOP] node = 14, opc = CGOPC_MUL(20), index:0, res/opnd: [106] [108] [110] [0] 
+[CGOP] node = 10, opc = CGOPC_ADD(19), index:0, res/opnd: [112] [114] [116] [0] 
+[CGOP] node = 9, opc = CGOPC_STR(2), index:0, res/opnd: [118] [66] [93] [0] 
+[CGOP] node = 19, opc = CGOPC_LDR(4), index:0, res/opnd: [120] [66] [96] [0] 
+[CGOP] node = 20, opc = CGOPC_MOV(0), index:0, res/opnd: [122] [98] [0] [0] 
+[CGOP] node = 18, opc = CGOPC_ADD(19), index:0, res/opnd: [94] [124] [126] [0] 
+[CGOP] node = 17, opc = CGOPC_B(9), index:0, res/opnd: [0] [99] [0] [0] 
+[CGOP] node = 0, opc = CGOPC_STR(2), index:0, res/opnd: [100] [66] [101] [0] 
+[CGOP] node = 0, opc = CGOPC_STR(2), index:0, res/opnd: [102] [66] [103] [0] 
+[CGOP] node = 0, opc = CGOPC_STR(2), index:0, res/opnd: [104] [66] [105] [0] 
+[CGOP] node = 0, opc = CGOPC_STR(2), index:0, res/opnd: [106] [66] [107] [0] 
+[CGOP] node = 0, opc = CGOPC_LDR(4), index:0, res/opnd: [108] [66] [109] [0] 
+[CGOP] node = 0, opc = CGOPC_LDR(4), index:0, res/opnd: [110] [66] [111] [0] 
+[CGOP] node = 0, opc = CGOPC_STR(2), index:0, res/opnd: [112] [66] [113] [0] 
+[CGOP] node = 0, opc = CGOPC_LDR(4), index:0, res/opnd: [114] [66] [115] [0] 
+[CGOP] node = 0, opc = CGOPC_LDR(4), index:0, res/opnd: [116] [66] [117] [0] 
+[CGOP] node = 0, opc = CGOPC_LDR(4), index:0, res/opnd: [118] [66] [119] [0] 
+[CGOP] node = 0, opc = CGOPC_STR(2), index:0, res/opnd: [120] [66] [121] [0] 
+[CGOP] node = 0, opc = CGOPC_STR(2), index:0, res/opnd: [122] [66] [123] [0] 
+[CGOP] node = 0, opc = CGOPC_LDR(4), index:0, res/opnd: [124] [66] [125] [0] 
+[CGOP] node = 0, opc = CGOPC_LDR(4), index:0, res/opnd: [126] [66] [127] [0] 
+#  --------- Printing BB : 2, label = 258 = 0x0102  ---------  
+#  --------- (Pred: 1 , Succ: ) --------- 
+#  --------- with 1 statements inside  --------- 
+[CGOP] node = 0, opc = CGOPC_BX(11), index:0, res/opnd: [0] [67] [0] [0] 
+=======================================================
+Printing the TN info
+=======================================================
+[TN 127     , 0x007f]  flags : , kv : const = 40 
+[TN 126     , 0x007e]  flags : , kv : register = 7, class = 1 
+[TN 125     , 0x007d]  flags : , kv : const = 36 
+[TN 124     , 0x007c]  flags : , kv : register = 10, class = 1 
+[TN 123     , 0x007b]  flags : , kv : const = 40 
+[TN 122     , 0x007a]  flags : , kv : register = 8, class = 1 
+[TN 121     , 0x0079]  flags : , kv : const = 36 
+[TN 120     , 0x0078]  flags : , kv : register = 8, class = 1 
+[TN 119     , 0x0077]  flags : , kv : const = 32 
+[TN 118     , 0x0076]  flags : , kv : register = 8, class = 1 
+[TN 117     , 0x0075]  flags : , kv : const = 28 
+[TN 116     , 0x0074]  flags : , kv : register = 7, class = 1 
+[TN 115     , 0x0073]  flags : , kv : const = 16 
+[TN 114     , 0x0072]  flags : , kv : register = 10, class = 1 
+[TN 113     , 0x0071]  flags : , kv : const = 32 
+[TN 112     , 0x0070]  flags : , kv : register = 8, class = 1 
+[TN 111     , 0x006f]  flags : , kv : const = 24 
+[TN 110     , 0x006e]  flags : , kv : register = 7, class = 1 
+[TN 109     , 0x006d]  flags : , kv : const = 20 
+[TN 108     , 0x006c]  flags : , kv : register = 10, class = 1 
+[TN 107     , 0x006b]  flags : , kv : const = 28 
+[TN 106     , 0x006a]  flags : , kv : register = 8, class = 1 
+[TN 105     , 0x0069]  flags : , kv : const = 24 
+[TN 104     , 0x0068]  flags : , kv : register = 8, class = 1 
+[TN 103     , 0x0067]  flags : , kv : const = 20 
+[TN 102     , 0x0066]  flags : , kv : register = 8, class = 1 
+[TN 101     , 0x0065]  flags : , kv : const = 16 
+[TN 100     , 0x0064]  flags : , kv : register = 8, class = 1 
+[TN 99      , 0x0063]  flags : , kv : const = 0 label = 258 
+[TN 98      , 0x0062]  flags : , kv : const = 30 
+[TN 97      , 0x0061]  flags : , kv : register = 0, class = 1 (spill = 2562)
+[TN 96      , 0x0060]  flags : , kv : const = 12 
+[TN 95      , 0x005f]  flags : , kv : register = 0, class = 1 (spill = 2306)
+[TN 94      , 0x005e]  flags : preallocated , kv : register = 0, class = 1 
+[TN 93      , 0x005d]  flags : , kv : const = 12 
+[TN 92      , 0x005c]  flags : , kv : register = 0, class = 1 (spill = 2050)
+[TN 91      , 0x005b]  flags : , kv : register = 0, class = 1 (spill = 1794)
+[TN 90      , 0x005a]  flags : , kv : const = 8 
+[TN 89      , 0x0059]  flags : , kv : register = 0, class = 1 (spill = 1538)
+[TN 88      , 0x0058]  flags : , kv : const = 8 
+[TN 87      , 0x0057]  flags : , kv : register = 0, class = 1 (spill = 1282)
+[TN 86      , 0x0056]  flags : , kv : register = 0, class = 1 (spill = 1026)
+[TN 85      , 0x0055]  flags : , kv : const = 8 
+[TN 84      , 0x0054]  flags : preallocated , kv : register = 6, class = 1 
+[TN 83      , 0x0053]  flags : , kv : const = 12 
+[TN 82      , 0x0052]  flags : preallocated , kv : register = 5, class = 1 
+[TN 81      , 0x0051]  flags : , kv : const = 12 
+[TN 80      , 0x0050]  flags : preallocated , kv : register = 4, class = 1 
+[TN 79      , 0x004f]  flags : , kv : const = 8 
+[TN 78      , 0x004e]  flags : preallocated , kv : register = 3, class = 1 
+[TN 77      , 0x004d]  flags : , kv : const = 4 
+[TN 76      , 0x004c]  flags : preallocated , kv : register = 2, class = 1 
+[TN 75      , 0x004b]  flags : , kv : const = 12 
+[TN 74      , 0x004a]  flags : , kv : const = 3 
+[TN 73      , 0x0049]  flags : preallocated , kv : register = 1, class = 1 
+[TN 72      , 0x0048]  flags : , kv : const = 8 
+[TN 71      , 0x0047]  flags : preallocated , kv : register = 1, class = 1 
+[TN 70      , 0x0046]  flags : , kv : const = 4 
+[TN 69      , 0x0045]  flags : preallocated , kv : register = 0, class = 1 
+[TN 68      , 0x0044]  flags : dedicated , kv : register = 16, class = 1 
+[TN 67      , 0x0043]  flags : dedicated r0(ret-value) , kv : register = 15, class = 1 
+[TN 66      , 0x0042]  flags : dedicated sp(stack pointer) , kv : register = 14, class = 1 
+[TN 65      , 0x0041]  flags : dedicated , kv : register = 13, class = 1 
+[TN 64      , 0x0040]  flags : dedicated , kv : register = 12, class = 1 
+[TN 63      , 0x003f]  flags : dedicated , kv : register = 11, class = 1 
+[TN 62      , 0x003e]  flags : dedicated , kv : register = 10, class = 1 
+[TN 61      , 0x003d]  flags : dedicated , kv : register = 9, class = 1 
+[TN 60      , 0x003c]  flags : dedicated , kv : register = 8, class = 1 
+[TN 59      , 0x003b]  flags : dedicated , kv : register = 7, class = 1 
+[TN 58      , 0x003a]  flags : dedicated , kv : register = 6, class = 1 
+[TN 57      , 0x0039]  flags : dedicated , kv : register = 5, class = 1 
+[TN 56      , 0x0038]  flags : dedicated , kv : register = 4, class = 1 
+[TN 55      , 0x0037]  flags : dedicated , kv : register = 3, class = 1 
+[TN 54      , 0x0036]  flags : dedicated , kv : register = 2, class = 1 
+[TN 53      , 0x0035]  flags : dedicated , kv : register = 1, class = 1 
+[TN 52      , 0x0034]  flags : dedicated , kv : register = 1, class = 8 
+[TN 51      , 0x0033]  flags : dedicated , kv : register = 8, class = 7 
+[TN 50      , 0x0032]  flags : dedicated , kv : register = 7, class = 7 
+[TN 49      , 0x0031]  flags : dedicated , kv : register = 6, class = 7 
+[TN 48      , 0x0030]  flags : dedicated , kv : register = 5, class = 7 
+[TN 47      , 0x002f]  flags : dedicated , kv : register = 4, class = 7 
+[TN 46      , 0x002e]  flags : dedicated , kv : register = 3, class = 7 
+[TN 45      , 0x002d]  flags : dedicated , kv : register = 2, class = 7 
+[TN 44      , 0x002c]  flags : dedicated , kv : register = 1, class = 7 
+[TN 43      , 0x002b]  flags : dedicated , kv : register = 1, class = 6 
+[TN 42      , 0x002a]  flags : dedicated , kv : register = 8, class = 5 
+[TN 41      , 0x0029]  flags : dedicated , kv : register = 7, class = 5 
+[TN 40      , 0x0028]  flags : dedicated , kv : register = 6, class = 5 
+[TN 39      , 0x0027]  flags : dedicated , kv : register = 5, class = 5 
+[TN 38      , 0x0026]  flags : dedicated , kv : register = 4, class = 5 
+[TN 37      , 0x0025]  flags : dedicated , kv : register = 3, class = 5 
+[TN 36      , 0x0024]  flags : dedicated , kv : register = 2, class = 5 
+[TN 35      , 0x0023]  flags : dedicated , kv : register = 1, class = 5 
+[TN 34      , 0x0022]  flags : dedicated , kv : register = 1, class = 4 
+[TN 33      , 0x0021]  flags : dedicated , kv : register = 1, class = 3 
+[TN 32      , 0x0020]  flags : dedicated , kv : register = 16, class = 2 
+[TN 31      , 0x001f]  flags : dedicated r0(ret-value) , kv : register = 15, class = 2 
+[TN 30      , 0x001e]  flags : dedicated sp(stack pointer) , kv : register = 14, class = 2 
+[TN 29      , 0x001d]  flags : dedicated , kv : register = 13, class = 2 
+[TN 28      , 0x001c]  flags : dedicated , kv : register = 12, class = 2 
+[TN 27      , 0x001b]  flags : dedicated , kv : register = 11, class = 2 
+[TN 26      , 0x001a]  flags : dedicated , kv : register = 10, class = 2 
+[TN 25      , 0x0019]  flags : dedicated , kv : register = 9, class = 2 
+[TN 24      , 0x0018]  flags : dedicated , kv : register = 8, class = 2 
+[TN 23      , 0x0017]  flags : dedicated , kv : register = 7, class = 2 
+[TN 22      , 0x0016]  flags : dedicated , kv : register = 6, class = 2 
+[TN 21      , 0x0015]  flags : dedicated , kv : register = 5, class = 2 
+[TN 20      , 0x0014]  flags : dedicated , kv : register = 4, class = 2 
+[TN 19      , 0x0013]  flags : dedicated , kv : register = 3, class = 2 
+[TN 18      , 0x0012]  flags : dedicated , kv : register = 2, class = 2 
+[TN 17      , 0x0011]  flags : dedicated , kv : register = 1, class = 2 
+[TN 16      , 0x0010]  flags : dedicated , kv : register = 16, class = 1 
+[TN 15      , 0x000f]  flags : dedicated r0(ret-value) , kv : register = 15, class = 1 
+[TN 14      , 0x000e]  flags : dedicated sp(stack pointer) , kv : register = 14, class = 1 
+[TN 13      , 0x000d]  flags : dedicated , kv : register = 13, class = 1 
+[TN 12      , 0x000c]  flags : dedicated , kv : register = 12, class = 1 
+[TN 11      , 0x000b]  flags : dedicated , kv : register = 11, class = 1 
+[TN 10      , 0x000a]  flags : dedicated , kv : register = 10, class = 1 
+[TN 9       , 0x0009]  flags : dedicated , kv : register = 9, class = 1 
+[TN 8       , 0x0008]  flags : dedicated , kv : register = 8, class = 1 
+[TN 7       , 0x0007]  flags : dedicated , kv : register = 7, class = 1 
+[TN 6       , 0x0006]  flags : dedicated , kv : register = 6, class = 1 
+[TN 5       , 0x0005]  flags : dedicated , kv : register = 5, class = 1 
+[TN 4       , 0x0004]  flags : dedicated , kv : register = 4, class = 1 
+[TN 3       , 0x0003]  flags : dedicated , kv : register = 3, class = 1 
+[TN 2       , 0x0002]  flags : dedicated , kv : register = 2, class = 1 
+[TN 1       , 0x0001]  flags : dedicated , kv : register = 1, class = 1 
+[TN 0       , 0x0000]  flags : dedicated , kv : register = 0, class = 1 
+Emit_code: Begin real stmt in BB(0)
+Emit_code: Begin real stmt in BB(1)
+Emit_code: Begin real stmt in BB(2)
+=======================================================
+Emitting section: data
+=======================================================
+After running component [410]
