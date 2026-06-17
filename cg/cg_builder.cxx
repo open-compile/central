@@ -65,14 +65,24 @@ void CGIR_BUILDER::Build_def_use() {
               (TFile, "Def-use builder: %s\n",
                 Get_cg_opc_info(cgop->getOpcode())->ins_token));
       CGOPC_INFO *opc_info = Get_cg_opc_info(cgop->getOpcode());
-      UINT32 ch_id = opc_info->getNOprs();
-      AssertThat(ch_id < 4, ("operand count must be less than 4."));
-      CG_OPRAND cgoper = oper->getResOpnd()[ch_id];
-      AssertThat(cgoper != 0,
-                ("Should not be empty, cgopc = %s", Get_cg_opc_info(
-                  oper->getOpcode())->getName()));
-      if (CGOPR_R == kind) {
+      UINT32 opr_count = opc_info->getNOprs();
+      UINT32 res_count = opc_info->getNRes();
+
+      AssertThat(opr_count  <= 3, ("operand count must be less or eq than 3."));
+      AssertThat(res_count  <= 1, ("operand count must be 0 or 1."));
+      
+      for (UINT32 i = 0; i < opr_count; i++) {
+        CG_OPRAND cgoper = cgop->getResOpnd()[i];
+        if (res_count == 1) {
+          
+        }
       }
+
+
+
+      AssertThat(cgoper != 0,
+                ("Should not be empty, cgopc(stmt) = %s", Get_cg_opc_info(
+                  oper->getOpcode())->getName()));
       // TODO(step1: count-uses): 这里是 step 1 — 扫描所有 CGOP, 统计每个 TN
       //   的 use/def 数, 并把它塞进 _tn_freq_map / _tn_live_range.
       //   真正的 RA 流水线要把这一步的结果:
