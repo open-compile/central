@@ -256,7 +256,7 @@ void CG_EMITTER::Emit_tree(ST_IDX func_sym, FILE *out, FILE_MANAGER *file) {
     }
     Is_Trace(TR_EMIT(), (TFile, "Emit_code: Begin real stmt in BB(%d)\n", i));
     // If there is a label to it, emit the label
-    for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++) {
+    for (auto stmt_it = cgbb->Begin_stmt(); stmt_it != cgbb->End_stmt(); stmt_it++) {
       CGOP *cgop = (*stmt_it);
       switch (cgop->getOpcode()) {
         default: {

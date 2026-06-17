@@ -663,7 +663,7 @@ void CG_LIVE_RANGE::Analyze_live_range(PU_INFO *info) {
       CGBB *cgbb = cfg->BB(cur_bb);
       Is_Trace(TR_LRA(), (TFile, "[LRA] Visiting BB : %d \n", cur_bb));
       UINT32 stmt_id = 0;
-      for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++, stmt_id++) {
+      for (auto stmt_it = cgbb->Begin_stmt(); stmt_it != cgbb->End_stmt(); stmt_it++, stmt_id++) {
         CGOP *cgop = (*stmt_it);
         Is_Trace(TR_LRA(),
                 (TFile, "LRA: Processing op = %s\n",
@@ -718,7 +718,7 @@ void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
     _tn_freq_map.clear();
     // If there is a label to it, emit the label
     UINT32 stmt_id = 0;
-    for (auto stmt_it = cgbb->First_stmt(); stmt_it != cgbb->Last_stmt(); stmt_it++, stmt_id++) {
+    for (auto stmt_it = cgbb->Begin_stmt(); stmt_it != cgbb->End_stmt(); stmt_it++, stmt_id++) {
       CGOP *cgop = (*stmt_it);
       Is_Trace(TR_LRA(),
                (TFile, "LRA: Processing op = %s\n",
@@ -848,8 +848,8 @@ void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
     // If there is a label to it, emit the label
     UINT32 stmt_cnt = cgbb->Get_stmt_count();
     UINT32 stmt_id = 0;
-    for (auto stmt_it = cgbb->First_stmt(); stmt_id  < stmt_cnt; stmt_id++) {
-      CGOP *cgop = (*(cgbb->First_stmt() + stmt_id));
+    for (auto stmt_it = cgbb->Begin_stmt(); stmt_id  < stmt_cnt; stmt_id++) {
+      CGOP *cgop = (*(cgbb->Begin_stmt() + stmt_id));
       Is_Trace(TR_LRA(),
                (TFile, "Processing : %s\n", Get_cg_opc_info(cgop->getOpcode())->ins_token));
       if (cgop->getFlags() & CGOPF_SPILL) {
@@ -935,7 +935,7 @@ void CG_REG_ALLOC::Print_live_range(FILE *file) {
 
 static UINT32 CGBB_stmt_count(CGBB *bb) {
   UINT32 count = 0;
-  for (auto it = bb->First_stmt(); it != bb->Last_stmt(); ++it) {
+  for (auto it = bb->Begin_stmt(); it != bb->End_stmt(); ++it) {
     count++;
   }
   return count;
@@ -1057,7 +1057,7 @@ void CGIR::Print_cfg_detail(ST_IDX sym, FILE *file) {
     fprintf(file, "\n");
 
     UINT32 stmt_idx = 0;
-    for (auto it = bb->First_stmt(); it != bb->Last_stmt(); ++it, ++stmt_idx) {
+    for (auto it = bb->Begin_stmt(); it != bb->End_stmt(); ++it, ++stmt_idx) {
       (*it)->setIndexInBb(stmt_idx);
       Print_cgop_compact(this, *it, file);
     }

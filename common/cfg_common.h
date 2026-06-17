@@ -193,8 +193,8 @@ public:
                 stmt_idx, _stmts.size()));
     return _stmts.at(stmt_idx);
   }
-  const_stmt_iterator First_stmt() const   { return _stmts.begin();   }
-  const_stmt_iterator Last_stmt()  const   { return _stmts.end();     }
+  const_stmt_iterator Begin_stmt() const   { return _stmts.begin();   }
+  const_stmt_iterator End_stmt()  const   { return _stmts.end();     }
   BOOL                Is_empty()   const   { return _stmts.empty();   }
   const_stmt_iterator Next_stmt(stmt_iterator stmt) const  { return stmt + 1; }
   const_stmt_iterator Prev_stmt(stmt_iterator stmt) const  { return stmt - 1; }

@@ -111,10 +111,15 @@ public:
 };
 
 
+
 template <typename NODE_TYPE>
 class CG_CFG_BB_BASE : public CFG_BB_BASE<NODE_TYPE> {
 private:
   vector<CG_REVISIT_ITEM<NODE_TYPE> > _work_list;
+  set<TN_IDX>                         _defs;
+  set<TN_IDX>                         _uses;
+  vector<set<TN_IDX>>                 _stmt_defs;
+  vector<set<TN_IDX>>                 _stmt_uses;
 public:
   explicit CG_CFG_BB_BASE(UINT32 block_id)
     : CFG_BB_BASE<NODE_TYPE>(block_id),
@@ -125,6 +130,27 @@ public:
       _work_list(work_list) {
   }
   vector<CG_REVISIT_ITEM<NODE_TYPE>> &Get_work_list() { return _work_list; }
+  set<TN_IDX>  &Defs() { return _defs; }
+  set<TN_IDX>  &Uses() { return _uses; }
+  void          Setup_stmt_def_use() {
+    UINT32 stmt_count = this->Get_stmt_count();
+    _stmt_defs.clear();
+    _stmt_uses.clear();
+    _stmt_defs.resize(stmt_count);
+    _stmt_uses.resize(stmt_count);
+  }
+  set<TN_IDX>  &Stmt_defs(UINT32 idx) { 
+    AssertThat(idx < Get_stmt_count() && Get_stmt_count() == _stmt_defs.size(), (
+      "Incorrect stmt defs or idx, idx = %u, stmt_cnt = %u, stmt_defs.size = %u",
+      idx, Get_stmt_count(), _stmt_defs.size()));
+    return _stmt_defs[idx]; 
+  }
+  set<TN_IDX>  &Stmt_uses(UINT32 idx) { 
+    AssertThat(idx < Get_stmt_count() && Get_stmt_count() == _stmt_uses.size(), (
+      "Incorrect stmt uses or idx, idx = %u, stmt_cnt = %u, stmt_uses.size = %u",
+      idx, Get_stmt_count(), _stmt_uses.size()));
+    return _stmt_uses[idx]; 
+  }
 };
 
 // BB definitions
@@ -146,6 +172,7 @@ private:
   IR_TN_MAP                    _ir_to_tn_map;
   TN_IR_MAP                    _tn_to_ir_map;
   TN_FREQ_MAP                  _use_cnts;
+
   // Memory Layout
   CG_FRAME_SECT                sections[8];
   CG_CFG                     *_current;

@@ -48,18 +48,20 @@ void CGIR_BUILDER::Build_def_use() {
   CG_CFG      *cfg       = cgir->Cfg();
   UINT32       bb_cnt    = cgir->Cfg()->Size();
   INT32        cur_bb    = 0; // currently visited bb;
-  TN_FREQ_MAP &tn_map    = cgir->TN_freq_map();
-  
-  tn_map.clear();
-
+  TN_FREQ_MAP &tn_freq_map    = cgir->TN_freq_map();
+  tn_freq_map.clear();
   for (cur_bb = bb_cnt - 1; cur_bb >= 0; cur_bb--) {
     // def of bb
     CGBB *cgbb         = cfg->BB(cur_bb);
     CFG_BB_EDGES &succ = cfg->Edges(cur_bb);
-    Is_Trace(TR_BUILD(), (TFile, "[LRA] Visiting BB : %d \n", cur_bb));
+    Is_Trace(TR_BUILD(), (TFile, "[Def-use] visiting BB : %d \n", cur_bb));
+
+    // Setup stmt_def_use;
+    cgbb->Setup_stmt_def_use();
+
     UINT32 stmt_id = 0;
-    for (auto stmt_it = cgbb->First_stmt(); 
-         stmt_it != cgbb->Last_stmt(); stmt_it++, stmt_id++) {
+    for (auto stmt_it = cgbb->Begin_stmt(); 
+         stmt_it != cgbb->End_stmt(); stmt_it++, stmt_id++) {
       CGOP *cgop = (*stmt_it);
       Is_Trace(TR_BUILD(),
               (TFile, "Def-use builder: %s\n",
@@ -70,33 +72,28 @@ void CGIR_BUILDER::Build_def_use() {
 
       AssertThat(opr_count  <= 3, ("operand count must be less or eq than 3."));
       AssertThat(res_count  <= 1, ("operand count must be 0 or 1."));
-      
+
+      if (res_count == 1) {
+        TN_IDX cgoper = cgop->getResOpnd()[0]; // CG_OPRAND to TN_IDX conversion
+        AssertThat(cgoper != 0,
+                  ("Adding def in cgbb, oper should not be empty, cgopc(stmt) = %s", (cgop->Print(TFile), 
+                   Get_cg_opc_info(cgop->getOpcode())->getName())));
+
+        tn_freq_map[cgoper]++;
+        // def TN
+        cgbb->Defs().emplace(cgoper);
+        cgbb->Stmt_defs(stmt_id).emplace(cgoper);
+      }
+
       for (UINT32 i = 0; i < opr_count; i++) {
-        CG_OPRAND cgoper = cgop->getResOpnd()[i];
-        if (res_count == 1) {
-          
-        }
-      }
+        TN_IDX cgoper = cgop->getResOpnd()[res_count + i];
+        AssertThat(cgoper != 0,
+                  ("Adding use in cgbb, oper should not be empty, cgopc(stmt) = %s", (cgop->Print(TFile), 
+                   Get_cg_opc_info(cgop->getOpcode())->getName())));
 
-
-
-      AssertThat(cgoper != 0,
-                ("Should not be empty, cgopc(stmt) = %s", Get_cg_opc_info(
-                  oper->getOpcode())->getName()));
-      // TODO(step1: count-uses): 这里是 step 1 — 扫描所有 CGOP, 统计每个 TN
-      //   的 use/def 数, 并把它塞进 _tn_freq_map / _tn_live_range.
-      //   真正的 RA 流水线要把这一步的结果:
-      //     - "每个 TN 被 use 几次" → 用来算 spill cost (cost = uses / degree)
-      //     - "每个 TN 在哪些 BB 里被 use" → 用来构造 IFG
-      //   见 cg.spec.md §4.4
-      if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
-        i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 0);
-      }
-      if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
-        i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 1);
-      }
-      if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
-        i32_register_needed += Count_needed_register(cgop, stmt_id, CGOPR_R, i, 2);
+        tn_freq_map[cgoper]++;
+        cgbb->Uses().emplace(cgoper);
+        cgbb->Stmt_uses(stmt_id).emplace(cgoper);
       }
     }
   }
