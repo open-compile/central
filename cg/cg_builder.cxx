@@ -9,6 +9,7 @@
 #include "cgir.h"
 #include "cg_pass.h"
 #include "stdio.h"
+#include "tn.h"
 #include <algorithm>
 #include <unordered_set>
 #include <unordered_map>
@@ -794,21 +795,29 @@ void CGIR_BUILDER::Build_pred_succ() {
   CG_CFG *cfg       = cgir->Cfg();
   UINT32  bb_cnt    = cgir->Cfg()->Size();
   INT32   cur_bb    = 0; // currently visited bb;
-  CFG_BB_EDGES_STORE preds;
-  preds.assign(bb_cnt, {});
+  CFG_BB_EDGES_STORE &all_preds = cfg->Get_preds();
+  all_preds.clear();
+  all_preds.assign(bb_cnt, {});
+  CFG_BB_EDGES_STORE &all_succs = cfg->Internal_edges();
+  all_succs.clear();
+  all_succs.assign(bb_cnt, {});
+  AssertThat(all_succs.size() > cur_bb, ("Invalid succs(edges) initialization, size = %u, cur_bb = %u",
+             all_succs.size(), cur_bb));
+  AssertThat(all_preds.size() > cur_bb, ("Invalid preds initialization, size = %u, cur_bb = %u",
+             all_preds.size(), cur_bb));
+    
   for (cur_bb = bb_cnt - 1; cur_bb >= 0; cur_bb--) {
     // def of bb
-    const CGBB             *cgbb         = cfg->BB(cur_bb);
-    const CFG_BB_EDGES     &succ         = cfg->Edges(cur_bb);
-    CFG_BB_EDGES::iterator  it;
-    AssertThat(preds.size() > cur_bb, ("Invalid pred initialization, size = %u, cur_bb = %u",
-                 preds.size(), cur_bb));
-    for(it = succ.begin(); it != succ.end(); it++){  
-      CFG_BB_IDX              succ_idx = *it;
-      preds.at(succ_idx).emplace(cur_bb);
+    const CGBB *cgbb = cfg->BB(cur_bb);
+    CFG_BB_EDGES &preds = cfg->Preds(cur_bb);
+    CFG_BB_EDGES &succs = cfg->Edges(cur_bb);
+    for (auto prd_id = cgbb->Pred_begin(); prd_id != cgbb->Pred_end(); prd_id++) {
+      preds.insert((*prd_id)->Get_id());
+    }
+    for (auto prd_id = cgbb->Succ_begin(); prd_id != cgbb->Succ_end(); prd_id++) {
+      succs.insert((*prd_id)->Get_id());
     }
   }
-  cfg->Set_preds(preds);
 }
 
 /**
@@ -839,33 +848,36 @@ void CGIR_BUILDER::Build_def_use() {
               (TFile, "Def-use builder: %s\n",
                 Get_cg_opc_info(cgop->getOpcode())->ins_token));
       CGOPC_INFO *opc_info = Get_cg_opc_info(cgop->getOpcode());
-      UINT32 opr_count = opc_info->getNOprs();
       UINT32 res_count = opc_info->getNRes();
+      CGOPR_KIND slot_kinds[3] = {
+        opc_info->getOp1(), opc_info->getOp2(), opc_info->getOp3()
+      };
 
-      AssertThat(opr_count  <= 3, ("operand count must be less or eq than 3."));
       AssertThat(res_count  <= 1, ("operand count must be 0 or 1."));
 
-      if (res_count == 1) {
-        TN_IDX cgoper = cgop->getResOpnd()[0]; // CG_OPRAND to TN_IDX conversion
-        AssertThat(cgoper != 0,
-                  ("Adding def in cgbb, oper should not be empty, cgopc(stmt) = %s", (cgop->Print(TFile), 
-                   Get_cg_opc_info(cgop->getOpcode())->getName())));
-
+      for (UINT32 slot = 0; slot < 3; ++slot) {
+        if (slot_kinds[slot] == CGOPR_N) continue;
+        // this is reading all non-zero operands by default here.
+        TN_IDX cgoper = cgop->getResOpnd()[slot];
+        TN    *tn     = cgir->TN_tn(cgoper);
+        if (cgoper == 0) continue;
         tn_freq_map[cgoper]++;
-        // def TN
-        cgbb->Defs().emplace(cgoper);
-        cgbb->Stmt_defs(stmt_id).emplace(cgoper);
-      }
 
-      for (UINT32 i = 0; i < opr_count; i++) {
-        TN_IDX cgoper = cgop->getResOpnd()[res_count + i];
-        AssertThat(cgoper != 0,
-                  ("Adding use in cgbb, oper should not be empty, cgopc(stmt) = %s", (cgop->Print(TFile), 
-                   Get_cg_opc_info(cgop->getOpcode())->getName())));
-
-        tn_freq_map[cgoper]++;
-        cgbb->Uses().emplace(cgoper);
-        cgbb->Stmt_uses(stmt_id).emplace(cgoper);
+        // check if this is constant
+        
+        if (slot < res_count && opc_info->isWriteToRd()) {
+          cgbb->Defs().emplace(cgoper);
+          cgbb->Stmt_defs(stmt_id).emplace(cgoper);
+	  AssertThat((!TN_is_label(tn)) && (!TN_is_constant(tn)), ("Invalid tn on res %s", (cgop->Print(TFile), "")));
+        } else {
+          // check if it is constant/label. these two need no allocation
+          if (TN_is_constant(tn) || TN_is_label(tn)) {
+	    continue;
+          }
+          // TN_is_dedicated(tn) || TN_is_preallocated(tn) are going to be calculated as use.
+          cgbb->Uses().emplace(cgoper);
+          cgbb->Stmt_uses(stmt_id).emplace(cgoper);
+        }
       }
     }
   }

@@ -20,15 +20,20 @@
 #include "cg_variant.h"
 #include "tn.h"
 #include <list>
+#include <set>
 #include "cfg_common.h"
 
 #define POS_INVALID -1
+#define MAX_LRA_ITER_ATTEMPT 1024000
 
 using std::vector;
 using std::map;
 using std::set;
 using IR_TN_MAP = std::unordered_map<IRNODE_IDX, TN*>;
 using TN_IR_MAP = std::unordered_map<TN*, IRNODE_IDX>;
+
+typedef set<TN_IDX>    TN_SET;
+typedef vector<TN_SET> TN_SET_VEC;
 
 template <typename NODE_TYPE> class CFG_BB_BASE;
 template <typename NODE_TYPE> class CG_CFG_BB_BASE;
@@ -39,7 +44,6 @@ class CGIR_BUILDER;
 template <typename NODE_TYPE>
 class CG_CFG_BASE : public CFG_BASE<NODE_TYPE, CG_CFG_BB_BASE<NODE_TYPE>> {
 private:
-  BOOL                             _is_pred_ready = FALSE;
   map<TN_IDX, ST_IDX>              _recal_map;
   map<TN_IDX, INT64>               _exceed_map;
   CFG_BB_EDGES_STORE               _preds;
@@ -52,17 +56,31 @@ public:
   }
   void                  Set_preds(const CFG_BB_EDGES_STORE &given) {
     _preds = given;
-    _is_pred_ready = TRUE;
   }
   CFG_BB_EDGES_STORE &Get_preds() { 
-    AssertThat(_is_pred_ready, ("Pred has not be set you have to set it first."));
     return _preds; 
   }
   CFG_BB_EDGES       &Preds(CFG_BB_IDX idx) { 
-    AssertThat(_is_pred_ready, ("Pred has not be set you have to set it first."));
     AssertThat(idx < _preds.size(), ("Index exceed Preds's container size, idx = %u, size = %u",
                                 idx, _preds.size()));
     return _preds.at(idx); 
+  }
+  CFG_BB_EDGES_STORE &Get_succs() { 
+    return this->Internal_edges();
+  }
+  CFG_BB_EDGES       &Succs(CFG_BB_IDX idx) { 
+    UINT32 edge_cnt = this->Internal_edges().size();
+    AssertThat(idx < edge_cnt, ("Index exceed Edges(Succs)'s container size, idx = %u, size = %u",
+                                idx, edge_cnt));
+    return this->Internal_edges().at(idx); 
+  }
+  void                Print_cg_cfg(FILE *file) {
+    // Print CG specific info
+    fprintf(file, "%sPrinting CG control flow graph, of size : %d\n%s",
+            DBAR, this->Size(), DBAR);
+    for (UINT32 i = 0; i < this->Size(); i++) {
+      this->Node(i)->Print_detail(file);
+    }
   }
 };
 
@@ -110,16 +128,18 @@ public:
   }
 };
 
+extern void Print_tn_set(FILE *file, const TN_SET &tns);
 
+extern void Print_tn_set_vec(FILE *file, const TN_SET_VEC &tnvecs);
 
 template <typename NODE_TYPE>
 class CG_CFG_BB_BASE : public CFG_BB_BASE<NODE_TYPE> {
 private:
   vector<CG_REVISIT_ITEM<NODE_TYPE> > _work_list;
-  set<TN_IDX>                         _defs;
-  set<TN_IDX>                         _uses;
-  vector<set<TN_IDX>>                 _stmt_defs;
-  vector<set<TN_IDX>>                 _stmt_uses;
+  TN_SET                         _defs;
+  TN_SET                         _uses;
+  TN_SET_VEC                     _stmt_defs;
+  TN_SET_VEC                     _stmt_uses;
 public:
   explicit CG_CFG_BB_BASE(UINT32 block_id)
     : CFG_BB_BASE<NODE_TYPE>(block_id),
@@ -130,8 +150,8 @@ public:
       _work_list(work_list) {
   }
   vector<CG_REVISIT_ITEM<NODE_TYPE>> &Get_work_list() { return _work_list; }
-  set<TN_IDX>  &Defs() { return _defs; }
-  set<TN_IDX>  &Uses() { return _uses; }
+  TN_SET  &Defs() { return _defs; }
+  TN_SET  &Uses() { return _uses; }
   void          Setup_stmt_def_use() {
     UINT32 stmt_count = this->Get_stmt_count();
     _stmt_defs.clear();
@@ -139,17 +159,57 @@ public:
     _stmt_defs.resize(stmt_count);
     _stmt_uses.resize(stmt_count);
   }
-  set<TN_IDX>  &Stmt_defs(UINT32 idx) { 
-    AssertThat(idx < Get_stmt_count() && Get_stmt_count() == _stmt_defs.size(), (
+  TN_SET  &Stmt_defs(UINT32 idx) { 
+    UINT32 stmt_count = this->Get_stmt_count();
+    AssertThat(idx < stmt_count && stmt_count == _stmt_defs.size(), (
       "Incorrect stmt defs or idx, idx = %u, stmt_cnt = %u, stmt_defs.size = %u",
-      idx, Get_stmt_count(), _stmt_defs.size()));
+      idx, stmt_count, _stmt_defs.size()));
     return _stmt_defs[idx]; 
   }
-  set<TN_IDX>  &Stmt_uses(UINT32 idx) { 
-    AssertThat(idx < Get_stmt_count() && Get_stmt_count() == _stmt_uses.size(), (
+  TN_SET  &Stmt_uses(UINT32 idx) { 
+    UINT32 stmt_count = this->Get_stmt_count();
+    AssertThat(idx < stmt_count && stmt_count == _stmt_uses.size(), (
       "Incorrect stmt uses or idx, idx = %u, stmt_cnt = %u, stmt_uses.size = %u",
-      idx, Get_stmt_count(), _stmt_uses.size()));
+      idx, stmt_count, _stmt_uses.size()));
     return _stmt_uses[idx]; 
+  }
+  void Print_detail(FILE *file) {
+    UINT32 stmt_cnt = this->Get_stmt_count();
+    BOOL has_stmt_def_use =
+      (_stmt_defs.size() == stmt_cnt && _stmt_uses.size() == stmt_cnt);
+
+    // Print basic info.
+    this->Print_basic(file);
+
+    // def use info.
+    fprintf(file, "#  BB defs: ");
+    Print_tn_set(file, Defs());
+    fprintf(file, ", BB uses: ");
+    Print_tn_set(file, Uses());
+    if (!has_stmt_def_use) {
+      fprintf(file, "  [stmt def/use unavailable: stmt_cnt=%u defs=%lu uses=%lu]",
+              stmt_cnt, _stmt_defs.size(), _stmt_uses.size());
+    }
+    fprintf(file, "\n");
+
+    // stmt print
+    fprintf(file, "#  --------- with %u statements inside  --------- \n", stmt_cnt);
+    for (UINT32 i = 0; i < stmt_cnt; i++) {
+      fprintf(file, "#    stmt[%u] defs: ", i);
+      if (has_stmt_def_use) {
+        Print_tn_set(file, _stmt_defs[i]);
+      } else {
+        fprintf(file, "?");
+      }
+      fprintf(file, ", uses: ");
+      if (has_stmt_def_use) {
+        Print_tn_set(file, _stmt_uses[i]);
+      } else {
+        fprintf(file, "?");
+      }
+      fprintf(file, "\n");
+      this->Get_stmt(i)->Print(file);
+    }
   }
 };
 
@@ -260,17 +320,23 @@ public:
 class CG_LIVE_RANGE {
 private:
   CGIR *_cgir = nullptr;
+  ST_IDX                     _cur_sym;
+  TN_SET_VEC                 _live_ins;
+  TN_SET_VEC                 _live_outs;
 public:
   void Init(CGIR *cg) {
-    _cgir = cg;
+    _cur_sym = 0;
+    _cgir    = cg;
     AssertThat(cg != nullptr, ("Cgir must be a valid CGIR"));
+    _live_ins.clear();
+    _live_outs.clear();
   }
   CGIR *Cgir() {
     AssertThat(_cgir != nullptr,
       ("Cgir is not initialized in Live range analysis"));
     return _cgir;
   }
-  void Analyze_live_range(PU_INFO *info);
+  void            Analyze_live_range(PU_INFO *info);
   // 调试输出: 把每个 TN 的 live range 打到 FILE*; 无副作用
   void            Print(FILE *file = stderr);
 };

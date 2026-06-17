@@ -61,7 +61,7 @@ class CFG_BASE {
 public:
   typedef vector<BB_TYPE *>                    BB_VECTOR;
   typedef typename vector<BB_TYPE *>::iterator BB_ITER;
-private:
+protected:
   CFG_BB_EDGES_STORE                           _edges;
   BB_VECTOR                                    _bb_list;
 public:

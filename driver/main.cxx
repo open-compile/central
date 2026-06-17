@@ -11,6 +11,8 @@
 #include <string>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
+#include <stdlib.h>
 #include "ir.h"
 #include "ir_io.h"
 
@@ -21,6 +23,29 @@
 static std::string Lower_string(std::string s) {
   for (size_t i = 0; i < s.size(); ++i) {
     s[i] = static_cast<char>(tolower(static_cast<unsigned char>(s[i])));
+  }
+  return s;
+}
+
+static std::string Trim_string(const std::string &s) {
+  size_t start = 0;
+  while (start < s.size() &&
+         isspace(static_cast<unsigned char>(s[start]))) {
+    ++start;
+  }
+
+  size_t end = s.size();
+  while (end > start &&
+         isspace(static_cast<unsigned char>(s[end - 1]))) {
+    --end;
+  }
+  return s.substr(start, end - start);
+}
+
+static std::string Normalize_option_name(std::string s) {
+  s = Lower_string(Trim_string(s));
+  for (size_t i = 0; i < s.size(); ++i) {
+    if (s[i] == '-') s[i] = '_';
   }
   return s;
 }
@@ -53,6 +78,158 @@ static BOOL Split_prefixed_option(const std::string &arg,
     *value = body.substr(eq + 1);
   }
   return !key->empty();
+}
+
+static BOOL Parse_trace_numeric_value(const std::string &text,
+                                      TRACE_KIND *out) {
+  std::string v = Trim_string(text);
+  if (v.empty()) return FALSE;
+
+  errno = 0;
+  char *end = nullptr;
+  long parsed = strtol(v.c_str(), &end, 0);
+  if (errno != 0 || end == v.c_str() || *end != '\0') return FALSE;
+
+  *out = static_cast<TRACE_KIND>(parsed);
+  return TRUE;
+}
+
+static BOOL Parse_trace_level_token(const std::string &token,
+                                    TRACE_KIND *out) {
+  std::string t = Normalize_option_name(token);
+  if (t.empty()) return FALSE;
+
+  if (t == "all" || t == "verbose") {
+    *out = TRACE_OPT_VERBOSE;
+  } else if (t == "default") {
+    *out = TRACE_OPT_DEFAULT;
+  } else if (t == "nolineno" || t == "no_lineno" || t == "no_line_no") {
+    *out = TRACE_OPT_NOLINENO;
+  } else if (t == "debug") {
+    *out = TRACE_DEBUG;
+  } else if (t == "data") {
+    *out = TRACE_DATA;
+  } else if (t == "info") {
+    *out = TRACE_INFO;
+  } else if (t == "performance" || t == "perf") {
+    *out = TRACE_PERFORMANCE;
+  } else if (t == "invocation" || t == "invoke") {
+    *out = TRACE_INVOCATION;
+  } else if (t == "options" || t == "option") {
+    *out = TRACE_OPTIONS;
+  } else if (t == "emit_core") {
+    *out = TRACE_EMIT_CORE;
+  } else if (t == "emit_basic") {
+    *out = TRACE_EMIT_BASIC;
+  } else if (t == "warn" || t == "warning") {
+    *out = TRACE_WARN;
+  } else if (t == "error") {
+    *out = TRACE_ERROR;
+  } else if (t == "fatal") {
+    *out = TRACE_FATAL;
+  } else if (t == "custom1") {
+    *out = TRACE_CUSTOM1;
+  } else if (t == "custom2") {
+    *out = TRACE_CUSTOM2;
+  } else {
+    return Parse_trace_numeric_value(t, out);
+  }
+  return TRUE;
+}
+
+static BOOL Parse_trace_level_value(const std::string &value_text,
+                                    TRACE_KIND *out,
+                                    std::string *err) {
+  TRACE_KIND numeric = TRACE_ERROR;
+  if (Parse_trace_numeric_value(value_text, &numeric)) {
+    *out = numeric;
+    return TRUE;
+  }
+
+  TRACE_KIND result = static_cast<TRACE_KIND>(0);
+  size_t start = 0;
+  while (start <= value_text.size()) {
+    size_t bar = value_text.find('|', start);
+    std::string token = value_text.substr(
+      start, bar == std::string::npos ? std::string::npos : bar - start);
+    TRACE_KIND token_value = TRACE_ERROR;
+    if (!Parse_trace_level_token(token, &token_value)) {
+      *err = "Invalid TRACE level '" + Trim_string(token) +
+             "'; use a number, ALL, or names like DEBUG|DATA|OPTIONS";
+      return FALSE;
+    }
+    result = static_cast<TRACE_KIND>(
+      static_cast<INT32>(result) | static_cast<INT32>(token_value));
+    if (bar == std::string::npos) break;
+    start = bar + 1;
+  }
+
+  *out = result;
+  return TRUE;
+}
+
+static BOOL Apply_trace_option(const std::string &key_text,
+                               TRACE_KIND value,
+                               std::string *err) {
+  std::string key = Normalize_option_name(key_text);
+  if (key == "all" || key == "global") {
+    Set_tracing_option(value);
+  } else if (key == "driver") {
+    Set_mod_tracing_option(COMPONENT_DRIVER, value);
+  } else if (key == "symtab") {
+    Set_mod_tracing_option(COMPONENT_SYMTAB, value);
+  } else if (key == "prep" || key == "preprocess") {
+    Set_mod_tracing_option(COMPONENT_PREP, value);
+  } else if (key == "fe" || key == "front_end") {
+    Set_mod_tracing_option(COMPONENT_FE, value);
+  } else if (key == "be" || key == "back_end") {
+    Set_mod_tracing_option(COMPONENT_BE, value);
+    Set_mod_tracing_option(COMPONENT_VHO, value);
+    Set_mod_tracing_option(COMPONENT_LNO, value);
+    Set_mod_tracing_option(COMPONENT_GOPT, value);
+    Set_mod_tracing_option(COMPONENT_IPA, value);
+  } else if (key == "vho") {
+    Set_mod_tracing_option(COMPONENT_VHO, value);
+  } else if (key == "lno") {
+    Set_mod_tracing_option(COMPONENT_LNO, value);
+  } else if (key == "gopt") {
+    Set_mod_tracing_option(COMPONENT_GOPT, value);
+  } else if (key == "ipa") {
+    Set_mod_tracing_option(COMPONENT_IPA, value);
+  } else if (key == "ssa") {
+    Set_mod_tracing_option(COMPONENT_SSA, value);
+  } else if (key == "ssa_conv") {
+    Set_mod_tracing_option(COMPONENT_SSA_CONV, value);
+  } else if (key == "cg" || key == "code_gen") {
+    Set_mod_tracing_option(COMPONENT_CG, value);
+    Set_mod_tracing_option(COMPONENT_CG_IR_IN, value);
+    Set_mod_tracing_option(COMPONENT_CG_CONV, value);
+    Set_mod_tracing_option(COMPONENT_CG_LRA, value);
+    Set_mod_tracing_option(COMPONENT_CG_REGALLOC, value);
+    Set_mod_tracing_option(COMPONENT_CG_LAYOUT, value);
+    Set_mod_tracing_option(COMPONENT_CG_EMIT, value);
+  } else if (key == "cg_ir_in" || key == "ir_in") {
+    Set_mod_tracing_option(COMPONENT_CG_IR_IN, value);
+  } else if (key == "cg_conv" || key == "conv") {
+    Set_mod_tracing_option(COMPONENT_CG_CONV, value);
+  } else if (key == "lra" || key == "cg_lra") {
+    Set_mod_tracing_option(COMPONENT_CG_LRA, value);
+  } else if (key == "regalloc" || key == "cg_regalloc" || key == "gra") {
+    Set_mod_tracing_option(COMPONENT_CG_REGALLOC, value);
+  } else if (key == "layout" || key == "cg_layout") {
+    Set_mod_tracing_option(COMPONENT_CG_LAYOUT, value);
+  } else if (key == "emit" || key == "cg_emit") {
+    Set_mod_tracing_option(COMPONENT_CG_EMIT, value);
+  } else if (key == "asm") {
+    Set_mod_tracing_option(COMPONENT_ASM, value);
+  } else if (key == "ld" || key == "linker") {
+    Set_mod_tracing_option(COMPONENT_LD, value);
+  } else {
+    *err = "Unknown TRACE component '" + key_text +
+           "'; examples: cg, cg_conv, lra, regalloc, fe, be";
+    return FALSE;
+  }
+  return TRUE;
 }
 
 static void Apply_opt_option(COMPILER_CONFIG &conf,
@@ -121,19 +298,32 @@ static BOOL Parse_grouped_driver_option(const std::string &arg,
     opt_arg = "-" + opt_arg.substr(2);
   }
 
-  enum { GROUP_NONE, GROUP_OPT, GROUP_CG, GROUP_PHASE, GROUP_SSA } group = GROUP_NONE;
+  enum { GROUP_NONE, GROUP_OPT, GROUP_CG, GROUP_PHASE, GROUP_SSA, GROUP_TRACE } group = GROUP_NONE;
   if (Split_prefixed_option(opt_arg, "-OPT:", &key, &value_text)) {
     group = GROUP_OPT;
   } else if (Split_prefixed_option(opt_arg, "-CG:", &key, &value_text)) {
     group = GROUP_CG;
   } else if (Split_prefixed_option(opt_arg, "-PHASE:", &key, &value_text)) {
     group = GROUP_PHASE;
+  } else if (Split_prefixed_option(opt_arg, "-TRACE:", &key, &value_text) ||
+             Split_prefixed_option(opt_arg, "-trace:", &key, &value_text)) {
+    group = GROUP_TRACE;
   } else if (opt_arg.find("-ssa=") == 0) {
     key = "ssa";
     value_text = opt_arg.substr(strlen("-ssa="));
     group = GROUP_SSA;
   } else {
     return FALSE;
+  }
+
+  if (group == GROUP_TRACE) {
+    TRACE_KIND trace_value = TRACE_ERROR;
+    if (!Parse_trace_level_value(value_text, &trace_value, err)) {
+      *err += " in option '" + arg + "'";
+      return TRUE;
+    }
+    Apply_trace_option(key, trace_value, err);
+    return TRUE;
   }
 
   INT32 value = 0;
