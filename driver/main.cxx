@@ -224,9 +224,11 @@ static BOOL Apply_trace_option(const std::string &key_text,
     Set_mod_tracing_option(COMPONENT_ASM, value);
   } else if (key == "ld" || key == "linker") {
     Set_mod_tracing_option(COMPONENT_LD, value);
+  } else if (key == "cross" || key == "cross_phase" || key == "xphase") {
+    Set_mod_tracing_option(COMPONENT_CROSS_PHASE, value);
   } else {
     *err = "Unknown TRACE component '" + key_text +
-           "'; examples: cg, cg_conv, lra, regalloc, fe, be";
+           "'; examples: cg, cg_conv, lra, regalloc, fe, be, cross";
     return FALSE;
   }
   return TRUE;
@@ -354,7 +356,32 @@ static BOOL Parse_grouped_driver_option(const std::string &arg,
 int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   args::ArgumentParser parser(
     "OCC, a compiler used for the SYSY language (subset of C) ",
-    "-----------\nAll Rights Reserved to the Compiler Group in Shenzhen Univ.\nContact lu.gt@163.com for details.\n");
+    "-----------\n"
+    "Trace options:\n"
+    "  -TRACE:<component>=<level>\n"
+    "\n"
+    "Supported level forms include decimal/hex numbers, ALL, VERBOSE, DEBUG,\n"
+    "DATA, INFO, PERFORMANCE, INVOCATION, OPTIONS, EMIT_CORE, EMIT_BASIC,\n"
+    "WARN, ERROR, FATAL, CUSTOM1, CUSTOM2, and | combinations.\n"
+    "\n"
+    "Supported component names include cg, cg_conv, lra, regalloc, layout,\n"
+    "emit, fe, be, ssa, driver, symtab, asm, ld, and cross.\n"
+    "\n"
+    "Shell note: quote the pipe form, otherwise the shell treats | as a\n"
+    "pipeline.\n"
+    "\n"
+    "Examples:\n"
+    "  compiler -TRACE:cg=1 input.c\n"
+    "  compiler -TRACE:cg_conv=1 input.c\n"
+    "  compiler -TRACE:lra=ALL input.c\n"
+    "  compiler -TRACE:lra=DEBUG input.c\n"
+    "  compiler '-TRACE:lra=DEBUG|DATA|OPTIONS' input.c\n"
+    "  compiler -TRACE:lra=0xFFFF input.c\n"
+    "  compiler -TRACE:cross=DATA input.c\n"
+    "  compiler -TRACE:cross=EMIT_CORE input.c\n"
+    "\n"
+    "All Rights Reserved to the Compiler Group in Shenzhen Univ.\n"
+    "Contact lu.gt@163.com for details.\n");
   parser.Prog("compiler");
   args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
   args::Group opt_group(parser, "Optimizations",
@@ -723,6 +750,19 @@ void Run_preprocess(COMPILER_CONFIG &config) {
 
 }
 
+static void Trace_cross_phase_ir(const char *stage, FILE_MANAGER *file) {
+  if (Tracing(COMPONENT_CROSS_PHASE, TRACE_DATA) ||
+      Tracing(COMPONENT_CROSS_PHASE, TRACE_EMIT_CORE)) {
+    fprintf(TFile, "\n========== CROSS-PHASE IR DUMP: %s ==========\n", stage);
+    file->Print(TFile);
+    fprintf(TFile, "========== END CROSS-PHASE IR DUMP: %s ==========\n\n", stage);
+  } else if (Tracing(COMPONENT_CROSS_PHASE, TRACE_EMIT_BASIC)) {
+    fprintf(TFile, "\n========== CROSS-PHASE FUNCTION DUMP: %s ==========\n", stage);
+    file->Tables()->Print_functions(TFile);
+    fprintf(TFile, "========== END CROSS-PHASE FUNCTION DUMP: %s ==========\n\n", stage);
+  }
+}
+
 /**
  * Start to run a component
  * @param component
@@ -752,6 +792,7 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
         }
       }
       Maybe_dump_ir("fe", config, File());
+      Trace_cross_phase_ir("after-fe-before-opt", File());
       break;
     }
     case COMPONENT_BE: {
@@ -764,6 +805,7 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
       Compilation_Phase = COMP_PHASE_CG;
       Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Invoking direct component: code generation\n"));
       Maybe_dump_ir("pre-cg", config, File());
+      Trace_cross_phase_ir("after-opt-before-cg", File());
       CG_full_process(config);
       break;
     }

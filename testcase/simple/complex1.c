@@ -1,0 +1,18 @@
+int foo(int a, int b, int c) {
+    int i;
+    int sum = 0;
+    int x = a + b;
+    int y = b * c;
+
+    for (i = 0; i < x; i = i + 1) {
+        sum = sum + i * y;
+        if (sum > 100) {
+            sum = sum - c;
+            y = y + 1;
+        } else {
+            y = y - 1;
+        }
+    }
+
+    return sum + y + a;
+}
