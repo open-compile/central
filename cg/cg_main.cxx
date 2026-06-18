@@ -172,14 +172,6 @@ INT32 CG_full_process(COMPILER_CONFIG &conf) {
   Is_Trace(Tracing(COMPONENT_CG, TRACE_OPTIONS),
            (TFile, "Writing assembly to %s\n", conf.output_file.c_str()));
   AssertThat(conf.output_file.size() > 0, ("Incorrect output file name"));
-  if (File_exists(conf.output_file)) {
-    // delete the file if it exists
-    Is_Trace(Tracing(COMPONENT_CG, TRACE_OPTIONS),
-             (TFile, "Removing old output file under %s\n", conf.output_file.c_str()));
-    if (remove(conf.output_file.c_str()) != 0) {
-      Comp_Failure("Cannot delete file : %s", conf.output_file.c_str());
-    }
-  }
 
   // This should only be run once.
   Cgmon()->Init(); // Creating CG_COMPOSITE, initializing CGIR, EMITTER, BUILDER, REG_ALLOC ....
