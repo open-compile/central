@@ -9,6 +9,7 @@
 #include "cg_composite.h"
 #include "tn.h"
 #include "timing.h"
+#include "target.h"
 
 INLINE BOOL TR_EMIT() {
   return Tracing(COMPONENT_CG_EMIT, TRACE_EMIT_CORE);
@@ -171,6 +172,17 @@ INT32 CG_full_process(COMPILER_CONFIG &conf) {
   // Instruction scheduling etc.,
   Is_Trace(Tracing(COMPONENT_CG, TRACE_OPTIONS),
            (TFile, "Writing assembly to %s\n", conf.output_file.c_str()));
+  const TARGET_INFO &target = Target_info(conf.target_arch);
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_OPTIONS),
+           (TFile,
+            "Code generation target: %s triple=%s ptr=%u word=%u stack_align=%u\n",
+            target.name, target.triple, target.pointer_size,
+            target.word_size, target.stack_alignment));
+  if (!target.codegen_supported) {
+    Comp_Failure("Target %s is selected, but code generation is not implemented "
+                 "yet. Current builder/emitter support armv8-a32 only.",
+                 target.name);
+  }
   AssertThat(conf.output_file.size() > 0, ("Incorrect output file name"));
 
   // This should only be run once.

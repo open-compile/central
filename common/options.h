@@ -14,6 +14,7 @@
 #define _OCC_OPTIONS_H_
 
 #include "host.h"
+#include "target.h"
 #include <string>
 #include <vector>
 #include <map>
@@ -108,6 +109,7 @@ public:
   BOOL   run_prep    = FALSE;
   BOOL   opt_bin     = TRUE;
   BOOL   timing      = FALSE;
+  TARGET_ARCH target_arch = TARGET_ARCH_ARMV8_A32;
   STRVEC files;
   STRVEC assemble_files;
   STRVEC object_files;
