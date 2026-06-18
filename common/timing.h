@@ -5,6 +5,8 @@
 #ifndef TIMING_H
 #define TIMING_H
 
+#include <stdio.h>
+
 
 /* Provide identifiers for the various time accumulators supplied: */
 typedef enum {
@@ -121,5 +123,18 @@ typedef enum {
 
 	T_LAST			/* Last index defined */
 } TIMER_ID;
+
+struct TIMING_SNAPSHOT {
+  double wall_sec;
+  double user_sec;
+  double sys_sec;
+  long   rss_kb;
+  long   peak_rss_kb;
+};
+
+TIMING_SNAPSHOT Timing_snapshot();
+void Timing_trace_stage(FILE *file, const char *stage,
+                        const TIMING_SNAPSHOT &start,
+                        const TIMING_SNAPSHOT &end);
 
 #endif //TIMING_H

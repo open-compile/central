@@ -107,6 +107,7 @@ public:
   BOOL   fe_only     = FALSE;
   BOOL   run_prep    = FALSE;
   BOOL   opt_bin     = TRUE;
+  BOOL   timing      = FALSE;
   STRVEC files;
   STRVEC assemble_files;
   STRVEC object_files;

@@ -22,6 +22,7 @@
 #include <map>
 #include "cgir.h"
 #include "ir_io.h"
+#include "timing.h"
 
 IR_ITER &Opt_lower_if_stmt(IR_ITER &stmt, const PU_INFO *func, TREE *tree,
                            char *name_buf);
@@ -39,6 +40,13 @@ IR_ITER Opt_lower_div_op(IR_ITER &expr, TREE *tree);
 using std::vector;
 using std::map;
 
+static void Trace_opt_timing(COMPILER_CONFIG &conf, const char *stage,
+                             const TIMING_SNAPSHOT &start) {
+  if (conf.timing) {
+    Timing_trace_stage(TFile, stage, start, Timing_snapshot());
+  }
+}
+
 INT32 BE_MAIN_NAME(INT32 argc, char **argv) {
   AssertThat(argc > 1, ("not enough arguments"));
   return 0;
@@ -51,15 +59,20 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
   Opt_verify(File(), LEVEL_VHIGH, conf);
   // Lowering functions in side the current file
 
+  TIMING_SNAPSHOT opt_stage_start;
+  if (conf.timing) opt_stage_start = Timing_snapshot();
   Opt_lower(File(), LEVEL_HIGH, conf);
   Opt_verify(File(), LEVEL_HIGH, conf);
   Maybe_dump_ir("opt-high", conf, File());
+  Trace_opt_timing(conf, "opt-high", opt_stage_start);
 
   // If OPT >= 3, enable IPA, LNO ....
 
+  if (conf.timing) opt_stage_start = Timing_snapshot();
   Opt_lower(File(), LEVEL_MID, conf);
   Opt_verify(File(), LEVEL_MID, conf);
   Maybe_dump_ir("opt-mid", conf, File());
+  Trace_opt_timing(conf, "opt-mid", opt_stage_start);
   // Optimizations on High IR
 
   // Optimizations on Mid IR, SSA, DCE, CSE ...
@@ -77,6 +90,7 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
   }
 
   if (conf.opt_cfg.run_ssa_phase) {
+    if (conf.timing) opt_stage_start = Timing_snapshot();
     // After middle level lowering & simple opt. transform to SSA and continue for opt.
     Opt_build_ssa_all(File(), LEVEL_MID, conf);
 
@@ -87,24 +101,31 @@ INT32 BE_EXTERNAL_MAIN_NAME(COMPILER_CONFIG &conf) {
     // 析构 SSA（phi → copy），恢复成普通 IR 继续降级
     Opt_destruct_ssa_all(File(), LEVEL_MID, conf);
     Maybe_dump_ir("opt-after-ssa", conf, File());
+    Trace_opt_timing(conf, "ssa", opt_stage_start);
   } else {
     Is_Trace(Tracing(COMPONENT_BE, TRACE_OPTIONS),
              (TFile, "Skipping SSA optimization pipeline\n"));
   }
 
+  if (conf.timing) opt_stage_start = Timing_snapshot();
   Opt_lower(File(), LEVEL_LOW, conf);
   Opt_verify(File(), LEVEL_LOW, conf);
   Maybe_dump_ir("opt-low", conf, File());
+  Trace_opt_timing(conf, "opt-low", opt_stage_start);
   // Optimizations done in low IR, not much though
 
+  if (conf.timing) opt_stage_start = Timing_snapshot();
   Opt_lower(File(), LEVEL_VLOW, conf);
   Opt_verify(File(), LEVEL_VLOW, conf);
   Maybe_dump_ir("opt-vlow", conf, File());
+  Trace_opt_timing(conf, "opt-vlow", opt_stage_start);
 
   // To CGIR
+  if (conf.timing) opt_stage_start = Timing_snapshot();
   Opt_lower(File(), LEVEL_CGIR, conf);
   Opt_verify(File(), LEVEL_CGIR, conf);
   Maybe_dump_ir("opt-cgir", conf, File());
+  Trace_opt_timing(conf, "opt-cgir", opt_stage_start);
 
   if(Tracing(COMPONENT_BE, TRACE_EMIT_CORE)) {
     // Dump the tree again after all optimizations

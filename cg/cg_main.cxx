@@ -8,9 +8,17 @@
 #include "cg_pass.h"
 #include "cg_composite.h"
 #include "tn.h"
+#include "timing.h"
 
 INLINE BOOL TR_EMIT() {
   return Tracing(COMPONENT_CG_EMIT, TRACE_EMIT_CORE);
+}
+
+static void Trace_cg_timing(COMPILER_CONFIG &config, const char *stage,
+                            const TIMING_SNAPSHOT &start) {
+  if (config.timing) {
+    Timing_trace_stage(TFile, stage, start, Timing_snapshot());
+  }
 }
 
 // Single instance for the program to use, for now.
@@ -74,8 +82,12 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *outfile
     CG_CFG    *function_cgir = main_cgir->Get_cg_cfg(func_sym);
     main_cgir->Set_current_cgir(function_cgir, func_sym);
 
+    TIMING_SNAPSHOT cg_stage_start;
+
     // Build pass
+    if (config.timing) cg_stage_start = Timing_snapshot();
     build_cg_pass.Run(pu_info);
+    Trace_cg_timing(config, "cg-build", cg_stage_start);
     if (Tracing(COMPONENT_CG_CONV, TRACE_DATA)) {
       // Printing the cgir exapnsion result.
       main_cgir->Print(pu_info->proc_sym, TFile);
@@ -87,7 +99,9 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *outfile
     //   2) 调 Reg_alloc().Register_allocate(pu_info)  (只剩 layout)
     // 当前是直接调 Register_allocate, 内部走 naive linear scan.
     if (config.cg_cfg.enable_lra) {
+      if (config.timing) cg_stage_start = Timing_snapshot();
       lra_pass.Run(pu_info);
+      Trace_cg_timing(config, "lra", cg_stage_start);
       if (Tracing(COMPONENT_CG_LRA, TRACE_DATA)) {
         // Printing the lra results
         lra_pass.Print(TFile);
@@ -99,7 +113,9 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *outfile
     }
 
     if (config.cg_cfg.enable_regalloc) {
+      if (config.timing) cg_stage_start = Timing_snapshot();
       reg_alloc_pass.Run(pu_info);
+      Trace_cg_timing(config, "regalloc", cg_stage_start);
       Cgmon()->Builder().Build_def_use();
       if (Tracing(COMPONENT_CG_REGALLOC, TRACE_DATA)) {
         // Printing the lra results
@@ -111,7 +127,9 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *outfile
     }
     
     // Frame Layout
+    if (config.timing) cg_stage_start = Timing_snapshot();
     layout_pass.Run(pu_info);
+    Trace_cg_timing(config, "layout", cg_stage_start);
     Cgmon()->Builder().Build_def_use();
     if(Tracing(COMPONENT_CG_LAYOUT, TRACE_DATA)) {
       // Printing the layout table.
@@ -133,7 +151,9 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *outfile
     }
 
     // Emit pass
+    if (config.timing) cg_stage_start = Timing_snapshot();
     emit_pass.Run(pu_info);
+    Trace_cg_timing(config, "emit", cg_stage_start);
 
     // Cleanup
     main_cgir->Cleanup_function_TN();

@@ -6,6 +6,7 @@
 #include "be_export.h"
 #include "main.h"
 #include "file_util.h"
+#include "timing.h"
 #include <set>
 #include <vector>
 #include <string>
@@ -299,6 +300,10 @@ static BOOL Parse_grouped_driver_option(const std::string &arg,
   if (opt_arg.find("--") == 0) {
     opt_arg = "-" + opt_arg.substr(2);
   }
+  if (opt_arg == "-timing") {
+    conf.timing = TRUE;
+    return TRUE;
+  }
 
   enum { GROUP_NONE, GROUP_OPT, GROUP_CG, GROUP_PHASE, GROUP_SSA, GROUP_TRACE } group = GROUP_NONE;
   if (Split_prefixed_option(opt_arg, "-OPT:", &key, &value_text)) {
@@ -359,6 +364,7 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     "-----------\n"
     "Trace options:\n"
     "  -TRACE:<component>=<level>\n"
+    "  -timing or --timing: print wall/user/sys time and RSS per stage\n"
     "\n"
     "Supported level forms include decimal/hex numbers, ALL, VERBOSE, DEBUG,\n"
     "DATA, INFO, PERFORMANCE, INVOCATION, OPTIONS, EMIT_CORE, EMIT_BASIC,\n"
@@ -413,6 +419,9 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   args::Flag real_preprocess(debug_group, "real_preprocess",
                             "Run the preprocessor",
                             {"realprep"});
+  args::Flag timing(debug_group, "timing",
+                    "Trace timing and memory usage for compiler stages",
+                    {"timing"});
   args::Flag front_end_only(debug_group, "feonly",
                             "Run up to front-end, skip opt and further stages",
                             {"feonly"});
@@ -630,6 +639,9 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Run real preprocessing \n"));
     conf.run_prep = TRUE;
   }
+  if (timing) {
+    conf.timing = TRUE;
+  }
 
   // ---- 二进制 IR dump / load 选项解析 (Step 10) ----
   for (auto const &kv : args::get(dump_ir_after)) {
@@ -763,6 +775,16 @@ static void Trace_cross_phase_ir(const char *stage, FILE_MANAGER *file) {
   }
 }
 
+static const char *Component_timing_name(COMPONENTS_WHOLE component) {
+  switch (component) {
+    case COMPONENT_FE: return "fe";
+    case COMPONENT_BE: return "be";
+    case COMPONENT_CG: return "cg";
+    case COMPONENT_ASM: return "asm";
+    default: return "component";
+  }
+}
+
 /**
  * Start to run a component
  * @param component
@@ -771,6 +793,10 @@ static void Trace_cross_phase_ir(const char *stage, FILE_MANAGER *file) {
 INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
   Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_INVOCATION), (TFile, "Before running component [%d]\n", component));
   AssertThat(config.files.size() > 0, ("Failed to find enough files to process"));
+  TIMING_SNAPSHOT timing_start;
+  if (config.timing) {
+    timing_start = Timing_snapshot();
+  }
   const char **operands = new const char *[10];
   for (INT32 i = 0; i < 10; i ++) {
     operands[i] = NULL;
@@ -842,6 +868,10 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
     }
     default:
       break;
+  }
+  if (config.timing) {
+    Timing_trace_stage(TFile, Component_timing_name(component), timing_start,
+                       Timing_snapshot());
   }
   Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_INVOCATION), (TFile, "After running component [%d]\n", component));
   return 0;
