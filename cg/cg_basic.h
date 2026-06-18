@@ -14,7 +14,6 @@ enum CGOPC {
 #undef CGOPDEF
 };
 
-
 enum CGOPC_KIND {
   CGOPK_LDST,
   CGOPK_UBR,
@@ -238,7 +237,6 @@ public:
   UINT32 getFlags() { return _flags; };
   UINT32 getTreeNodeId() const { return _tree_node_id; }
   UINT16 getVariant() const { return variant; }
-
   UINT16 getSpillGenerated() const {
     return spill_generated;
   }
@@ -246,6 +244,7 @@ public:
   void setSpillGenerated(UINT16 spillGenerated) {
     spill_generated = spillGenerated;
   }
+  
 };
 
 

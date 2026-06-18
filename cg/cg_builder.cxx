@@ -845,39 +845,23 @@ void CGIR_BUILDER::Build_def_use() {
          stmt_it != cgbb->End_stmt(); stmt_it++, stmt_id++) {
       CGOP *cgop = (*stmt_it);
       Is_Trace(TR_BUILD(),
-              (TFile, "Def-use builder: %s\n",
+               (TFile, "Def-use builder: %s\n",
                 Get_cg_opc_info(cgop->getOpcode())->ins_token));
-      CGOPC_INFO *opc_info = Get_cg_opc_info(cgop->getOpcode());
-      UINT32 res_count = opc_info->getNRes();
-      CGOPR_KIND slot_kinds[3] = {
-        opc_info->getOp1(), opc_info->getOp2(), opc_info->getOp3()
-      };
 
-      AssertThat(res_count  <= 1, ("operand count must be 0 or 1."));
+      TN_SET defs = cgir->Stmt_defs(cgop);
+      TN_SET uses = cgir->Stmt_uses(cgop);
 
-      for (UINT32 slot = 0; slot < 3; ++slot) {
-        if (slot_kinds[slot] == CGOPR_N) continue;
-        // this is reading all non-zero operands by default here.
-        TN_IDX cgoper = cgop->getResOpnd()[slot];
-        TN    *tn     = cgir->TN_tn(cgoper);
-        if (cgoper == 0) continue;
-        tn_freq_map[cgoper]++;
+      cgbb->Defs().insert(defs.begin(), defs.end());
+      cgbb->Stmt_defs(stmt_id).insert(defs.begin(), defs.end());
+      
+      cgbb->Uses().insert(uses.begin(), uses.end());
+      cgbb->Stmt_uses(stmt_id).insert(uses.begin(), uses.end());
 
-        // check if this is constant
-        
-        if (slot < res_count && opc_info->isWriteToRd()) {
-          cgbb->Defs().emplace(cgoper);
-          cgbb->Stmt_defs(stmt_id).emplace(cgoper);
-	  AssertThat((!TN_is_label(tn)) && (!TN_is_constant(tn)), ("Invalid tn on res %s", (cgop->Print(TFile), "")));
-        } else {
-          // check if it is constant/label. these two need no allocation
-          if (TN_is_constant(tn) || TN_is_label(tn)) {
-	    continue;
-          }
-          // TN_is_dedicated(tn) || TN_is_preallocated(tn) are going to be calculated as use.
-          cgbb->Uses().emplace(cgoper);
-          cgbb->Stmt_uses(stmt_id).emplace(cgoper);
-        }
+      for (TN_IDX tnidx: defs) {
+	tn_freq_map[tnidx]++;
+      }
+      for (TN_IDX tnidx: uses) {
+	tn_freq_map[tnidx]++;
       }
     }
   }

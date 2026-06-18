@@ -30,7 +30,9 @@ using std::vector;
 using std::map;
 using std::set;
 using IR_TN_MAP = std::unordered_map<IRNODE_IDX, TN*>;
-using TN_IR_MAP = std::unordered_map<TN*, IRNODE_IDX>;
+using TN_IR_MAP = std::unordered_map<TN *, IRNODE_IDX>;
+using TN_LIVERANGE = std::pair<UINT32, UINT32>;  // (start_instruction, end_instruction)
+
 
 typedef set<TN_IDX>    TN_SET;
 typedef vector<TN_SET> TN_SET_VEC;
@@ -291,6 +293,8 @@ public:
   void          Check_TN_Vec_Size();
   void          Cleanup_function_TN();
   void          Start_function_TN();
+  TN_SET        Stmt_defs(CGOP *cgop);
+  TN_SET        Stmt_uses(CGOP *cgop);
 
   // Temporary Node related...
   vector<TN *> &Get_tn_table() {  return _global_tn_vec;  };
@@ -318,6 +322,23 @@ public:
   }
 };
 
+struct TN_LIVE_RANGE {
+    TN_IDX tn;
+    INT32  first_def_bb;     // BB of first definition
+    INT32  first_def_stmt;   // Statement index of first definition  
+    INT32  last_use_bb;      // BB of last use
+    INT32  last_use_stmt;    // Statement index of last use
+    BOOL   is_global;         // Spans multiple BBs?
+};
+
+// Or alternatively, flat with mapping
+struct StmtLiveness {
+  CFG_BB_IDX bb;
+  UINT32 stmt;
+  TN_SET live_in;
+  TN_SET live_out;
+};
+
 /**
  * Live range analyze
  */
@@ -327,6 +348,14 @@ private:
   ST_IDX                     _cur_sym;
   TN_SET_VEC                 _live_ins;
   TN_SET_VEC                 _live_outs;
+  // NEW: Statement-level (2D vectors)
+  vector<TN_SET_VEC>         _stmt_live_ins;   // [bb][stmt]
+  vector<TN_SET_VEC>         _stmt_live_outs;  // [bb][stmt]
+  vector<StmtLiveness>       _stmt_liveness;
+  vector<TN_SET>             _flat_live_ins;
+  vector<TN_SET>             _flat_live_outs;
+  vector<TN_LIVE_RANGE>      _live_ranges;
+  map<TN_IDX, TN_LIVE_RANGE> _range_map;
 public:
   void Init(CGIR *cg) {
     _cur_sym = 0;
@@ -341,6 +370,10 @@ public:
     return _cgir;
   }
   void            Analyze_live_range(PU_INFO *info);
+  void            Analyze_BB_Level(CG_CFG *cfg, UINT32 bb_cnt);
+  void            Analyze_Stmt_Level(CG_CFG *cfg, UINT32 bb_cnt);
+  void            Analyze_live_range_flat(PU_INFO *info);
+  void            Build_live_ranges(CG_CFG *cfg, UINT32 bb_cnt);
   // 调试输出: 把每个 TN 的 live range 打到 FILE*; 无副作用
   void            Print(FILE *file = stderr);
 };

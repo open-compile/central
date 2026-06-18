@@ -8,9 +8,11 @@
 #include <unordered_map>
 #include <vector>
 
-using std::vector;
-using std::unordered_set;
 using std::unordered_map;
+using std::unordered_set;
+using std::vector;
+#include <algorithm>
+
 
 INLINE BOOL TR_LRA() {
   return Tracing(COMPONENT_CG_LRA, TRACE_DATA);
@@ -74,6 +76,78 @@ void Print_tn_set_vec(FILE *file, const TN_SET_VEC &tnvecs) {
   }
 }
 
+
+// for future compatibility with SIMD/SIMT
+TN_SET CGIR::Stmt_defs(CGOP *cgop) {
+  TN_SET defs = {};
+  CGOPC_INFO *opc_info = Get_cg_opc_info(cgop->getOpcode());
+  UINT32 res_count = opc_info->getNRes();
+  CGOPR_KIND slot_kinds[3] = {
+    opc_info->getOp1(), opc_info->getOp2(), opc_info->getOp3()
+  };
+
+  AssertThat(res_count  <= 1, ("operand count must be 0 or 1."));
+
+  for (UINT32 slot = 0; slot < 3; ++slot) {
+    if (slot_kinds[slot] == CGOPR_N) continue;
+    // this is reading all non-zero operands by default here.
+    TN_IDX cgoper = cgop->getResOpnd()[slot];
+    TN    *tn     = this->TN_tn(cgoper);
+    if (cgoper == 0) continue;
+
+    // check if this is constant
+        
+    if (slot < res_count && opc_info->isWriteToRd()) {
+      AssertThat((!TN_is_label(tn)) && (!TN_is_constant(tn)), ("Invalid tn on res %s", (cgop->Print(TFile), "")));
+      defs.insert(cgoper);
+    } else {
+      // check if it is constant/label. these two need no allocation
+      if (TN_is_constant(tn) || TN_is_label(tn)) {
+	continue;
+      }
+      // TN_is_dedicated(tn) || TN_is_preallocated(tn) are going to be calculated as use.
+      //uses.insert(cgoper);
+    }
+  }
+  return defs;
+}
+
+
+TN_SET CGIR::Stmt_uses(CGOP *cgop) {
+  TN_SET uses = {};
+  CGOPC_INFO *opc_info = Get_cg_opc_info(cgop->getOpcode());
+  UINT32 res_count = opc_info->getNRes();
+  CGOPR_KIND slot_kinds[3] = {
+    opc_info->getOp1(), opc_info->getOp2(), opc_info->getOp3()
+  };
+
+  AssertThat(res_count  <= 1, ("operand count must be 0 or 1."));
+
+  for (UINT32 slot = 0; slot < 3; ++slot) {
+    if (slot_kinds[slot] == CGOPR_N) continue;
+    // this is reading all non-zero operands by default here.
+    TN_IDX cgoper = cgop->getResOpnd()[slot];
+    TN    *tn     = this->TN_tn(cgoper);
+    if (cgoper == 0) continue;
+
+    // check if this is constant
+        
+    if (slot < res_count && opc_info->isWriteToRd()) {
+      AssertThat((!TN_is_label(tn)) && (!TN_is_constant(tn)), ("Invalid tn on res %s", (cgop->Print(TFile), "")));
+      // def not use.
+    } else {
+      // check if it is constant/label. these two need no allocation
+      if (TN_is_constant(tn) || TN_is_label(tn)) {
+	continue;
+      }
+      // TN_is_dedicated(tn) || TN_is_preallocated(tn) are going to be calculated as use.
+      uses.insert(cgoper);
+    }
+  }
+  return uses;
+}
+
+
 /**
  * Setting up CGIR preparation,
  * @param cgir CGIR module
@@ -132,7 +206,7 @@ TN_IDX CGIR::Get_TN_by_ir_node(IR_ITER node, CFG_BB_IDX cur_bb) {
  *
  * 详细 spec 见 docs/cg.spec.md §3 / §4
  */
-void CG_LIVE_RANGE::Analyze_live_range(PU_INFO *info) {
+void CG_LIVE_RANGE::Analyze_BB_Level(CG_CFG *cfg, UINT32 bb_cnt) {
   // TODO(live-range): 当前是 stub; 真正的实现需要:
   //   1. 反向数据流分析 (Reverse Dataflow Analysis):
   //      - gen[BB] = TN defined in BB
@@ -142,20 +216,11 @@ void CG_LIVE_RANGE::Analyze_live_range(PU_INFO *info) {
   //   2. 走不动点直到稳定
   //   3. 给每个 TN 拼出 [first_def, last_use] 的区间
   // 见 cg.spec.md
-  AssertThat(info != nullptr, ("PU_INFO is null"));
-  AssertThat(Cgir()->Cfg() != nullptr, ("CGIR cfg not initialized"));
+  AssertThat(cfg != nullptr, ("CGIR cfg not initialized"));
 
   CGIR *cgir = Cgir();
-  CG_CFG *cfg = cgir->Cfg();
-  UINT32 bb_cnt = cgir->Cfg()->Size();
   Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_WARN),
            (TFile, "[CG-LRA] Analyze_live_range, cfgbb count = %u \n", bb_cnt));
-
-  // Setup current function sym(changed to another function);
-  _cur_sym = info->Proc_sym();
-  AssertThat(_cur_sym == Cgir()->Current_func_sym(), 
-             ("Cfg and lra is out of sync, visiting different funcs, %d, %d", 
-              _cur_sym, Cgir()->Current_func_sym()));
 
   // Clean up data structure for re-calculation          
   _live_ins.clear();           
@@ -237,6 +302,268 @@ void CG_LIVE_RANGE::Analyze_live_range(PU_INFO *info) {
     fprintf(TFile, "\n");
   }
   // visit all bb.
+}
+
+
+void CG_LIVE_RANGE::Analyze_live_range(PU_INFO *info) {
+    AssertThat(info != nullptr, ("PU_INFO is null"));
+    AssertThat(Cgir()->Cfg() != nullptr, ("CGIR cfg not initialized"));
+
+    CGIR *cgir = Cgir();
+    CG_CFG *cfg = cgir->Cfg();
+    UINT32 bb_cnt = cgir->Cfg()->Size();
+
+    Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_WARN),
+             (TFile, "[CG-LRA] Analyze_live_range, cfgbb count = %u \n", bb_cnt));
+
+    _cur_sym = info->Proc_sym();
+    AssertThat(_cur_sym == Cgir()->Current_func_sym(), 
+               ("Cfg and lra is out of sync"));
+
+    // Phase 1: BB-level analysis (keep your existing code)
+    Analyze_BB_Level(cfg, bb_cnt);
+    
+    // Phase 2: Statement-level analysis (NEW)
+    Analyze_Stmt_Level(cfg, bb_cnt);
+    
+    // Phase 3: Build live ranges per TN (NEW)
+    Build_live_ranges(cfg, bb_cnt);
+}
+
+void CG_LIVE_RANGE::Analyze_Stmt_Level(CG_CFG *cfg, UINT32 bb_cnt) {
+  CGIR *cgir = Cgir();
+  
+  // Initialize statement-level structures
+  _stmt_live_ins.clear();
+  _stmt_live_ins.resize(bb_cnt);
+  _stmt_live_outs.clear();
+  _stmt_live_outs.resize(bb_cnt);
+    
+  for (UINT32 bb = 0; bb < bb_cnt; bb++) {
+    CGBB *cur_bb = cfg->BB(bb);
+    UINT32 stmt_count = cur_bb->Get_stmt_count();  // Number of statements
+        
+    _stmt_live_ins[bb].resize(stmt_count);
+    _stmt_live_outs[bb].resize(stmt_count);
+        
+    if (stmt_count == 0) continue;
+        
+    // Start with BB live_out for the last statement
+    TN_SET current_live = _live_outs[bb];  // From Phase 1
+        
+    // Walk backwards through statements
+    for (INT32 stmt = (INT32)stmt_count - 1; stmt >= 0; stmt--) {
+      CGOP *cur_stmt = cur_bb->Get_stmt(stmt);
+            
+      // Statement live-out
+      _stmt_live_outs[bb][stmt] = current_live;
+            
+      // Statement live-in = uses ∪ (live_out - defs)
+      TN_SET stmt_live_in = current_live;
+
+
+      Is_Trace(TR_LRA(),
+               (TFile, "Def-use builder: %s\n",
+                       Get_cg_opc_info(cur_stmt->getOpcode())->ins_token));
+          
+      // Remove definitions (these are killed)
+      const TN_SET &stmt_defs = cgir->Stmt_defs(cur_stmt);
+      for (TN_IDX d : stmt_defs) {
+        stmt_live_in.erase(d);
+      }
+            
+      // Add uses (these become live)
+      const TN_SET &stmt_uses = cgir->Stmt_uses(cur_stmt);
+      stmt_live_in.insert(stmt_uses.begin(), stmt_uses.end());
+            
+      _stmt_live_ins[bb][stmt] = stmt_live_in;
+            
+      // This becomes live-out for previous statement
+      current_live = stmt_live_in;
+    }
+        
+    // Sanity check: live_in of first stmt should ⊆ BB live_in
+    if (stmt_count > 0) {
+      BOOL is_subset = std::includes(_live_ins[bb].begin(), _live_ins[bb].end(),
+				     _stmt_live_ins[bb][0].begin(), _stmt_live_ins[bb][0].end());
+      AssertThat(is_subset, ("Stmt-level live_in doesn't match BB-level, bb_idx = %d", cur_bb));
+    }
+  }
+}
+
+
+
+void CG_LIVE_RANGE::Build_live_ranges(CG_CFG *cfg, UINT32 bb_cnt) {
+  CGIR *cgir = Cgir();
+  _live_ranges.clear();
+    
+  // Temporary map: TN → live range info
+  std::map<TN_IDX, TN_LIVE_RANGE> &range_map = _range_map;
+  range_map.clear();
+    
+  for (UINT32 bb = 0; bb < bb_cnt; bb++) {
+    CGBB *cur_bb = cfg->BB(bb);
+    UINT32 stmt_count = cur_bb->Get_stmt_count();
+        
+    for (UINT32 stmt = 0; stmt < stmt_count; stmt++) {
+      CGOP *cur_stmt = cur_bb->Get_stmt(stmt);
+            
+      // Track definitions (start of live range)
+      const TN_SET &defs = cgir->Stmt_defs(cur_stmt);
+      for (TN_IDX tn : defs) {
+        auto it = range_map.find(tn);
+        if (it == range_map.end()) {
+          // First definition seen
+          range_map[tn] = {tn, (INT32)bb, (INT32)stmt, 
+                           (INT32)bb, (INT32)stmt, FALSE};
+        } else {
+          // Update first_def if this is earlier
+          if (bb < it->second.first_def_bb ||
+              (bb == it->second.first_def_bb && 
+               stmt < it->second.first_def_stmt)) {
+            it->second.first_def_bb = bb;
+            it->second.first_def_stmt = stmt;
+          }
+        }
+      }
+            
+      // Track uses from live-in set (end of live range)
+      const TN_SET &live_in = _stmt_live_ins[bb][stmt];
+      for (TN_IDX tn : live_in) {
+        auto it = range_map.find(tn);
+        if (it == range_map.end()) {
+          // Used but not defined in this function (parameter)
+          range_map[tn] = {tn, (INT32)bb, (INT32)stmt,
+                           (INT32)bb, (INT32)stmt, FALSE};
+        } else {
+          // Update last_use if this is later
+          if (bb > it->second.last_use_bb ||
+              (bb == it->second.last_use_bb && 
+               stmt > it->second.last_use_stmt)) {
+            it->second.last_use_bb = bb;
+            it->second.last_use_stmt = stmt;
+          }
+        }
+      }
+    }
+        
+    // Also check variables live-out of BB
+    for (TN_IDX tn : _live_outs[bb]) {
+      auto it = range_map.find(tn);
+      if (it != range_map.end()) {
+        // Variable lives to end of this BB
+        if (bb > it->second.last_use_bb) {
+          it->second.last_use_bb = bb;
+          it->second.last_use_stmt = stmt_count - 1;  // Last stmt
+        }
+      }
+    }
+  }
+    
+  // Mark global variables
+  for (auto& [tn, range] : range_map) {
+    if (range.first_def_bb != range.last_use_bb) {
+      range.is_global = TRUE;
+    }
+    _live_ranges.push_back(range);
+  }
+}
+
+
+void CG_LIVE_RANGE::Analyze_live_range_flat(PU_INFO *info) {
+  // ... setup code same as before ...
+
+  AssertThat(info != nullptr, ("PU_INFO is null"));
+  AssertThat(Cgir()->Cfg() != nullptr, ("CGIR cfg not initialized"));
+
+  CGIR *cgir = Cgir();
+  CG_CFG *cfg = cgir->Cfg();
+  UINT32 bb_cnt = cgir->Cfg()->Size();
+
+  Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_WARN),
+           (TFile, "[CG-LRA] Analyze_live_range, cfgbb count = %u \n", bb_cnt));
+
+  _cur_sym = info->Proc_sym();
+  AssertThat(_cur_sym == Cgir()->Current_func_sym(),
+             ("Cfg and lra is out of sync"));
+  
+  // Flatten all statements
+  struct FlatPoint {
+    UINT32 bb;
+    UINT32 stmt;
+    CGOP *stmt_ptr;
+  };
+    
+  std::vector<FlatPoint> all_points;
+  for (UINT32 bb = 0; bb < bb_cnt; bb++) {
+    CGBB *cur_bb = cfg->BB(bb);
+    for (UINT32 stmt = 0; stmt < cur_bb->Get_stmt_count(); stmt++) {
+      CGOP *cur_stmt = cur_bb->Get_stmt(stmt);
+      all_points.push_back({bb, stmt, cur_stmt});
+    }
+  }
+    
+  UINT32 total_points = all_points.size();
+  vector<TN_SET> live_ins(total_points);
+  vector<TN_SET> live_outs(total_points);
+    
+  // Build successor mapping for flat points
+  std::vector<std::vector<UINT32>> successors(total_points);
+  for (UINT32 i = 0; i < total_points; i++) {
+    if (i + 1 < total_points) {
+      // Check if next point is in same BB
+      if (all_points[i].bb == all_points[i+1].bb) {
+        successors[i].push_back(i + 1);
+      } else {
+        // End of BB - connect to successors' first statements
+        UINT32 bb = all_points[i].bb;
+        for (auto succ_bb : cfg->Succs(bb)) {
+          // Find first point of succ_bb
+          for (UINT32 j = 0; j < total_points; j++) {
+            if (all_points[j].bb == succ_bb) {
+              successors[i].push_back(j);
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+    
+  // Now run dataflow on flat points (same algorithm)
+  BOOL changed = TRUE;
+  INT32 iter = 0;
+  while (changed) {
+    changed = FALSE;
+    iter++;
+        
+    for (INT32 i = total_points - 1; i >= 0; i--) {
+      TN_SET old_in = live_ins[i];
+            
+      // live_out = ∪ live_in(succ)
+      TN_SET new_live_out;
+      for (UINT32 succ : successors[i]) {
+        new_live_out.insert(live_ins[succ].begin(), live_ins[succ].end());
+      }
+      live_outs[i] = new_live_out;
+            
+      // live_in = use ∪ (live_out - def)
+      TN_SET new_live_in = live_outs[i];
+      for (TN_IDX d : cgir->Stmt_defs(all_points[i].stmt_ptr)) {
+        new_live_in.erase(d);
+      }
+      const TN_SET uses = cgir->Stmt_uses(all_points[i].stmt_ptr);
+      new_live_in.insert(uses.begin(), uses.end());
+            
+      live_ins[i] = new_live_in;
+            
+      if (old_in != live_ins[i]) {
+        changed = TRUE;
+      }
+    }
+  }
+  _flat_live_ins = live_ins;
+  _flat_live_outs = live_outs;
 }
 
 void CG_LIVE_RANGE::Print(FILE *file) {
