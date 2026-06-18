@@ -33,10 +33,6 @@ using IR_TN_MAP = std::unordered_map<IRNODE_IDX, TN*>;
 using TN_IR_MAP = std::unordered_map<TN *, IRNODE_IDX>;
 using TN_LIVERANGE = std::pair<UINT32, UINT32>;  // (start_instruction, end_instruction)
 
-
-typedef set<TN_IDX>    TN_SET;
-typedef vector<TN_SET> TN_SET_VEC;
-
 template <typename NODE_TYPE> class CFG_BB_BASE;
 template <typename NODE_TYPE> class CG_CFG_BB_BASE;
 
@@ -322,62 +318,6 @@ public:
   }
 };
 
-struct TN_LIVE_RANGE {
-    TN_IDX tn;
-    INT32  first_def_bb;     // BB of first definition
-    INT32  first_def_stmt;   // Statement index of first definition  
-    INT32  last_use_bb;      // BB of last use
-    INT32  last_use_stmt;    // Statement index of last use
-    BOOL   is_global;         // Spans multiple BBs?
-};
-
-// Or alternatively, flat with mapping
-struct StmtLiveness {
-  CFG_BB_IDX bb;
-  UINT32 stmt;
-  TN_SET live_in;
-  TN_SET live_out;
-};
-
-/**
- * Live range analyze
- */
-class CG_LIVE_RANGE {
-private:
-  CGIR *_cgir = nullptr;
-  ST_IDX                     _cur_sym;
-  TN_SET_VEC                 _live_ins;
-  TN_SET_VEC                 _live_outs;
-  // NEW: Statement-level (2D vectors)
-  vector<TN_SET_VEC>         _stmt_live_ins;   // [bb][stmt]
-  vector<TN_SET_VEC>         _stmt_live_outs;  // [bb][stmt]
-  vector<StmtLiveness>       _stmt_liveness;
-  vector<TN_SET>             _flat_live_ins;
-  vector<TN_SET>             _flat_live_outs;
-  vector<TN_LIVE_RANGE>      _live_ranges;
-  map<TN_IDX, TN_LIVE_RANGE> _range_map;
-public:
-  void Init(CGIR *cg) {
-    _cur_sym = 0;
-    _cgir    = cg;
-    AssertThat(cg != nullptr, ("Cgir must be a valid CGIR"));
-    _live_ins.clear();
-    _live_outs.clear();
-  }
-  CGIR *Cgir() {
-    AssertThat(_cgir != nullptr,
-      ("Cgir is not initialized in Live range analysis"));
-    return _cgir;
-  }
-  void            Analyze_live_range(PU_INFO *info);
-  void            Analyze_BB_Level(CG_CFG *cfg, UINT32 bb_cnt);
-  void            Analyze_Stmt_Level(CG_CFG *cfg, UINT32 bb_cnt);
-  void            Analyze_live_range_flat(PU_INFO *info);
-  void            Build_live_ranges(CG_CFG *cfg, UINT32 bb_cnt);
-  // 调试输出: 把每个 TN 的 live range 打到 FILE*; 无副作用
-  void            Print(FILE *file = stderr);
-};
-
 /**
  * Register allocator
  */
@@ -577,43 +517,6 @@ public:
   void          Emit_operand(CGOP *oper, CGOPR_KIND k, UINT32 ch_id, FILE*out);
   void          Emit_tree(ST_IDX func_sym, FILE *out, FILE_MANAGER *file);
 };
-
-
-/**
- * The Entire CG class to access.
- */
-class CG_COMPOSITE {
-private:
-  CGIR            *_cgir = nullptr;
-  CG_EMITTER       _emitter;
-  CGIR_BUILDER     _builder;
-  CG_LIVE_RANGE     _lra;
-  CG_REG_ALLOC      _reg_alloc;
-public:
-  void Init() {
-    _cgir = new CGIR();
-    AssertThat(_cgir != nullptr, ("Cgir must be a valid CGIR"));
-    _builder.Init(_cgir);
-    _emitter.Init(_cgir, &_builder);
-    _reg_alloc.Init(_cgir, &_builder);
-    _lra.Init(_cgir);
-  }
-  CGIR *Cgir() {
-    AssertThat(_cgir != nullptr,
-      ("Cgir is not initialized in Live range analysis"));
-    return _cgir;
-  }
-  CG_EMITTER     &Emitter() {
-    return _emitter;
-  }
-  CGIR_BUILDER   &Builder() {
-    return _builder;
-  }
-  CG_REG_ALLOC   &Reg_alloc() { return _reg_alloc; }
-  CG_LIVE_RANGE  &Lra()       { return _lra;       }
-  void          CG_convert_function(SCOPE *scope);        // Initialize the CG stuff
-};
-
 
 // Utility Functions
 LABEL_IDX     Get_addr_label(ST_IDX sym);

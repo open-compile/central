@@ -9,6 +9,10 @@
 #include "consts.h"
 #include "memory.h"
 #include "register.h"
+#include <set>
+#include <vector>
+using std::set;
+using std::vector;
 
 typedef enum {
   TN_RELOC_NONE	   = 0x00,
@@ -275,6 +279,9 @@ namespace TN_CONTEXT {
   }
 
 }
+
+typedef set<TN_IDX>    TN_SET;
+typedef vector<TN_SET> TN_SET_VEC;
 
 using namespace TN_CONTEXT;
 

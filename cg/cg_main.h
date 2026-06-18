@@ -6,6 +6,7 @@
 #define OCC_CG_MAIN_H
 
 #include "cgir.h"
+#include "cg_composite.h"
 
 CG_COMPOSITE *Cgmon();
 void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *asm_file);

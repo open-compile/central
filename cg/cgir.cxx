@@ -13,8 +13,7 @@ using std::unordered_set;
 using std::vector;
 #include <algorithm>
 
-
-INLINE BOOL TR_LRA() {
+INLINE BOOL TR_CGIR() {
   return Tracing(COMPONENT_CG_LRA, TRACE_DATA);
 }
 
@@ -185,394 +184,6 @@ TN_IDX CGIR::Get_TN_by_ir_node(IR_ITER node, CFG_BB_IDX cur_bb) {
 }
 
 /**
- * Analyze function-level live range for CGIR;
- * @param info current function
- *
- * 标准 RA 算法流水线:
- *   ┌──────────────────────────┐
- *   │ Live Range Analysis (本函数) │  1. 反向 dataflow, 求每个 TN 的 [d, u]
- *   └──────────────────────────┘
- *              │ 输出: live_in[BB] / live_out[BB] / TN.live_range
- *              ▼
- *   ┌──────────────────────────┐
- *   │ Build Interference Graph  │  2. TN a ─ TN b iff live_range[a] ∩ live_range[b] ≠ ∅
- *   └──────────────────────────┘
- *              │ 输出: IFG (无向图)
- *              ▼
- *   ┌──────────────────────────┐
- *   │ Graph Coloring (Chaitin / │  3. K-coloring (K = #available regs); 不够则 spill
- *   │ Briggs / Linear Scan)     │
- *   └──────────────────────────┘
- *
- * 详细 spec 见 docs/cg.spec.md §3 / §4
- */
-void CG_LIVE_RANGE::Analyze_BB_Level(CG_CFG *cfg, UINT32 bb_cnt) {
-  // TODO(live-range): 当前是 stub; 真正的实现需要:
-  //   1. 反向数据流分析 (Reverse Dataflow Analysis):
-  //      - gen[BB] = TN defined in BB
-  //      - kill[BB] = TN used in BB
-  //      - live_in[BB] = use[BB] ∪ (live_out[BB] - def[BB])
-  //      - live_out[BB] = ∪_{succ} live_in[succ]
-  //   2. 走不动点直到稳定
-  //   3. 给每个 TN 拼出 [first_def, last_use] 的区间
-  // 见 cg.spec.md
-  AssertThat(cfg != nullptr, ("CGIR cfg not initialized"));
-
-  CGIR *cgir = Cgir();
-  Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_WARN),
-           (TFile, "[CG-LRA] Analyze_live_range, cfgbb count = %u \n", bb_cnt));
-
-  // Clean up data structure for re-calculation          
-  _live_ins.clear();           
-  _live_ins.resize(bb_cnt);
-
-  _live_outs.clear();
-  _live_outs.resize(bb_cnt);
-
-  INT32 iter_cnt = 0;
-
-  AssertThat(_live_ins.size()  == bb_cnt, 
-             ("Incorrect size for _live_ins, size = %u, should be %u", 
-              _live_ins.size(), bb_cnt));
-  AssertThat(_live_outs.size() == bb_cnt, 
-             ("Incorrect size for _live_outs, size = %u, should be %u", 
-              _live_outs.size(), bb_cnt));
-
-  // LRA Algorithm
-  BOOL changed = TRUE;
-  while(changed) {
-    changed = FALSE;
-    iter_cnt++;
-    // reverse order
-    for (INT32 cur_bb = (INT32)bb_cnt - 1; cur_bb >= 0; cur_bb--) {
-      CFG_BB_EDGES  &succ     = cfg->Succs(cur_bb);
-      UINT32         succ_cnt = succ.size();
-      
-      Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_WARN),
-	       (TFile, "bb #%d has %d successors\n", cur_bb, succ_cnt));
-
-      TN_SET old_in   = _live_ins[cur_bb]; // copy
-      TN_SET old_out  = _live_outs[cur_bb]; // copy
-
-      // live_out(n) = U for all succ, live_in(succ)
-      // live_in(n)  = use U (live_out - def)
-      _live_outs[cur_bb].clear();
-
-      for (CFG_BB_EDGES::iterator it = succ.begin(); it != succ.end(); it++) {
-        CFG_BB_IDX one_succ = *it;
-        AssertThat(one_succ < bb_cnt, ("succ of cgbb is invalid cur_bb = %u, succ_bb = %u, total_bbs = %u", 
-                                       cur_bb, one_succ, bb_cnt));
-        _live_outs[cur_bb].insert(_live_ins[one_succ].begin(), _live_ins[one_succ].end());
-      }
-      _live_ins[cur_bb] = cfg->BB(cur_bb)->Uses(); // copy
-
-      const TN_SET &defs = cfg->BB(cur_bb)->Defs();
-      TN_SET second_half = _live_outs[cur_bb];
-      for (TN_IDX d : defs) {
-        second_half.erase(d);
-      }
-      _live_ins[cur_bb].insert(second_half.begin(), second_half.end());
-
-      if(Tracing(COMPONENT_CG_LRA, TRACE_DEBUG)) {
-        fprintf(TFile, "[CG-LRA] Iteration %d \n", iter_cnt);
-        fprintf(TFile, "* live-ins  = ");
-        Print_tn_set_vec(TFile, _live_ins);
-        fprintf(TFile, "\n* live-outs = ");
-        Print_tn_set_vec(TFile, _live_outs);
-        fprintf(TFile, "\n");
-      }
-
-      // Check if changed
-      if (old_in != _live_ins[cur_bb] || old_out != _live_outs[cur_bb]) {
-        changed = TRUE;
-      } 
-    } // end for(BB)
-
-    AssertThat(iter_cnt < MAX_LRA_ITER_ATTEMPT, ("LRA iteration loops indefinitely"));
-
-  } // end while(changed)
-
-  // After iteration
-  if(Tracing(COMPONENT_CG_LRA, TRACE_DEBUG)) {
-    fprintf(TFile, "[CG-LRA] Live range analysis finished, total_iter = %d \n", iter_cnt);
-    fprintf(TFile, "* live-ins  = ");
-    Print_tn_set_vec(TFile, _live_ins);
-    fprintf(TFile, "\n* live-outs = ");
-    Print_tn_set_vec(TFile, _live_outs);
-    fprintf(TFile, "\n");
-  }
-  // visit all bb.
-}
-
-
-void CG_LIVE_RANGE::Analyze_live_range(PU_INFO *info) {
-    AssertThat(info != nullptr, ("PU_INFO is null"));
-    AssertThat(Cgir()->Cfg() != nullptr, ("CGIR cfg not initialized"));
-
-    CGIR *cgir = Cgir();
-    CG_CFG *cfg = cgir->Cfg();
-    UINT32 bb_cnt = cgir->Cfg()->Size();
-
-    Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_WARN),
-             (TFile, "[CG-LRA] Analyze_live_range, cfgbb count = %u \n", bb_cnt));
-
-    _cur_sym = info->Proc_sym();
-    AssertThat(_cur_sym == Cgir()->Current_func_sym(), 
-               ("Cfg and lra is out of sync"));
-
-    // Phase 1: BB-level analysis (keep your existing code)
-    Analyze_BB_Level(cfg, bb_cnt);
-    
-    // Phase 2: Statement-level analysis (NEW)
-    Analyze_Stmt_Level(cfg, bb_cnt);
-    
-    // Phase 3: Build live ranges per TN (NEW)
-    Build_live_ranges(cfg, bb_cnt);
-}
-
-void CG_LIVE_RANGE::Analyze_Stmt_Level(CG_CFG *cfg, UINT32 bb_cnt) {
-  CGIR *cgir = Cgir();
-  
-  // Initialize statement-level structures
-  _stmt_live_ins.clear();
-  _stmt_live_ins.resize(bb_cnt);
-  _stmt_live_outs.clear();
-  _stmt_live_outs.resize(bb_cnt);
-    
-  for (UINT32 bb = 0; bb < bb_cnt; bb++) {
-    CGBB *cur_bb = cfg->BB(bb);
-    UINT32 stmt_count = cur_bb->Get_stmt_count();  // Number of statements
-        
-    _stmt_live_ins[bb].resize(stmt_count);
-    _stmt_live_outs[bb].resize(stmt_count);
-        
-    if (stmt_count == 0) continue;
-        
-    // Start with BB live_out for the last statement
-    TN_SET current_live = _live_outs[bb];  // From Phase 1
-        
-    // Walk backwards through statements
-    for (INT32 stmt = (INT32)stmt_count - 1; stmt >= 0; stmt--) {
-      CGOP *cur_stmt = cur_bb->Get_stmt(stmt);
-            
-      // Statement live-out
-      _stmt_live_outs[bb][stmt] = current_live;
-            
-      // Statement live-in = uses ∪ (live_out - defs)
-      TN_SET stmt_live_in = current_live;
-
-
-      Is_Trace(TR_LRA(),
-               (TFile, "Def-use builder: %s\n",
-                       Get_cg_opc_info(cur_stmt->getOpcode())->ins_token));
-          
-      // Remove definitions (these are killed)
-      const TN_SET &stmt_defs = cgir->Stmt_defs(cur_stmt);
-      for (TN_IDX d : stmt_defs) {
-        stmt_live_in.erase(d);
-      }
-            
-      // Add uses (these become live)
-      const TN_SET &stmt_uses = cgir->Stmt_uses(cur_stmt);
-      stmt_live_in.insert(stmt_uses.begin(), stmt_uses.end());
-            
-      _stmt_live_ins[bb][stmt] = stmt_live_in;
-            
-      // This becomes live-out for previous statement
-      current_live = stmt_live_in;
-    }
-        
-    // Sanity check: live_in of first stmt should ⊆ BB live_in
-    if (stmt_count > 0) {
-      BOOL is_subset = std::includes(_live_ins[bb].begin(), _live_ins[bb].end(),
-				     _stmt_live_ins[bb][0].begin(), _stmt_live_ins[bb][0].end());
-      AssertThat(is_subset, ("Stmt-level live_in doesn't match BB-level, bb_idx = %d", cur_bb));
-    }
-  }
-}
-
-
-
-void CG_LIVE_RANGE::Build_live_ranges(CG_CFG *cfg, UINT32 bb_cnt) {
-  CGIR *cgir = Cgir();
-  _live_ranges.clear();
-    
-  // Temporary map: TN → live range info
-  std::map<TN_IDX, TN_LIVE_RANGE> &range_map = _range_map;
-  range_map.clear();
-    
-  for (UINT32 bb = 0; bb < bb_cnt; bb++) {
-    CGBB *cur_bb = cfg->BB(bb);
-    UINT32 stmt_count = cur_bb->Get_stmt_count();
-        
-    for (UINT32 stmt = 0; stmt < stmt_count; stmt++) {
-      CGOP *cur_stmt = cur_bb->Get_stmt(stmt);
-            
-      // Track definitions (start of live range)
-      const TN_SET &defs = cgir->Stmt_defs(cur_stmt);
-      for (TN_IDX tn : defs) {
-        auto it = range_map.find(tn);
-        if (it == range_map.end()) {
-          // First definition seen
-          range_map[tn] = {tn, (INT32)bb, (INT32)stmt, 
-                           (INT32)bb, (INT32)stmt, FALSE};
-        } else {
-          // Update first_def if this is earlier
-          if (bb < it->second.first_def_bb ||
-              (bb == it->second.first_def_bb && 
-               stmt < it->second.first_def_stmt)) {
-            it->second.first_def_bb = bb;
-            it->second.first_def_stmt = stmt;
-          }
-        }
-      }
-            
-      // Track uses from live-in set (end of live range)
-      const TN_SET &live_in = _stmt_live_ins[bb][stmt];
-      for (TN_IDX tn : live_in) {
-        auto it = range_map.find(tn);
-        if (it == range_map.end()) {
-          // Used but not defined in this function (parameter)
-          range_map[tn] = {tn, (INT32)bb, (INT32)stmt,
-                           (INT32)bb, (INT32)stmt, FALSE};
-        } else {
-          // Update last_use if this is later
-          if (bb > it->second.last_use_bb ||
-              (bb == it->second.last_use_bb && 
-               stmt > it->second.last_use_stmt)) {
-            it->second.last_use_bb = bb;
-            it->second.last_use_stmt = stmt;
-          }
-        }
-      }
-    }
-        
-    // Also check variables live-out of BB
-    for (TN_IDX tn : _live_outs[bb]) {
-      auto it = range_map.find(tn);
-      if (it != range_map.end()) {
-        // Variable lives to end of this BB
-        if (bb > it->second.last_use_bb) {
-          it->second.last_use_bb = bb;
-          it->second.last_use_stmt = stmt_count - 1;  // Last stmt
-        }
-      }
-    }
-  }
-    
-  // Mark global variables
-  for (auto& [tn, range] : range_map) {
-    if (range.first_def_bb != range.last_use_bb) {
-      range.is_global = TRUE;
-    }
-    _live_ranges.push_back(range);
-  }
-}
-
-
-void CG_LIVE_RANGE::Analyze_live_range_flat(PU_INFO *info) {
-  // ... setup code same as before ...
-
-  AssertThat(info != nullptr, ("PU_INFO is null"));
-  AssertThat(Cgir()->Cfg() != nullptr, ("CGIR cfg not initialized"));
-
-  CGIR *cgir = Cgir();
-  CG_CFG *cfg = cgir->Cfg();
-  UINT32 bb_cnt = cgir->Cfg()->Size();
-
-  Is_Trace(Tracing(COMPONENT_CG_LRA, TRACE_WARN),
-           (TFile, "[CG-LRA] Analyze_live_range, cfgbb count = %u \n", bb_cnt));
-
-  _cur_sym = info->Proc_sym();
-  AssertThat(_cur_sym == Cgir()->Current_func_sym(),
-             ("Cfg and lra is out of sync"));
-  
-  // Flatten all statements
-  struct FlatPoint {
-    UINT32 bb;
-    UINT32 stmt;
-    CGOP *stmt_ptr;
-  };
-    
-  std::vector<FlatPoint> all_points;
-  for (UINT32 bb = 0; bb < bb_cnt; bb++) {
-    CGBB *cur_bb = cfg->BB(bb);
-    for (UINT32 stmt = 0; stmt < cur_bb->Get_stmt_count(); stmt++) {
-      CGOP *cur_stmt = cur_bb->Get_stmt(stmt);
-      all_points.push_back({bb, stmt, cur_stmt});
-    }
-  }
-    
-  UINT32 total_points = all_points.size();
-  vector<TN_SET> live_ins(total_points);
-  vector<TN_SET> live_outs(total_points);
-    
-  // Build successor mapping for flat points
-  std::vector<std::vector<UINT32>> successors(total_points);
-  for (UINT32 i = 0; i < total_points; i++) {
-    if (i + 1 < total_points) {
-      // Check if next point is in same BB
-      if (all_points[i].bb == all_points[i+1].bb) {
-        successors[i].push_back(i + 1);
-      } else {
-        // End of BB - connect to successors' first statements
-        UINT32 bb = all_points[i].bb;
-        for (auto succ_bb : cfg->Succs(bb)) {
-          // Find first point of succ_bb
-          for (UINT32 j = 0; j < total_points; j++) {
-            if (all_points[j].bb == succ_bb) {
-              successors[i].push_back(j);
-              break;
-            }
-          }
-        }
-      }
-    }
-  }
-    
-  // Now run dataflow on flat points (same algorithm)
-  BOOL changed = TRUE;
-  INT32 iter = 0;
-  while (changed) {
-    changed = FALSE;
-    iter++;
-        
-    for (INT32 i = total_points - 1; i >= 0; i--) {
-      TN_SET old_in = live_ins[i];
-            
-      // live_out = ∪ live_in(succ)
-      TN_SET new_live_out;
-      for (UINT32 succ : successors[i]) {
-        new_live_out.insert(live_ins[succ].begin(), live_ins[succ].end());
-      }
-      live_outs[i] = new_live_out;
-            
-      // live_in = use ∪ (live_out - def)
-      TN_SET new_live_in = live_outs[i];
-      for (TN_IDX d : cgir->Stmt_defs(all_points[i].stmt_ptr)) {
-        new_live_in.erase(d);
-      }
-      const TN_SET uses = cgir->Stmt_uses(all_points[i].stmt_ptr);
-      new_live_in.insert(uses.begin(), uses.end());
-            
-      live_ins[i] = new_live_in;
-            
-      if (old_in != live_ins[i]) {
-        changed = TRUE;
-      }
-    }
-  }
-  _flat_live_ins = live_ins;
-  _flat_live_outs = live_outs;
-}
-
-void CG_LIVE_RANGE::Print(FILE *file) {
-  if (!file) file = stderr;
-  fprintf(file, "+ CG_LIVE_RANGE (currently empty - stub) ---- \n");
-  // print the CG_LVIE_RANGE.
-}
-
-/**
  * Global register allocation
  * @param info Current function
  */
@@ -588,13 +199,13 @@ void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
   for (UINT32 i = 0; i < bb_cnt; i++) {
     CGBB *cgbb = Cfg()->BB(i);
     // Tracings
-    Is_Trace(TR_LRA(), (TFile, " --------- Processing BB : %d ---------  \n", i));
+    Is_Trace(TR_CGIR(), (TFile, " --------- Processing BB : %d ---------  \n", i));
     _tn_freq_map.clear();
     // If there is a label to it, emit the label
     UINT32 stmt_id = 0;
     for (auto stmt_it = cgbb->Begin_stmt(); stmt_it != cgbb->End_stmt(); stmt_it++, stmt_id++) {
       CGOP *cgop = (*stmt_it);
-      Is_Trace(TR_LRA(),
+      Is_Trace(TR_CGIR(),
                (TFile, "LRA: Processing op = %s\n",
                 Get_cg_opc_info(cgop->getOpcode())->ins_token));
       // TODO(step1: count-uses): 这里是 step 1 — 扫描所有 CGOP, 统计每个 TN
@@ -615,7 +226,7 @@ void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
     }
 
     /*** LRA ***/
-    Is_Trace(TR_LRA(),
+    Is_Trace(TR_CGIR(),
              (TFile, "Found %lu registers to allocate for \n", _tn_freq_map.size()));
 
     // Build interference graph.
@@ -688,7 +299,7 @@ void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
           /* Spill all now. */
           Spill_tn(tid, tn);
         } else {
-          Is_Trace(TR_LRA(), (TFile, "LRA: Assigning reg %d to TN : %d\n", next_register, tid));
+          Is_Trace(TR_CGIR(), (TFile, "LRA: Assigning reg %d to TN : %d\n", next_register, tid));
           Cfg()->BB(i)->Get_dedicate_regs().push_back(next_register);
           Set_TN_is_preallocated(tn);
           Set_TN_register_class(tn, ISA_REGISTER_CLASS_integer);
@@ -718,13 +329,13 @@ void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
   for (UINT32 i = 0; i < bb_cnt; i++) {
     CGBB *cgbb = Cfg()->BB(i);
     // Tracings
-    Is_Trace(TR_LRA(), (TFile, " --------- Post-LRA-Spill BB : %d ---------  \n", i));
+    Is_Trace(TR_CGIR(), (TFile, " --------- Post-LRA-Spill BB : %d ---------  \n", i));
     // If there is a label to it, emit the label
     UINT32 stmt_cnt = cgbb->Get_stmt_count();
     UINT32 stmt_id = 0;
     for (auto stmt_it = cgbb->Begin_stmt(); stmt_id  < stmt_cnt; stmt_id++) {
       CGOP *cgop = (*(cgbb->Begin_stmt() + stmt_id));
-      Is_Trace(TR_LRA(),
+      Is_Trace(TR_CGIR(),
                (TFile, "Processing : %s\n", Get_cg_opc_info(cgop->getOpcode())->ins_token));
       if (cgop->getFlags() & CGOPF_SPILL) {
         continue;
@@ -756,7 +367,7 @@ void CG_REG_ALLOC::Register_allocate(PU_INFO *info) {
 
 void CG_REG_ALLOC::Spill_tn(TN_IDX tid, TN *tn) {// We could put the spill on r8.
 // Now we have at least the R9 to process
-  Is_Trace(TR_LRA(),
+  Is_Trace(TR_CGIR(),
            (TFile, "Need to spill the TN %d \n", tid));
   // Make TN = ... to Var(.spill) = ...
   Set_TN_register(tn, 0); // not allocating right now, wait for second pass.
@@ -1300,7 +911,7 @@ BOOL CGOPC_is_ldst(CGOPC cgopc) {
 UINT32 CG_REG_ALLOC::Count_needed_register(CGOP *oper, UINT32 cgop_id,
                                    CGOPR_KIND kind, UINT32 cur_bb, UINT8 opr_pos) {
   if (kind != CGOPR_R) {
-    Is_Trace(TR_LRA(), (TFile, "Found kind != r, no need to allocate \n"));
+    Is_Trace(TR_CGIR(), (TFile, "Found kind != r, no need to allocate \n"));
     return 0;
   }
   CG_OPRAND cgoper;
@@ -1328,11 +939,11 @@ UINT32 CG_REG_ALLOC::Count_needed_register(CGOP *oper, UINT32 cgop_id,
         }
       }
     }
-    Is_Trace(TR_LRA(), (TFile, "Found tn %d no need to allocate \n", cgoper));
+    Is_Trace(TR_CGIR(), (TFile, "Found tn %d no need to allocate \n", cgoper));
     return 0;
   } else {
     // There is a need for R-A.
-    Is_Trace(TR_LRA(), (TFile, "Found tn %d to allocate \n", cgoper));
+    Is_Trace(TR_CGIR(), (TFile, "Found tn %d to allocate \n", cgoper));
     AssertThat(TN_register(tn) == 0,
                ("TN: %d, Should not be allocated already. %d",
                 cgoper, TN_register(tn)));
@@ -1366,9 +977,9 @@ void CG_REG_ALLOC::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
     Set_TN_flags(spill_tn, TN_SPILL_MEDIUM);
     UINT32 reg_num_to_use = opnd == 0 ? 8 : ((opnd == 1) ?  10 : 7);
     if (is_write) { // this is dependent on the oper currently we're visiting.
-      Is_Trace(TR_LRA(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), REGISTER_spill));
+      Is_Trace(TR_CGIR(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), REGISTER_spill));
       // haven't allocated
-      Is_Trace(TR_LRA(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), REGISTER_spill));
+      Is_Trace(TR_CGIR(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), REGISTER_spill));
       Set_TN_register(spill_tn, reg_num_to_use);
       Builder()->Exp_load_store(OPC_I4STID, MTYPE_I4,
                spill_tn,
@@ -1394,8 +1005,8 @@ void CG_REG_ALLOC::Process_spill_op(CGOP *oper, CGOPR_KIND kind, UINT32 cur_bb,
           CG_REVISIT_ITEM<CGOP>(oper, rs, false));
       }
     } else {
-      Is_Trace(TR_LRA(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), reg_num_to_use));
-      Is_Trace(TR_LRA(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), reg_num_to_use));
+      Is_Trace(TR_CGIR(), (TFile, "Spill tn %d to r%d\n", TN_tn_idx(tn), reg_num_to_use));
+      Is_Trace(TR_CGIR(), (TFile, "Create store temp tn %d to r%d\n", TN_tn_idx(spill_tn), reg_num_to_use));
       Set_TN_register(spill_tn, reg_num_to_use); // Making sure the two register are the same.
       Builder()->Exp_load_store(OPC_I4LDID, MTYPE_I4,
         spill_tn,

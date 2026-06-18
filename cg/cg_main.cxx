@@ -6,6 +6,7 @@
 #include "cgir.h"
 #include "cg_main.h"
 #include "cg_pass.h"
+#include "cg_composite.h"
 #include "tn.h"
 
 INLINE BOOL TR_EMIT() {

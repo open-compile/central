@@ -3,6 +3,7 @@
 #define OCC_CG_PASS_H
 
 #include "cgir.h"
+#include "cg_composite.h"
 
 class CG_PASS {  
   CG_COMPOSITE  *_cgmon = nullptr;
