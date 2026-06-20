@@ -38,6 +38,7 @@ template <typename NODE_TYPE> class CG_CFG_BB_BASE;
 
 // forward decl.
 class CGIR_BUILDER;
+class TARGET_BACKEND;
 
 template <typename NODE_TYPE>
 class CG_CFG_BASE : public CFG_BASE<NODE_TYPE, CG_CFG_BB_BASE<NODE_TYPE>> {
@@ -404,14 +405,18 @@ public:
 class CGIR_BUILDER {
 private:
   CGIR                        *_cgir = nullptr;
+  const TARGET_INFO           *_target = nullptr;
   TREE                        *_tree  = nullptr;
   vector<CGOP *>               _spill_related;
   BOOL                         _spill_recording = false;
 public:
-  void          Init(CGIR *cg) {
+  void          Init(CGIR *cg, const TARGET_INFO *target) {
     _cgir = cg;
+    _target = target;
     AssertThat(cg != nullptr, ("Cgir must be a valid CGIR"));
+    AssertThat(target != nullptr, ("Target must be selected before CG init"));
   }
+  const TARGET_INFO &Target() const { return *_target; }
   CGIR         *Cgir() {
     AssertThat(_cgir != nullptr,
       ("Cgir is not initialized in Live range analysis"));
@@ -490,11 +495,15 @@ class CG_EMITTER {
 private:
   CGIR *_cgir = nullptr;
   CGIR_BUILDER *_builder = nullptr;
+  TARGET_BACKEND *_backend = nullptr;
 public:
-  void Init(CGIR *cg, CGIR_BUILDER *cgir_builder) {
+  void Init(CGIR *cg, CGIR_BUILDER *cgir_builder,
+            TARGET_BACKEND *backend) {
     _cgir = cg;
     _builder = cgir_builder;
+    _backend = backend;
     AssertThat(cg != nullptr, ("Cgir must be a valid CGIR"));
+    AssertThat(backend != nullptr, ("Target backend must be initialized"));
   }
   CGIR *Cgir() {
     AssertThat(_cgir != nullptr,
@@ -511,6 +520,10 @@ public:
     AssertThat(_builder != nullptr,
       ("Builder is not initialized in Live range analysis"));
     return _builder;
+  }
+  TARGET_BACKEND &Backend() const {
+    AssertThat(_backend != nullptr, ("Target backend must be initialized"));
+    return *_backend;
   }
   // Emitting result.
   void          Emit_label(FILE *out, UINT32 label_idx);

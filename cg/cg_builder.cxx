@@ -42,12 +42,12 @@ void CGIR_BUILDER::Data_layout(SCOPE *scope) {
     
     // Safety check: if the existing pointer is somehow null, fix it
     if (onelayout == nullptr) {
-        onelayout = new DATA_LAYOUT();
+        onelayout = new DATA_LAYOUT(Target().abi);
         it->second = onelayout;
     }
   } else {
     // 2. Key does not exist! Allocate a new one and insert it
-    onelayout = new DATA_LAYOUT();
+    onelayout = new DATA_LAYOUT(Target().abi);
     layouts_map.insert(std::make_pair(func_sym, onelayout));
   }
   
@@ -246,18 +246,19 @@ CGIR_BUILDER::Handle_lda(IR_ITER expr, CFG_BB_IDX cur_bb, TN *target_res) {
   if (target_res == nullptr) {
     target_res = TN_tn(Gen_TN(MTYPE_I4));
   }
+  Set_TN_size(target_res, Target().abi.pointer_size);
   AssertThat(target_res != NULL, ("Expand of expr should not return null."));
   if (ST_sclass(sym) == SYMC_FILE_STATIC) {
     // LOCAL VAR.
     // SP + OFST
     LABEL_IDX lbl = Get_addr_label(sym);
     Cfg()->BB(cur_bb)->Add_stmt(
-      new CGOP(CGOPC_LDRLBL, *expr, cur_bb, TN_tn_idx(target_res), TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0));
+      new CGOP(CGOPC_LADDR, *expr, cur_bb, TN_tn_idx(target_res), TN_tn_idx(Gen_Label_TN(lbl, 0)), 0, 0));
   } else if (ST_sclass(sym) == SYMC_AUTO ||
     ST_sclass(sym) == SYMC_FORMAL) {
     TN *sp_tn = Build_Dedicated_TN(REGISTER_CLASS_sp,
                               REGISTER_sp,
-                              MTYPE_size(MTYPE_I4));
+                              Target().abi.pointer_size);
     INT64 offset_from_base = Cgir()->Layout()->Get_sym_sp_ofst(sym);
     Cfg()->BB(cur_bb)->Add_stmt(
       new CGOP(CGOPC_ADD, *expr, cur_bb,
@@ -466,10 +467,7 @@ CFG_BB_IDX CGIR_BUILDER::Add_epilog(CFG_BB_IDX cur_bb) {
   Cfg()->BB(cur_bb)->Set_flag(BB_FLAG_EXIT);
   Cfg()->BB(cur_bb)->Set_label_id(File()->Get_func_exit_label());
   Cfg()->BB(cur_bb)->Add_stmt(
-    new CGOP(CGOPC_BX, 0, cur_bb,
-             0,
-             TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_ra, REGISTER_ra, 4)),
-             0, 0));
+    new CGOP(CGOPC_RET, 0, cur_bb, 0, 0, 0, 0));
   return cur_bb;
 }
 
@@ -503,13 +501,8 @@ CGIR_BUILDER::Expand_expr(IR_ITER entry, IR_ITER parent, CFG_BB_IDX cur_bb, TN *
         result = TN_tn(Gen_TN(MTYPE_I4)); // rh1_res; // A trick to reduce # of register
       }
       Cfg()->BB(cur_bb)->Add_stmt(
-          new CGOP(CGOPC_MOV, *entry, cur_bb, TN_tn_idx(result),
-                 TN_tn_idx(Gen_Literal_TN((val) & 0xFFFF, 2)), 0, 0));
-      if (((val >> 16) & 0xFFFF) != 0) {
-        Cfg()->BB(cur_bb)->Add_stmt(
-          new CGOP(CGOPC_MOVT, *entry, cur_bb, TN_tn_idx(result),
-                   TN_tn_idx(Gen_Literal_TN((val >> 16) & 0xFFFF, 2)), 0, 0));
-      }
+          new CGOP(CGOPC_LIMM, *entry, cur_bb, TN_tn_idx(result),
+                   TN_tn_idx(Gen_Literal_TN(val, 4)), 0, 0));
       return result;
     }
     case OPR_MOD:
@@ -610,7 +603,10 @@ void CGIR_BUILDER::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_
   UINT32 callargs_size    = 0; // including the first four param.
   UINT32 abi_callarg_size = 0; // not including the first four param.
   UINT32 arg_id           = 0;
-  const UINT32 CALL_PUSH_SIZE = 12;
+  const UINT32 register_arg_count = Target().abi.register_formal_count;
+  const UINT32 pointer_size = Target().abi.pointer_size;
+  const UINT32 CALL_PUSH_SIZE =
+      Target().abi.kind == TARGET_ABI_KIND::AAPCS32_HARD_FLOAT ? 12 : 0;
   for (TYLIST_IDX ty_list = TY_tylist_id(callee_proto) + 1; ;
        arg_id ++,
        ty_list++) {
@@ -625,11 +621,13 @@ void CGIR_BUILDER::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_
       arg_id = 0;
       break;
     } else if (TY_kind(ty_idx) == KIND_ARRAY) {
-      callargs_size += 4;
-      if (arg_id >= 4) abi_callarg_size += 4;
+      callargs_size += pointer_size;
+      if (arg_id >= register_arg_count) abi_callarg_size += pointer_size;
     } else if (TY_kind(ty_idx) == KIND_SCALAR) {
-      callargs_size += TY_size(ty_idx);
-      if (arg_id >= 4) abi_callarg_size += TY_size(ty_idx);
+      callargs_size += std::max<UINT32>(TY_size(ty_idx), pointer_size);
+      if (arg_id >= register_arg_count) {
+        abi_callarg_size += std::max<UINT32>(TY_size(ty_idx), pointer_size);
+      }
     } else {
       AssertThat(false,
                  ("Unexpected type kind : %d, in type: %d",
@@ -647,47 +645,75 @@ void CGIR_BUILDER::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_
   UINT32 to_mem_bb = cur_bb;
   UINT32 to_reg_bb = cur_bb;
 
+  const BOOL armv7_call_sequence =
+      Target().abi.kind == TARGET_ABI_KIND::AAPCS32_HARD_FLOAT;
+  const UINT32 stack_arg_count =
+      call_args > register_arg_count ? call_args - register_arg_count : 0;
+  const UINT32 stack_arg_area = stack_arg_count * pointer_size;
+  const UINT32 staged_arg_size = armv7_call_sequence || call_args == 0
+      ? 0
+      : ((call_args * pointer_size + Target().abi.stack_alignment - 1) /
+         Target().abi.stack_alignment) * Target().abi.stack_alignment;
+  if (staged_arg_size != 0) {
+    Cfg()->BB(to_mem_bb)->Add_stmt(new CGOP(
+        CGOPC_ADJSP, cur_bb, 0,
+        TN_tn_idx(Gen_Literal_TN(-static_cast<INT64>(staged_arg_size),
+                                 pointer_size)),
+        0, 0));
+  }
+
+  auto argument_stack_offset = [&](UINT32 argument_index) -> INT32 {
+    if (armv7_call_sequence) {
+      return -static_cast<INT32>(callargs_size) - CALL_PUSH_SIZE +
+             argument_index * pointer_size;
+    }
+    if (argument_index < register_arg_count) {
+      return stack_arg_area + argument_index * pointer_size;
+    }
+    return (argument_index - register_arg_count) * pointer_size;
+  };
+
   // Create a new BB for storing to memory.
   for (UINT32 i = 0; i < call_args; i++) {
     IR_ITER expr = Tree()->Get_operand(stmt, i);
     TN *result = TN_tn(Gen_TN(MTYPE_I4));
     Expand_expr(expr, stmt, to_mem_bb, result);
-    INT32 sp_ofst = -callargs_size - CALL_PUSH_SIZE + (i * 4);
+    INT32 sp_ofst = argument_stack_offset(i);
     // SP related store
     Exp_load_store(OPC_I4STID, MTYPE_I4,
              result,
-             Build_Dedicated_TN(REGISTER_CLASS_sp, REGISTER_sp, 4), 0,
+             Build_Dedicated_TN(REGISTER_CLASS_sp, REGISTER_sp, pointer_size), 0,
              sp_ofst,
              expr,
              to_mem_bb, V_BR_NONE);
   }
 
-  // Create a new BB for loading to r0 to r3.
-  for (UINT32 i = 0; i < 4 && i < call_args; i++) {
+  // Load register arguments according to the selected ABI.
+  for (UINT32 i = 0; i < register_arg_count && i < call_args; i++) {
     IR_ITER expr = Tree()->Get_operand(stmt, i);
     Cfg()->BB(to_reg_bb)->Dedicate_reg(i);
-    INT32 sp_ofst = -callargs_size - CALL_PUSH_SIZE + (i * 4);
+    INT32 sp_ofst = argument_stack_offset(i);
     // SP related store
     TN *dedic = TN_tn(Gen_TN(MTYPE_I4));
     Set_TN_is_preallocated(dedic);
     Set_TN_register(dedic, i);
     Exp_load_store(OPC_I4LDID, MTYPE_I4,
              dedic,
-             Build_Dedicated_TN(REGISTER_CLASS_sp, REGISTER_sp, 4), 0, sp_ofst,
+             Build_Dedicated_TN(REGISTER_CLASS_sp, REGISTER_sp, pointer_size), 0, sp_ofst,
              expr,
              to_reg_bb, V_BR_NONE);
   }
 
-  if (call_args > 0) {
+  if (call_args > 0 && armv7_call_sequence) {
     // Adjust SP, sub the arguments.
     CGOP *push_sp   = new CGOP(CGOPC_PUSHR, cur_bb, 0, 0, 0, 0);
     Cfg()->BB(to_reg_bb)->Add_stmt(push_sp);
     CGOP *adjust_sp = new CGOP(CGOPC_SUBS, cur_bb,
                                TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_sp,
-                                                            REGISTER_sp, 4)),
+                                                            REGISTER_sp, pointer_size)),
                                TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_sp,
-                                                            REGISTER_sp, 4)),
-                               TN_tn_idx(Gen_Literal_TN(abi_callarg_size, 4)),
+                                                            REGISTER_sp, pointer_size)),
+                               TN_tn_idx(Gen_Literal_TN(abi_callarg_size, pointer_size)),
                                0);
     Cfg()->BB(to_reg_bb)->Add_stmt(adjust_sp);
   }
@@ -699,17 +725,21 @@ void CGIR_BUILDER::Handle_call(IR_ITER stmt, CFG_BB_IDX cur_bb, CFG_BB_IDX next_
   // After calling, handling results.
   // Re-adjust sp
   CFG_BB_IDX after_call_bb = cur_bb;
-  if (call_args > 0) {
+  if (call_args > 0 && armv7_call_sequence) {
     CGOP *readjust_sp = new CGOP(CGOPC_ADD, cur_bb,
                                  TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_sp,
-                                                              REGISTER_sp, 4)),
+                                                              REGISTER_sp, pointer_size)),
                                  TN_tn_idx(Build_Dedicated_TN(REGISTER_CLASS_sp,
-                                                              REGISTER_sp, 4)),
-                                 TN_tn_idx(Gen_Literal_TN(abi_callarg_size, 4)),
+                                                              REGISTER_sp, pointer_size)),
+                                 TN_tn_idx(Gen_Literal_TN(abi_callarg_size, pointer_size)),
                                  0);
     Cfg()->BB(after_call_bb)->Add_stmt(readjust_sp);
     CGOP *pop_sp   = new CGOP(CGOPC_POPR, cur_bb, 0, 0, 0, 0);
     Cfg()->BB(after_call_bb)->Add_stmt(pop_sp);
+  } else if (staged_arg_size != 0) {
+    Cfg()->BB(after_call_bb)->Add_stmt(new CGOP(
+        CGOPC_ADJSP, cur_bb, 0,
+        TN_tn_idx(Gen_Literal_TN(staged_arg_size, pointer_size)), 0, 0));
   }
 }
 
@@ -773,8 +803,9 @@ void CGIR_BUILDER::Add_store_formals(IR_ITER entry, CFG_BB_IDX bb) {
   ST_IDX cur_func = File()->Scopes()->Current()->st_idx;
   TY_IDX ty = ST_ty(cur_func);
   vector<ST_IDX> &sym_on_reg = Cgir()->Layout()->Get_sym_on_formal_reg();
-  AssertThat(sym_on_reg.size() <= 4,
-             ("There is at most 4 var on formal reg. yet = %d", sym_on_reg.size()));
+  AssertThat(sym_on_reg.size() <= Target().abi.register_formal_count,
+             ("formal register count %d exceeds target ABI limit %d",
+              sym_on_reg.size(), Target().abi.register_formal_count));
   for(UINT32 i = 0; i < sym_on_reg.size(); i++) {
     ST_IDX sym   = sym_on_reg[i];
     TN *from_reg = Gen_Register_TN(ISA_REGISTER_CLASS_integer, MTYPE_size(MTYPE_I4));

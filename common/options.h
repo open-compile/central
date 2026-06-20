@@ -99,6 +99,23 @@ struct CG_CONFIG {
   BOOL dump_tn         = FALSE;
 };
 
+// Resolved target metadata is stored as values so common compiler phases do
+// not depend on CG backend classes. cg/target_info.cxx is the single resolver.
+struct CG_TARGET_CONFIG {
+  string triple;
+  string arch;
+  string os;
+  UINT32 pointer_size = 0;
+  string abi;
+  string symbol_prefix;
+  string section_syntax;
+  UINT32 stack_alignment = 0;
+  string register_set;
+  string external_assembler_hint;
+  BOOL assembly_supported = FALSE;
+  BOOL integrated_object_supported = FALSE;
+};
+
 class COMPILER_CONFIG {
 public:
   INT32  opt_level   = 2;
@@ -116,6 +133,7 @@ public:
   // 优化器配置（新增）
   OPT_CONFIG opt_cfg;
   CG_CONFIG  cg_cfg;
+  CG_TARGET_CONFIG target;
   std::map<string, INT32> opt_options;
   std::map<string, INT32> cg_options;
   std::map<string, INT32> phase_options;

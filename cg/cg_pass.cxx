@@ -86,12 +86,9 @@ BOOL CG_EMITTER_PASS::Run(PU_INFO *pu){
   }
 
   // Dump the instructions
-  const char *func_name = ST_name(func_sym);
-  fprintf(out, ".global %s\n", func_name);
-  fprintf(out, "%s: \n", func_name);
+  Current_cg_mon()->Backend().Emit_function_header(out, ST_name(func_sym));
   // Letting Cgir to point to current function.
   Current_cg_mon()->Emitter().Emit_tree(func_sym, out, File());
   // TODO: Use CGIR's emission instead.
   return TRUE;
 }
-

@@ -7,6 +7,7 @@
 #include "main.h"
 #include "file_util.h"
 #include "timing.h"
+#include "target_info.h"
 #include <set>
 #include <vector>
 #include <string>
@@ -467,6 +468,9 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   args::ValueFlag<std::string> architecture_name(opt_group, "architecture",
                                           "Specify target architecture",
                                           {"march", "arch"});
+  args::ValueFlag<std::string> target_name(opt_group, "target",
+                                          "Specify canonical target triple",
+                                          {"target"});
   args::ValueFlagList<std::string> include_list(file_group, "includeDir",
                                           "Specify include directories that preceed normal include dir",
                                           {'I', "include"});
@@ -526,6 +530,36 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     exit(EXIT_OPTION_ERR);
   }
 
+  std::string target_error;
+  std::string requested_target;
+  if (target_name) {
+    requested_target = target_name.Get();
+  }
+  if (architecture_name) {
+    if (requested_target.empty()) {
+      requested_target = architecture_name.Get();
+    } else {
+      const TARGET_INFO *canonical_target = nullptr;
+      const TARGET_INFO *architecture_target = nullptr;
+      if (!Resolve_target(requested_target, &canonical_target, &target_error) ||
+          !Resolve_target(architecture_name.Get(), &architecture_target,
+                          &target_error)) {
+        std::cerr << target_error << std::endl;
+        exit(EXIT_OPTION_ERR);
+      }
+      if (canonical_target->triple != architecture_target->triple) {
+        std::cerr << "conflicting target options: --target="
+                  << requested_target << " and --arch="
+                  << architecture_name.Get() << std::endl;
+        exit(EXIT_OPTION_ERR);
+      }
+    }
+  }
+  if (!Configure_target(requested_target, &conf, &target_error)) {
+    std::cerr << target_error << std::endl;
+    exit(EXIT_OPTION_ERR);
+  }
+
   const std::vector<std::string> file_vec(args::get(files));
   // Prepare files
   if(Tracing(COMPONENT_DRIVER, TRACE_INFO)) {
@@ -556,6 +590,13 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   } else {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "By Default Enabled Assembly Mode \n"));
     conf.assembly = TRUE; // by
+  }
+
+  if (conf.object_gen && !conf.target.integrated_object_supported) {
+    std::cerr << "integrated -c is not supported for target "
+              << conf.target.triple << "; emit assembly with -S and run: "
+              << conf.target.external_assembler_hint << std::endl;
+    exit(EXIT_OPTION_ERR);
   }
 
   if (verbose) {

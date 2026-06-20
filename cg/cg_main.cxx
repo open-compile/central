@@ -9,6 +9,7 @@
 #include "cg_composite.h"
 #include "tn.h"
 #include "timing.h"
+#include "target_info.h"
 
 INLINE BOOL TR_EMIT() {
   return Tracing(COMPONENT_CG_EMIT, TRACE_EMIT_CORE);
@@ -167,6 +168,17 @@ void CG_process_funcs(FILE_MANAGER *file, COMPILER_CONFIG &config, FILE *outfile
  */
 INT32 CG_full_process(COMPILER_CONFIG &conf) {
 
+  const TARGET_INFO *selected_target = nullptr;
+  std::string target_error;
+  if (!Resolve_target(conf.target.triple, &selected_target, &target_error)) {
+    Comp_Failure("%s", target_error.c_str());
+  }
+  if (!selected_target->assembly_supported) {
+    Comp_Failure("target backend is not implemented yet: %s (assembler hint: %s)",
+                 selected_target->triple.c_str(),
+                 selected_target->external_assembler_hint.c_str());
+  }
+
   // Local and Global register allocation
   // Instruction scheduling etc.,
   Is_Trace(Tracing(COMPONENT_CG, TRACE_OPTIONS),
@@ -174,7 +186,7 @@ INT32 CG_full_process(COMPILER_CONFIG &conf) {
   AssertThat(conf.output_file.size() > 0, ("Incorrect output file name"));
 
   // This should only be run once.
-  Cgmon()->Init(); // Creating CG_COMPOSITE, initializing CGIR, EMITTER, BUILDER, REG_ALLOC ....
+  Cgmon()->Init(*selected_target); // Initialize CG with the resolved target.
   REGISTER_Begin();	/* initialize the register package */
   Init_Dedicated_TNs ();
 
@@ -208,12 +220,12 @@ INT32 CG_full_process(COMPILER_CONFIG &conf) {
 void Emit_section_code_prologue(FILE *out, FILE_MANAGER *file) {
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (TFile, "%sEmitting section: code prologue\n%s", DBAR, DBAR));
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Debugging info enabled, writing file-level code section\n"));
-  fprintf(out, ".text\n\n");
-  fprintf(out, ".global __aeabi_idiv \n");
+  Cgmon()->Backend().Emit_code_prologue(out);
 }
 
 void Emit_section_code_epilogue(FILE *out, FILE_MANAGER *file) {
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# End of all functions, code .... \n"));
+  Cgmon()->Backend().Emit_code_epilogue(out);
 }
 
 void CG_EMITTER::Emit_tree(ST_IDX func_sym, FILE *out, FILE_MANAGER *file) {
@@ -235,40 +247,17 @@ void CG_EMITTER::Emit_tree(ST_IDX func_sym, FILE *out, FILE_MANAGER *file) {
     if (cgbb->Get_label_id() != 0) {
       Emit_label(out, cgbb->Get_label_id());
     }
-    const int FUNC_PUSH_SIZE = 28 + 8;
-    const int SP_EXTRA = FUNC_PUSH_SIZE - 4;
     // function prologue
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & BB_FLAG_ENTRY) {
       Is_Trace(TR_EMIT(), (out, "#  ---  function prologue ---   \n"));
-      if (Cgir()->Layout()->Get_local_pad_size() > (1 << 8)) {
-        // This is a large stack.
-        fprintf(out, "\tpush\t{fp, lr}\n" // 8bytes
-                     "\tpush\t{r4-r10}\n"); // 28bytes
-
-        fprintf(out, "\tmov\tr4, #%d\n", ((Layout()->Get_local_pad_size()) & 0xFFFF));
-        if (((Layout()->Get_local_pad_size()  >> 16) & 0xFFFF) != 0 ) {
-          fprintf(out, "\tmovt\tr4, #%d\n",
-                  ((Layout()->Get_local_pad_size() >> 16) & 0xFFFF));
-        }
-        fprintf(out, "\tadd\tfp, sp, #%d\n"
-                     "\tsub\tsp, sp, r4\n", SP_EXTRA);
-      } else {
-        fprintf(out, "\tpush\t{fp, lr}\n" // 8bytes
-                     "\tpush\t{r4-r10}\n" // 28bytes
-                     "\tadd\tfp, sp, #%d\n"
-                     "\tsub\tsp, sp, #%d\n",
-                SP_EXTRA,
-                (Layout()->Get_local_pad_size()));
-      }
+      Backend().Emit_function_prologue(out, Layout()->Get_local_pad_size());
     }
     // Get the flags, expat-adjust, function epilog
     if (cgbb->Get_flags() & BB_FLAG_EXIT) {
       // Finishing function
       Is_Trace(TR_EMIT(), (out, "#  ---  function epilog ---   \n"));
-      fprintf(out, "\tsub\tsp, fp, #%d\n", SP_EXTRA);
-      fprintf(out, "\tpop\t{r4-r10}\n"
-                   "\tpop\t{fp, pc}\n");
+      Backend().Emit_function_epilogue(out);
     }
     Is_Trace(TR_EMIT(), (TFile, "Emit_code: Begin real stmt in BB(%d)\n", i));
     // If there is a label to it, emit the label
@@ -276,28 +265,7 @@ void CG_EMITTER::Emit_tree(ST_IDX func_sym, FILE *out, FILE_MANAGER *file) {
       CGOP *cgop = (*stmt_it);
       switch (cgop->getOpcode()) {
         default: {
-          fprintf(out, "\t%s\t", Get_cg_opc_info(cgop->getOpcode())->ins_token);
-          if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
-            Emit_operand(cgop, CGOPR_R, 0, out);
-          }
-          if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 1) {
-            if (Get_cg_opc_info(cgop->getOpcode())->n_res >= 1) {
-              // Printed operator before.
-              fprintf(out, ", ");
-            }
-            if (CGOPC_is_ldst(cgop->getOpcode())) {
-              fprintf(out, "[");
-            }
-            Emit_operand(cgop, CGOPR_R, 1, out);
-          }
-          if (Get_cg_opc_info(cgop->getOpcode())->n_oprs >= 2) {
-            fprintf(out, ", ");
-            Emit_operand(cgop, CGOPR_R, 2, out);
-          }
-          if (CGOPC_is_ldst(cgop->getOpcode())) {
-            fprintf(out, "]");
-          }
-          fprintf(out, "\n");
+          Backend().Emit_op(cgop, out);
           break;
         }
       }
@@ -306,7 +274,8 @@ void CG_EMITTER::Emit_tree(ST_IDX func_sym, FILE *out, FILE_MANAGER *file) {
   // Dumping temp labels
   fprintf(out, "# Dumping temp labels : total = %lu \n", temp_labels.size());
   for (auto local_temp_it : temp_labels) {
-    fprintf(out, ".TL%s_%u:\t.word %s\n", ST_name(func_sym), local_temp_it.second, ST_name(local_temp_it.first));
+    const std::string symbol = Backend().Spell_global_symbol(ST_name(local_temp_it.first));
+    fprintf(out, ".TL%s_%u:\t.word %s\n", ST_name(func_sym), local_temp_it.second, symbol.c_str());
   }
   LABEL_TABLE *tbl = File()->Tables()->Label();
   SCOPE *scope = File()->Scopes()->Current();
@@ -319,20 +288,22 @@ void CG_EMITTER::Emit_tree(ST_IDX func_sym, FILE *out, FILE_MANAGER *file) {
     ST_IDX sym = LABEL_label(lbl_idx)->Get_temp_sym();
     AssertThat(sym != 0, ("There should be a valid global var to points to"));
     AssertThat(ST_sclass(sym) == SYMC_FILE_STATIC, ("This should be global-var"));
-    fprintf(out, "%s:\t.word %s\n", name, ST_name(sym));
+    const std::string symbol = Backend().Spell_global_symbol(ST_name(sym));
+    fprintf(out, "%s:\t%s %s\n", name, Backend().Pointer_directive(), symbol.c_str());
   }
 }
 
 INT32 Emit_section_data(FILE *out, FILE_MANAGER *manager) {
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (TFile, "%sEmitting section: data\n%s", DBAR, DBAR));
   Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# Debugging info enabled, writing file-level data section\n"));
-  fprintf(out, ".data\n\n");
+  Cgmon()->Backend().Emit_data_prologue(out);
   for (UINT32 it = 1; it < manager->Tables()->Sym()->Length(); it++) {
     ST_IDX new_idx = (it << 8) + GLOBAL_SYMTAB;
     if (ST_st(new_idx) != NULL && ST_st(new_idx)->sym_class == SYM_CLASS_VAR) {
       AssertThat(ST_sclass(new_idx) == SYMC_FILE_STATIC, ("These globals should be file-static. while %s isn't.", ST_name(new_idx)));
       Is_Trace(Tracing(COMPONENT_CG, TRACE_INFO), (out, "# # Variable ST_IDX = 0x%08x, name = %s \n",  new_idx, ST_name(new_idx)));
-      fprintf(out, "%s: \n", ST_name(new_idx));
+      const std::string symbol = Cgmon()->Backend().Spell_global_symbol(ST_name(new_idx));
+      fprintf(out, "%s: \n", symbol.c_str());
       TY_IDX ty = ST_ty(new_idx);
       AssertThat(ty != 0, ("Cannot find type of the symbol %s", ST_name(new_idx)));
       AssertThat(TY_size(ty) != 0,

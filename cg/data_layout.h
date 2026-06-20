@@ -6,6 +6,7 @@
 #define OCC_DATA_LAYOUT_H
 
 #include "symtab.h"
+#include "target_info.h"
 #include <vector>
 #include <set>
 #include <map>
@@ -26,6 +27,7 @@ typedef enum {
 
 class DATA_LAYOUT {
 private:
+  const TARGET_ABI &_abi;
   ST_IDX  _func                   = 0;
   ST_IDX  sp_sym                  = 0;
   ST_IDX  fp_sym                  = 0;
@@ -54,10 +56,16 @@ private:
   map<ST_IDX, UINT32> var_on_reg_map;
 
 public:
+  explicit DATA_LAYOUT(const TARGET_ABI &abi) : _abi(abi) {}
+  UINT32      Pointer_size() const { return _abi.pointer_size; }
+  UINT32      Register_formal_count() const {
+    return _abi.register_formal_count;
+  }
+  UINT32      Prologue_save_area() const { return _abi.prologue_save_area; }
   BOOL        ST_on_stack(ST_IDX sym);
   BOOL        ST_pu_defined(ST_IDX sym);
   ST_IDX      Get_st_ref_base (ST_IDX sym);
-  UINT32      Stack_alignment();
+  UINT32      Stack_alignment() const;
   UINT32      Padding();
   UINT32      Get_pu_arg_area_size(PU_IDX pu_idx);
   void        Set_pu_arg_area_size(PU_IDX pu_idx, UINT32 size);

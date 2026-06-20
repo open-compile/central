@@ -10,7 +10,9 @@
 
 std::vector<TN *>              _global_tn_vec;
 
-#define POINTER_SIZE 4
+static UINT32 Target_pointer_size() {
+  return Cgmon()->Target().abi.pointer_size;
+}
 
 /*
  *
@@ -387,7 +389,7 @@ Gen_Symbol_TN ( ST_IDX st, INT64 offset, INT32 relocs)
   tn = NULL; // Search_For_Previous_Symbol (st, offset, relocs);
   if (tn == NULL) {
     tn = Gen_TN ();
-    Set_TN_size(tn, POINTER_SIZE);
+    Set_TN_size(tn, Target_pointer_size());
     Set_TN_is_constant(tn);
     Set_TN_is_symbol(tn);
     Set_TN_var(tn, st);
@@ -416,7 +418,7 @@ Gen_Label_TN ( LABEL_IDX lab, INT64 offset )
 
   /* Make an new one and put it into the table: */
   tn = Gen_TN ();
-  Set_TN_size(tn, POINTER_SIZE);
+  Set_TN_size(tn, Target_pointer_size());
   Set_TN_is_constant(tn);
   Set_TN_is_label(tn);
   TN_label(tn) = lab;
@@ -431,7 +433,7 @@ Gen_Tag_TN ( LABEL_IDX tag)
 
   /* Make an new one and put it into the table: */
   tn = Gen_TN ();
-  Set_TN_size(tn, POINTER_SIZE);
+  Set_TN_size(tn, Target_pointer_size());
   Set_TN_is_constant(tn);
   Set_TN_is_tag(tn);
   TN_label(tn) = tag;

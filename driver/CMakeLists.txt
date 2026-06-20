@@ -9,6 +9,7 @@ add_compile_options(-DDebug_Mode=1 -std=c++11)
 add_executable(${DRIVER_TARGET_NAME} main.cxx)
 target_include_directories(${DRIVER_TARGET_NAME} PRIVATE
         ${OCC_MAIN_DIR}/common
+        ${OCC_MAIN_DIR}/cg
         ${OCC_MAIN_DIR}/lib/subprocess
         ${OCC_MAIN_DIR}/lib)
 target_link_libraries(${DRIVER_TARGET_NAME} PRIVATE common fe opt cg cgnova)
@@ -17,6 +18,31 @@ INSTALL(TARGETS ${DRIVER_TARGET_NAME}
   RUNTIME DESTINATION bin
   RENAME compiler
 )
+
+if(BUILD_TESTING)
+  add_test(NAME target_cli_test
+    COMMAND ${CMAKE_COMMAND}
+      -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>
+      -DSOURCE=${OCC_MAIN_DIR}/testcase/simple/simple.c
+      -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/target_cli_test.cmake)
+  add_test(NAME arm64_cli_test
+    COMMAND ${CMAKE_COMMAND}
+      -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>
+      -DSIMPLE_SOURCE=${OCC_MAIN_DIR}/testcase/simple/simple.c
+      -DARGS_SOURCE=${OCC_MAIN_DIR}/testcase/cgcase/arm64_args.c
+      -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/arm64_cli_test.cmake)
+  add_test(NAME x86_cli_test
+    COMMAND ${CMAKE_COMMAND}
+      -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>
+      -DSIMPLE_SOURCE=${OCC_MAIN_DIR}/testcase/simple/simple.c
+      -DARGS_SOURCE=${OCC_MAIN_DIR}/testcase/cgcase/arm64_args.c
+      -DGLOBALS_SOURCE=${OCC_MAIN_DIR}/testcase/simple/expr.c
+      -DDIV_SOURCE=${OCC_MAIN_DIR}/testcase/simple/mul1.sy
+      -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/x86_cli_test.cmake)
+endif()
 
 # ---------------------------------------------------------------------------
 # irprint -- standalone tool: read a .irb binary IR file and Print it

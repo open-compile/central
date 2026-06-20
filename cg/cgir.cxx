@@ -3,6 +3,8 @@
 // This is the IR definition for CG to use, i.e. CG-IR
 //
 #include "cgir.h"
+#include "cg_main.h"
+#include "target_backend.h"
 #include <algorithm>
 #include <unordered_set>
 #include <unordered_map>
@@ -26,9 +28,15 @@ TN *CGIR::PREG_to_TN(TY_IDX preg_ty, PREG_NUM preg_num) {
   TN_IDX base_idx = 0;
   if (preg->getDesireRegNum() == 1) {
     // This is return val.
-    TN *base = Gen_Register_TN(ISA_REGISTER_CLASS_integer, MTYPE_size(MTYPE_I4));
-    Set_TN_is_preallocated(base);
-    Set_TN_register(base, 0);
+    TN *base = nullptr;
+    if (Cgmon()->Target().abi.return_register_is_argument_zero) {
+      base = Gen_Register_TN(ISA_REGISTER_CLASS_integer, MTYPE_size(MTYPE_I4));
+      Set_TN_is_preallocated(base);
+      Set_TN_register(base, 0);
+    } else {
+      base = Build_Dedicated_TN(REGISTER_CLASS_v0, REGISTER_v0,
+                                MTYPE_size(MTYPE_I4));
+    }
     base_idx = TN_tn_idx(base);
   } else {
     base_idx = Gen_TN(MTYPE_I4);
@@ -829,33 +837,42 @@ void CG_EMITTER::Emit_operand(CGOP *oper, CGOPR_KIND kind, UINT32 ch_id, FILE* o
       LABEL_IDX lbl = TN_label(tn);
       fprintf(out, "%s ", LABEL_name(lbl));
     } else if (TN_is_constant(tn)) {
-      fprintf(out, "#%lld ", TN_value(tn));
+      fprintf(out, "%s%lld ", Backend().Immediate_prefix(), TN_value(tn));
     } else if (TN_is_label(tn)) {
       fprintf(out, ".%s ", LABEL_name(TN_label(tn)));
     } else if (TN_is_dedicated(tn)) {
       UINT32 reg_id = TN_register(tn);
       if (TN_register_class(tn) == REGISTER_CLASS_ra &&
           reg_id == REGISTER_ra) {
-        fprintf(out, "lr ");
+        const std::string name = Backend().Dedicated_register_name(
+            TARGET_REGISTER_ROLE::LINK_REGISTER);
+        fprintf(out, "%s ", name.c_str());
       } else if (TN_register_class(tn) == REGISTER_CLASS_sp &&
                  reg_id == REGISTER_sp) {
-        fprintf(out, "sp");
+        const std::string name = Backend().Dedicated_register_name(
+            TARGET_REGISTER_ROLE::STACK_POINTER);
+        fprintf(out, "%s", name.c_str());
       } else if (TN_register_class(tn) == REGISTER_CLASS_fp &&
                  reg_id == REGISTER_fp) {
-        fprintf(out, "fp");
+        const std::string name = Backend().Dedicated_register_name(
+            TARGET_REGISTER_ROLE::FRAME_POINTER);
+        fprintf(out, "%s", name.c_str());
       } else if (TN_register_class(tn) == REGISTER_CLASS_v0 &&
                  reg_id == REGISTER_v0) {
-        fprintf(out, "r0");
+        const std::string name = Backend().Dedicated_register_name(
+            TARGET_REGISTER_ROLE::RETURN_VALUE);
+        fprintf(out, "%s", name.c_str());
       } else {
         AssertThat(false, ("not implemented"));
       }
     } else {
       UINT32 reg_id = TN_register(tn);
-      fprintf(out, "r%d ", reg_id);
+      const std::string name = Backend().Integer_register_name(reg_id);
+      fprintf(out, "%s ", name.c_str());
     }
   } else if (CGOPR_IMM == kind) {
     UINT32 val = TN_value(TN_tn(cgoper));
-    fprintf(out, "#%d ", val);
+    fprintf(out, "%s%d ", Backend().Immediate_prefix(), val);
   } else {
     AssertThat(false, ("not implemented."));
   }

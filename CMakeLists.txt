@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.6)
 project(OCC)
 
+include(CTest)
+
 message(STATUS "=================================")
 message(STATUS "   Start to build OCC Compiler   ")
 message(STATUS "=================================")

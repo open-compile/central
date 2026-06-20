@@ -22,7 +22,7 @@ void DATA_LAYOUT::Allocate_formal(ST_IDX idx, UINT32 i) {
   var_allocated.push_back(idx);
   // First four params in register and storable on the local area.
   UINT32 ofst_from_fme_to_symbol = 0;
-  if (var_on_formal_reg.size() < 4) {
+  if (var_on_formal_reg.size() < _abi.register_formal_count) {
     var_on_stack.push_back(idx);
     q_var_on_stack.insert(idx);
     ofst_from_fme_to_symbol = local_size_allocated;
@@ -47,7 +47,7 @@ UINT32 DATA_LAYOUT::Get_sym_stack_size(ST_IDX obj_sym) const {
   UINT32 size = TY_size(ST_ty(obj_sym));
   if (ST_sclass(obj_sym) == SYMC_FORMAL && TY_kind(ST_ty(obj_sym)) == KIND_ARRAY) {
     // pointer used.
-    size = MTYPE_size(MTYPE_A4);
+    size = _abi.pointer_size;
   }
   AssertThat(size != 0,
              ("the type %d should be of valid size (>0)", ST_ty(obj_sym)));
@@ -62,8 +62,6 @@ void DATA_LAYOUT::Allocate_file_statics(void) {
   AssertThat(false, ("not impl."));
 }
 
-const int FUNC_PUSH_SIZE = 28 + 8;
-
 void DATA_LAYOUT::Initialize_frame(SCOPE *scope, ST_IDX func) {
   // Add 8 byte calling convention
   _func = func;
@@ -72,7 +70,7 @@ void DATA_LAYOUT::Initialize_frame(SCOPE *scope, ST_IDX func) {
   ST_TABLE    *sym    = File()->Tables()->Sym();
   UINT32      args_met  = 0;
   // Allocate for LR and FP at the end of the stack.
-  formal_size_allocated = FUNC_PUSH_SIZE;
+  formal_size_allocated = _abi.prologue_save_area;
   vector<ST_IDX> arrays;
   for (UINT32 i       = 0; i < sym->Length(scope); i++) {
     ST_IDX sym_idx = (i << 8) | LOCAL_SYMTAB;
@@ -96,9 +94,9 @@ void DATA_LAYOUT::Initialize_frame(SCOPE *scope, ST_IDX func) {
 
 UINT32 DATA_LAYOUT::Calculate_stack_frame_size() {
   // Make it align to 8 bytes
-  frame_size = local_size_allocated + FUNC_PUSH_SIZE + formal_size_allocated;
-  if (frame_size % 8 != 0) {
-    _padding = 8 - (frame_size % 8);
+  frame_size = local_size_allocated + _abi.prologue_save_area + formal_size_allocated;
+  if (frame_size % _abi.stack_alignment != 0) {
+    _padding = _abi.stack_alignment - (frame_size % _abi.stack_alignment);
     frame_size += _padding;
   }
   return frame_size;
@@ -116,8 +114,8 @@ ST_IDX DATA_LAYOUT::Get_st_ref_base(ST_IDX sym) {
   return 0;
 }
 
-UINT32 DATA_LAYOUT::Stack_alignment() {
-  return 4;
+UINT32 DATA_LAYOUT::Stack_alignment() const {
+  return _abi.stack_alignment;
 }
 
 UINT32 DATA_LAYOUT::Get_pu_arg_area_size(PU_IDX pu_idx) {
@@ -210,7 +208,6 @@ vector<ST_IDX> &DATA_LAYOUT::Get_sym_on_formal_reg() {
 UINT32 DATA_LAYOUT::Get_local_pad_size() {
   return local_size_allocated + _padding;
 }
-
 
 
 
