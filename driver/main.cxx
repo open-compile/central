@@ -9,6 +9,7 @@
 #include "timing.h"
 #include "target.h"
 #include "driver_options.h"
+#include "toolchain.h"
 #include <set>
 #include <vector>
 #include <string>
@@ -656,13 +657,6 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     exit(EXIT_OPTION_ERR);
   }
 
-  if (conf.object_gen && !conf.target.integrated_object_supported) {
-    std::cerr << "integrated -c is not supported for target "
-              << conf.target.triple << "; emit assembly with -S and run: "
-              << conf.target.external_assembler_hint << std::endl;
-    exit(EXIT_OPTION_ERR);
-  }
-
   if (verbose) {
     Set_tracing_option(TRACE_OPT_VERBOSE);
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Only Running Preprocess \n"));
@@ -670,6 +664,7 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     Set_tracing_option(TRACE_ERROR);
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Only Running Preprocess \n"));
   }
+  conf.show_external_commands = (verbose || show) ? TRUE : FALSE;
 
   // This is overriding the above -v or -quiet
   if (loglevel) {
@@ -823,16 +818,19 @@ INT32 Execute(COMPILER_CONFIG &config) {
   if (config.output_mode == DRIVER_OUTPUT_MODE::PREPROCESS) return 0;
 
   if (!config.fe_only) {
-    if (config.assembly || config.object_gen) {
+    if (config.assembly) {
       // Run OPT
       Run_component(COMPONENT_BE, config);
 
       // Run CG
       Run_component(COMPONENT_CG, config);
     }
-    if (config.object_gen) {
-      // Run ASM
-      Run_component(COMPONENT_ASM, config);
+    if (config.output_mode == DRIVER_OUTPUT_MODE::OBJECT ||
+        config.output_mode == DRIVER_OUTPUT_MODE::LINK) {
+      std::string external_error;
+      const INT32 status = Run_external_toolchain(&config, &external_error);
+      if (status != 0) std::cerr << external_error << std::endl;
+      return status;
     }
   }
   return 0;
@@ -913,37 +911,6 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
       Maybe_dump_ir("pre-cg", config, File());
       Trace_cross_phase_ir("after-opt-before-cg", File());
       CG_full_process(config);
-      break;
-    }
-    case COMPONENT_ASM: {
-      // "[A.s] -o [A.o]"
-      Compilation_Phase = COMP_PHASE_ASM;
-#ifdef SUBPROCESS_ENABLED
-      for (INT32 file_id = 0; file_id < config.files.size(); file_id++) {
-        operands[0] = config.target.assembler.c_str();
-        operands[1] = (config.files[file_id] + ASSEMBLY_EXT_SUFFIX).c_str();
-        operands[2] = "-o";
-        operands[3] = (config.files[file_id] + OBJECT_EXT_SUFFIX).c_str();
-        operands[4] = NULL;
-        struct subprocess_s subprocess;
-        INT32 result = subprocess_create(operands, 0, &subprocess);
-        if (0 != result) {
-          // an error occurred!s
-          Comp_Failure("Error occured in invoking assembler, ret = %d\n", result);
-        }
-        FILE* p_stdout = subprocess_stdout(&subprocess);
-        char hello_world[32];
-        fgets(hello_world, 32, p_stdout);
-        INT32 process_return;
-        result = subprocess_join(&subprocess, &process_return);
-        if (0 != result) {
-          // an error occurred!
-          Comp_Failure("Error occured in running assembler, ret = %d\n", result);
-        }
-      }
-#else
-      std::cout << "ASM stage Skipped" << std::endl;
-#endif
       break;
     }
     default:

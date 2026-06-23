@@ -38,9 +38,9 @@ foreach(target IN ITEMS aarch64-linux-gnu arm64-apple-darwin)
 endforeach()
 
 execute_process(
-  COMMAND "${COMPILER}" -c --target=arm64-apple-darwin
+  COMMAND "${COMPILER}" -c -CG:lra=0 --target=arm64-apple-darwin
           "${SIMPLE_SOURCE}" -o "${OUTPUT_DIR}/arm64-integrated.o"
   RESULT_VARIABLE object_result ERROR_VARIABLE object_error)
-if(NOT object_result EQUAL 3 OR NOT object_error MATCHES "integrated -c is not supported")
+if(NOT object_result EQUAL 0 OR NOT EXISTS "${OUTPUT_DIR}/arm64-integrated.o")
   message(FATAL_ERROR "Arm64 integrated -c diagnostic mismatch: ${object_result}: ${object_error}")
 endif()

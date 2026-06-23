@@ -47,8 +47,9 @@ if(NOT conflict_result EQUAL 3 OR NOT conflict_error MATCHES "conflicting target
 endif()
 
 execute_process(
-  COMMAND "${COMPILER}" -c --target=x64-linux "${SOURCE}" -o "${OUTPUT_DIR}/target-x64.o"
+  COMMAND "${COMPILER}" -c -CG:lra=0 --target=x64-linux "${SOURCE}" -o "${OUTPUT_DIR}/target-x64.o"
   RESULT_VARIABLE object_result ERROR_VARIABLE object_error)
-if(NOT object_result EQUAL 3 OR NOT object_error MATCHES "integrated -c is not supported")
+if(object_error MATCHES "integrated -c is not supported" OR
+   (NOT object_result EQUAL 0 AND NOT object_error MATCHES "phase=object"))
   message(FATAL_ERROR "non-ARM -c diagnostic mismatch: ${object_result}: ${object_error}")
 endif()

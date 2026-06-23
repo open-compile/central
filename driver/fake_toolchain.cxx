@@ -26,21 +26,28 @@ bool Environment_enabled(const char *name) {
 }  // namespace
 
 int main(int argc, char **argv) {
+  bool probe = false;
   for (int i = 1; i < argc; ++i) {
-    if (std::string(argv[i]) == "--version") {
-      return Environment_exit("CENTRAL_FAKE_TOOL_PROBE_EXIT");
-    }
+    if (std::string(argv[i]) == "--version") probe = true;
+  }
+  const char *log_path = std::getenv("CENTRAL_FAKE_TOOL_LOG");
+  if (log_path != nullptr && *log_path != '\0') {
+    std::ofstream log(log_path, std::ios::app);
+    if (!log) return 2;
+    log << Basename(argv[0]);
+    for (int i = 1; i < argc; ++i) log << '\t' << argv[i];
+    log << '\n';
+    if (!log) return 2;
+  } else if (!probe) {
+    return 2;
   }
 
-  const char *log_path = std::getenv("CENTRAL_FAKE_TOOL_LOG");
-  if (log_path == nullptr || *log_path == '\0') return 2;
-
-  std::ofstream log(log_path, std::ios::app);
-  if (!log) return 2;
-  log << Basename(argv[0]);
-  for (int i = 1; i < argc; ++i) log << '\t' << argv[i];
-  log << '\n';
-  if (!log) return 2;
+  if (probe) {
+    const char *fail_program =
+        std::getenv("CENTRAL_FAKE_TOOL_PROBE_FAIL_PROGRAM");
+    if (fail_program != nullptr && Basename(argv[0]) == fail_program) return 1;
+    return Environment_exit("CENTRAL_FAKE_TOOL_PROBE_EXIT");
+  }
 
   bool object_phase = false;
   for (int i = 1; i < argc; ++i) {
@@ -67,6 +74,7 @@ int main(int argc, char **argv) {
 
   if (output_path != nullptr) {
     std::ofstream output(output_path);
+    output << (object_phase ? "fake object\n" : "fake executable\n");
     return output ? 0 : 2;
   }
   return 0;

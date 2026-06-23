@@ -338,6 +338,7 @@ bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
   config->output_file.clear();
   config->assembly_output_file.clear();
   config->object_output_file.clear();
+  config->executable_output_file.clear();
   config->final_output_file.clear();
   config->retained_assembly_output_file.clear();
   config->retained_object_output_file.clear();
@@ -353,7 +354,10 @@ bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
   }
 
   config->assembly = TRUE;
-  config->object_gen = mode == DRIVER_OUTPUT_MODE::OBJECT ? TRUE : FALSE;
+  config->object_gen =
+      (mode == DRIVER_OUTPUT_MODE::OBJECT || mode == DRIVER_OUTPUT_MODE::LINK)
+          ? TRUE
+          : FALSE;
 
   const std::string final_output = requested_output.empty()
                                        ? (mode == DRIVER_OUTPUT_MODE::ASSEMBLY
@@ -382,6 +386,12 @@ bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
     }
     if (!Reserve_intermediate(directory, source_base, ".o", config,
                               &config->object_output_file, error)) {
+      Cleanup_reserved_intermediates(config);
+      return false;
+    }
+    if (mode == DRIVER_OUTPUT_MODE::LINK &&
+        !Reserve_intermediate(directory, source_base, ".out", config,
+                              &config->executable_output_file, error)) {
       Cleanup_reserved_intermediates(config);
       return false;
     }

@@ -114,7 +114,8 @@ void Test_link_command_preserves_interleaved_order() {
                                             Request(TOOLCHAIN_FAMILY::AUTO));
   const auto command = Build_link_command(
       drivers[0], "source.o",
-      {Link_input("first.o"), Linker_arg_group({"--whole-archive"}),
+      {Source_object(), Link_input("first.o"),
+       Linker_arg_group({"--whole-archive"}),
        Link_input("liball.a"), Linker_arg_group({"--no-whole-archive"}),
        Link_input("-lc"), Linker_arg_group({"--start-group"}),
        Link_input("liba.a"), Link_input("libb.a"),
@@ -126,6 +127,34 @@ void Test_link_command_preserves_interleaved_order() {
                                   "-Wl,--no-whole-archive", "-lc",
                                   "-Wl,--start-group", "liba.a", "libb.a",
                                   "-Wl,--end-group", "-o", "program"})));
+}
+
+void Test_link_command_substitutes_source_object_in_place() {
+  TOOLCHAIN_DRIVER driver{TOOLCHAIN_FAMILY::CLANG, "clang", {}};
+  const auto command = Build_link_command(
+      driver, "generated.o",
+      {Link_input("before.a"), Source_object(),
+       Linker_arg_group({"--start-group"}), Link_input("after.a")},
+      "program");
+  CHECK(command.ok());
+  CHECK((command.argv == Strings({"clang", "before.a", "generated.o",
+                                  "-Wl,--start-group", "after.a", "-o",
+                                  "program"})));
+}
+
+void Test_run_command_reports_child_status_and_launch_failure() {
+  auto result = Run_tool_command({"/usr/bin/false"}, "object",
+                                 "x86_64-linux-gnu", false);
+  CHECK(result.launched);
+  CHECK(result.status != 0);
+  CHECK(result.error.find("phase=object") != std::string::npos);
+  CHECK(result.error.find("target=x86_64-linux-gnu") != std::string::npos);
+  CHECK(result.error.find("status=") != std::string::npos);
+
+  result = Run_tool_command({"central-tool-that-does-not-exist"}, "probe",
+                            "x86_64-linux-gnu", false);
+  CHECK(!result.launched);
+  CHECK(!result.error.empty());
 }
 
 void Test_empty_argument_groups_and_elements_are_rejected() {
@@ -166,5 +195,7 @@ int main() {
   Test_forced_family_filtering_and_unknown_target();
   Test_assemble_command_exact_and_multiple_groups();
   Test_link_command_preserves_interleaved_order();
+  Test_link_command_substitutes_source_object_in_place();
+  Test_run_command_reports_child_status_and_launch_failure();
   return failures == 0 ? 0 : 1;
 }

@@ -212,7 +212,7 @@ static void Test_normal_output_plans() {
   CHECK(link.final_output_file == dir + "/program");
   CHECK(link.retained_assembly_output_file.empty());
   CHECK(link.retained_object_output_file.empty());
-  CHECK(link.reserved_intermediate_files.size() == 2);
+  CHECK(link.reserved_intermediate_files.size() == 3);
   CHECK(Is_regular_file(link.assembly_output_file));
   CHECK(Is_regular_file(link.object_output_file));
   Cleanup_reserved_intermediates(&link);
@@ -224,7 +224,7 @@ static void Test_normal_output_plans() {
   CHECK(keep.object_output_file != dir + "/hello.o");
   CHECK(keep.retained_assembly_output_file == dir + "/hello.s");
   CHECK(keep.retained_object_output_file == dir + "/hello.o");
-  CHECK(keep.reserved_intermediate_files.size() == 2);
+  CHECK(keep.reserved_intermediate_files.size() == 3);
   CHECK(Is_regular_file(keep.assembly_output_file));
   CHECK(Is_regular_file(keep.object_output_file));
   Cleanup_reserved_intermediates(&keep);
@@ -239,7 +239,7 @@ static void Test_normal_output_plans() {
   CHECK(keep_source_collision.retained_assembly_output_file.empty());
   CHECK(keep_source_collision.retained_object_output_file ==
         dir + "/collision.o");
-  CHECK(keep_source_collision.reserved_intermediate_files.size() == 2);
+  CHECK(keep_source_collision.reserved_intermediate_files.size() == 3);
   Cleanup_reserved_intermediates(&keep_source_collision);
 
   unlink(assembly_source.c_str());
@@ -263,7 +263,7 @@ static void Test_atomic_reservation_collision_and_cleanup() {
   CHECK(config.output_mode == DRIVER_OUTPUT_MODE::LINK);
   CHECK(config.assembly_output_file != visible_assembly);
   CHECK(config.object_output_file != config.final_output_file);
-  CHECK(config.reserved_intermediate_files.size() == 2);
+  CHECK(config.reserved_intermediate_files.size() == 3);
   for (const DRIVER_RESERVED_FILE &file : config.reserved_intermediate_files)
     CHECK(Is_regular_file(Reserved_path(file)));
 
@@ -300,8 +300,8 @@ static void Test_cleanup_refuses_replaced_owned_path() {
   std::string error;
   CHECK(Configure_driver_outputs(DRIVER_OUTPUT_MODE::LINK, source,
                                  dir + "/program", false, &config, &error));
-  CHECK(config.reserved_intermediate_files.size() == 2);
-  if (config.reserved_intermediate_files.size() != 2) return;
+  CHECK(config.reserved_intermediate_files.size() == 3);
+  if (config.reserved_intermediate_files.size() != 3) return;
   const std::string replaced =
       Reserved_path(config.reserved_intermediate_files[0]);
   const std::string untouched =

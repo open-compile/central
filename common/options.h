@@ -159,6 +159,7 @@ public:
   std::vector<DRIVER_LINK_ITEM> link_items;
   string assembly_output_file;
   string object_output_file;
+  string executable_output_file;
   string final_output_file;
   // --keep publication destinations. Working files above remain hidden and
   // atomically reserved until the external-toolchain workflow publishes them.
@@ -166,6 +167,7 @@ public:
   string retained_object_output_file;
   std::vector<DRIVER_RESERVED_FILE> reserved_intermediate_files;
   BOOL keep_intermediates = FALSE;
+  BOOL show_external_commands = FALSE;
 
   // 优化器配置（新增）
   OPT_CONFIG opt_cfg;

@@ -6,9 +6,10 @@ execute_process(
   COMMAND "${CMAKE_COMMAND}" -E env "CENTRAL_FAKE_TOOL_LOG=${log}"
           "${FAKE_TOOLCHAIN}" -target test-triple --version
   RESULT_VARIABLE version_result)
-if(NOT version_result EQUAL 0 OR EXISTS "${log}")
+if(NOT version_result EQUAL 0 OR NOT EXISTS "${log}")
   message(FATAL_ERROR "fake tool --version contract failed")
 endif()
+file(REMOVE "${log}")
 
 execute_process(
   COMMAND "${CMAKE_COMMAND}" -E env "CENTRAL_FAKE_TOOL_LOG=${log}"
