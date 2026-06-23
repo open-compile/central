@@ -85,6 +85,9 @@ const std::vector<TARGET_INFO> &Supported_targets();
 
 std::string Native_target_name(HOST_OS os, HOST_ARCH arch);
 bool Detect_native_target(std::string *triple, std::string *error);
+bool Resolve_configured_target(const std::string &name,
+                               const TARGET_INFO **target,
+                               std::string *error);
 
 bool Resolve_target(const std::string &name, const TARGET_INFO **target,
                     std::string *error);

@@ -188,10 +188,23 @@ bool Detect_native_target(std::string *triple, std::string *error) {
 #endif
 
   HOST_ARCH arch = HOST_ARCH::UNSUPPORTED;
+  const char *arch_error = "unsupported native host architecture";
 #if defined(__aarch64__)
+#if defined(__AARCH64EB__)
+  arch_error = "unsupported native big-endian AArch64 host";
+#else
   arch = HOST_ARCH::AARCH64;
+#endif
 #elif defined(__arm__)
+#if defined(__ARMEB__)
+  arch_error = "unsupported native big-endian ARM host";
+#elif !defined(__ARM_ARCH) || __ARM_ARCH < 7
+  arch_error = "unsupported native ARM architecture below ARMv7";
+#elif !defined(__ARM_PCS_VFP)
+  arch_error = "unsupported native ARM ABI without hard-float calling convention";
+#else
   arch = HOST_ARCH::ARMV7;
+#endif
 #elif defined(__x86_64__)
   arch = HOST_ARCH::X86_64;
 #elif defined(__i386__)
@@ -204,7 +217,7 @@ bool Detect_native_target(std::string *triple, std::string *error) {
     return false;
   }
   if (arch == HOST_ARCH::UNSUPPORTED) {
-    if (error != nullptr) *error = "unsupported native host architecture";
+    if (error != nullptr) *error = arch_error;
     return false;
   }
 
@@ -216,6 +229,18 @@ bool Detect_native_target(std::string *triple, std::string *error) {
   if (triple != nullptr) *triple = native;
   if (error != nullptr) error->clear();
   return true;
+}
+
+bool Resolve_configured_target(const std::string &name,
+                               const TARGET_INFO **target,
+                               std::string *error) {
+  std::string resolved_name = name;
+  if (Normalize_target_name(name) == "native" &&
+      !Detect_native_target(&resolved_name, error)) {
+    if (target != nullptr) *target = nullptr;
+    return false;
+  }
+  return Resolve_target(resolved_name, target, error);
 }
 
 bool Resolve_target(const std::string &name, const TARGET_INFO **target,

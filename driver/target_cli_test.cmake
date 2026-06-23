@@ -1,5 +1,18 @@
-if(NOT DEFINED COMPILER OR NOT DEFINED SOURCE OR NOT DEFINED OUTPUT_DIR)
-  message(FATAL_ERROR "COMPILER, SOURCE, and OUTPUT_DIR are required")
+if(NOT DEFINED COMPILER OR NOT DEFINED SOURCE OR NOT DEFINED OUTPUT_DIR OR
+   NOT DEFINED NATIVE_TARGET_ALIAS)
+  message(FATAL_ERROR "COMPILER, SOURCE, OUTPUT_DIR, and NATIVE_TARGET_ALIAS are required")
+endif()
+
+if(NATIVE_TARGET_ALIAS)
+  execute_process(
+    COMMAND "${COMPILER}" -S -CG:lra=0 --target=native
+            --arch=${NATIVE_TARGET_ALIAS} "${SOURCE}"
+            -o "${OUTPUT_DIR}/target-native.s"
+    RESULT_VARIABLE native_result ERROR_VARIABLE native_error)
+  if(NOT native_result EQUAL 0)
+    message(FATAL_ERROR
+      "matching native target and arch failed: ${native_error}")
+  endif()
 endif()
 
 execute_process(

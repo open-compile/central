@@ -548,9 +548,10 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     } else {
       const TARGET_INFO *canonical_target = nullptr;
       const TARGET_INFO *architecture_target = nullptr;
-      if (!Resolve_target(requested_target, &canonical_target, &target_error) ||
-          !Resolve_target(architecture_name.Get(), &architecture_target,
-                          &target_error)) {
+      if (!Resolve_configured_target(requested_target, &canonical_target,
+                                     &target_error) ||
+          !Resolve_configured_target(architecture_name.Get(),
+                                     &architecture_target, &target_error)) {
         std::cerr << target_error << std::endl;
         exit(EXIT_OPTION_ERR);
       }

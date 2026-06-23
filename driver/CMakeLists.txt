@@ -20,11 +20,32 @@ INSTALL(TARGETS ${DRIVER_TARGET_NAME}
 )
 
 if(BUILD_TESTING)
+  set(NATIVE_TARGET_ALIAS "")
+  string(TOLOWER "${CMAKE_HOST_SYSTEM_PROCESSOR}" HOST_PROCESSOR_LOWER)
+  if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    if(HOST_PROCESSOR_LOWER MATCHES "^(arm64|aarch64)$")
+      set(NATIVE_TARGET_ALIAS "arm64-macos")
+    elseif(HOST_PROCESSOR_LOWER MATCHES "^(x86_64|amd64)$")
+      set(NATIVE_TARGET_ALIAS "x64-macos")
+    endif()
+  elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    if(HOST_PROCESSOR_LOWER MATCHES "^(arm64|aarch64)$")
+      set(NATIVE_TARGET_ALIAS "arm64-linux")
+    elseif(HOST_PROCESSOR_LOWER MATCHES "^(armv7|armv7l)$")
+      set(NATIVE_TARGET_ALIAS "armv7")
+    elseif(HOST_PROCESSOR_LOWER MATCHES "^(i[3-6]86|x86)$")
+      set(NATIVE_TARGET_ALIAS "x86-linux")
+    elseif(HOST_PROCESSOR_LOWER MATCHES "^(x86_64|amd64)$")
+      set(NATIVE_TARGET_ALIAS "x64-linux")
+    endif()
+  endif()
+
   add_test(NAME target_cli_test
     COMMAND ${CMAKE_COMMAND}
       -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>
       -DSOURCE=${OCC_MAIN_DIR}/testcase/simple/simple.c
       -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+      -DNATIVE_TARGET_ALIAS=${NATIVE_TARGET_ALIAS}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/target_cli_test.cmake)
   add_test(NAME arm64_cli_test
     COMMAND ${CMAKE_COMMAND}

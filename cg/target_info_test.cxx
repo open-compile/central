@@ -4,6 +4,20 @@
 #include <cassert>
 #include <string>
 
+#if defined(__APPLE__) &&                                                \
+    ((defined(__aarch64__) && !defined(__AARCH64EB__)) ||               \
+     defined(__x86_64__))
+#define EXPECT_SUPPORTED_NATIVE_HOST 1
+#elif defined(__linux__) &&                                              \
+    ((defined(__aarch64__) && !defined(__AARCH64EB__)) ||               \
+     (defined(__arm__) && !defined(__ARMEB__) && defined(__ARM_ARCH) && \
+      __ARM_ARCH >= 7 && defined(__ARM_PCS_VFP)) ||                     \
+     defined(__x86_64__) || defined(__i386__))
+#define EXPECT_SUPPORTED_NATIVE_HOST 1
+#else
+#define EXPECT_SUPPORTED_NATIVE_HOST 0
+#endif
+
 static void Expect_resolves_to(const char *name, const char *triple) {
   const TARGET_INFO *target = nullptr;
   std::string error;
@@ -85,10 +99,22 @@ int main() {
   assert(config.target.external_assembler_hint.find("clang -target") != std::string::npos);
 
   std::string native_triple;
+#if EXPECT_SUPPORTED_NATIVE_HOST
   assert(Detect_native_target(&native_triple, &error));
   assert(!native_triple.empty());
   assert(error.empty());
 
+  const TARGET_INFO *configured_target = nullptr;
+  assert(Resolve_configured_target(" NaTiVe ", &configured_target, &error));
+  assert(configured_target != nullptr);
+  assert(configured_target->triple == native_triple);
+#else
+  assert(!Detect_native_target(&native_triple, &error));
+  assert(native_triple.empty());
+  assert(!error.empty());
+#endif
+
+#if EXPECT_SUPPORTED_NATIVE_HOST
   COMPILER_CONFIG native_config;
   assert(Configure_target("native", &native_config, &error));
   assert(native_config.target.triple == native_triple);
@@ -97,6 +123,7 @@ int main() {
   COMPILER_CONFIG normalized_native_config;
   assert(Configure_target(" NaTiVe ", &normalized_native_config, &error));
   assert(normalized_native_config.target.triple == native_triple);
+#endif
 
   COMPILER_CONFIG invalid_config;
   assert(!Configure_target("mips", &invalid_config, &error));
