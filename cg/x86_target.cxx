@@ -77,6 +77,7 @@ void X86_TARGET::Emit_function_header(FILE *out, const std::string &name) const 
   const std::string symbol = Spell_global_symbol(name);
   fprintf(out, Is_apple() ? ".globl %s\n" : ".global %s\n", symbol.c_str());
   if (!Is_apple()) fprintf(out, ".type %s, @function\n", symbol.c_str());
+  if (Is_apple()) fprintf(out, "\t.p2align\t4, 0x90\n");
   fprintf(out, "%s:\n", symbol.c_str());
 }
 
@@ -146,8 +147,20 @@ void X86_TARGET::Emit_op(CGOP *op, FILE *out) const {
     return;
   }
   if (opcode == CGOPC_LADDR || opcode == CGOPC_LDRLBL) {
-    const std::string label = Label_name_for(*this, Operand(op, 1), false);
-    fprintf(out, "\tmov%c\t%s%s, %s\n", pointer_suffix, label.c_str(),
+    TN *label_tn = Operand(op, 1);
+    LABEL *label = LABEL_label(TN_label(label_tn));
+    const ST_IDX symbol_idx = label->Get_temp_sym();
+    if (symbol_idx != 0) {
+      const std::string symbol = Spell_global_symbol(ST_name(symbol_idx));
+      fprintf(out, "\tlea%c\t%s%s, %s\n", pointer_suffix, symbol.c_str(),
+              Is_64_bit() ? "(%rip)" : "",
+              Register_for(*this, Operand(op, 0), _info.abi.pointer_size).c_str());
+      return;
+    }
+    AssertThat(opcode == CGOPC_LDRLBL,
+               ("LADDR relocation label has no symbol"));
+    const std::string label_text = Label_name_for(*this, Operand(op, 1), false);
+    fprintf(out, "\tmov%c\t%s%s, %s\n", pointer_suffix, label_text.c_str(),
             Is_64_bit() ? "(%rip)" : "",
             Register_for(*this, Operand(op, 0), _info.abi.pointer_size).c_str());
     return;

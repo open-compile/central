@@ -289,9 +289,14 @@ CGIR_BUILDER::Handle_ret_val(IR_ITER stmt, CFG_BB_IDX cur_bb, CG_CONV_INFO &buil
                                        Tree()->Get_node(stmt)->Get_preg_num());
     res = TN_tn_idx(tn_res);
   } else {
-    TN      *func_val = Gen_Register_TN(ISA_REGISTER_CLASS_integer, 4);
-    Set_TN_register(func_val, 0);
-    Set_TN_is_preallocated(func_val);
+    TN *func_val = nullptr;
+    if (Target().abi.return_register_is_argument_zero) {
+      func_val = Gen_Register_TN(ISA_REGISTER_CLASS_integer, 4);
+      Set_TN_register(func_val, 0);
+      Set_TN_is_preallocated(func_val);
+    } else {
+      func_val = Build_Dedicated_TN(REGISTER_CLASS_v0, REGISTER_v0, 4);
+    }
     TN      *tn_res   = Expand_expr (Tree()->Get_operand(stmt, 0), stmt, cur_bb, func_val);
   }
   Handle_ret(stmt, cur_bb, builder);

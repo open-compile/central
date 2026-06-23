@@ -65,7 +65,7 @@ const std::vector<TARGET_INFO> &Targets() {
        "aarch64-linux-gnu-gcc -c",
        "aarch64-linux-gnu-as",
        /*assembly_supported=*/true, /*integrated_object_supported=*/false,
-       /*codegen_supported=*/false},
+       /*codegen_supported=*/true},
       {"arm64-apple-darwin", TARGET_ARCH::AARCH64, TARGET_OS::DARWIN,
        Make_abi(TARGET_ABI_KIND::DARWIN_ARM64, 8, 16, 8, 16, "sp", "x29",
                 "x30", "x0", {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"},
@@ -79,7 +79,7 @@ const std::vector<TARGET_INFO> &Targets() {
        "clang -target arm64-apple-macos -c",
        "as",
        /*assembly_supported=*/true, /*integrated_object_supported=*/false,
-       /*codegen_supported=*/false},
+       /*codegen_supported=*/true},
       {"i386-linux-gnu", TARGET_ARCH::I386, TARGET_OS::LINUX,
        Make_abi(TARGET_ABI_KIND::SYSV_I386, 4, 16, 0, 8, "%esp", "%ebp",
                 "", "%eax", {}, {"%eax", "%ecx", "%edx"},
@@ -89,7 +89,7 @@ const std::vector<TARGET_INFO> &Targets() {
        "gcc -m32 -c",
        "as",
        /*assembly_supported=*/true, /*integrated_object_supported=*/false,
-       /*codegen_supported=*/false},
+       /*codegen_supported=*/true},
       {"x86_64-linux-gnu", TARGET_ARCH::X86_64, TARGET_OS::LINUX,
        Make_abi(TARGET_ABI_KIND::SYSV_X86_64, 8, 16, 6, 16, "%rsp", "%rbp",
                 "", "%rax",
@@ -102,7 +102,7 @@ const std::vector<TARGET_INFO> &Targets() {
        "gcc -m64 -c",
        "as",
        /*assembly_supported=*/true, /*integrated_object_supported=*/false,
-       /*codegen_supported=*/false},
+       /*codegen_supported=*/true},
       {"x86_64-apple-darwin", TARGET_ARCH::X86_64, TARGET_OS::DARWIN,
        Make_abi(TARGET_ABI_KIND::DARWIN_X86_64, 8, 16, 6, 16, "%rsp", "%rbp",
                 "", "%rax",
@@ -115,7 +115,7 @@ const std::vector<TARGET_INFO> &Targets() {
        "clang -target x86_64-apple-macos -c",
        "as",
        /*assembly_supported=*/true, /*integrated_object_supported=*/false,
-       /*codegen_supported=*/false},
+       /*codegen_supported=*/true},
   };
   return targets;
 }
@@ -145,7 +145,7 @@ std::string Normalize_target_name(std::string s) {
   std::transform(s.begin(), s.end(), s.begin(),
                  [](unsigned char c) { return static_cast<char>(tolower(c)); });
   for (size_t i = 0; i < s.size(); ++i) {
-    if (s[i] == '_' || s[i] == '.') s[i] = '-';
+    if (s[i] == '.') s[i] = '-';
   }
   return s;
 }

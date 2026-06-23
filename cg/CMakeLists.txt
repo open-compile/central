@@ -6,8 +6,9 @@ target_compile_options(cg PRIVATE -g)
 target_include_directories(cg PRIVATE ${OCC_MAIN_DIR}/common ${OCC_MAIN_DIR}/lib ${OCC_MAIN_DIR}/opt)
 
 if(BUILD_TESTING)
-  add_executable(target_info_test target_info_test.cxx target_info.cxx)
+  add_executable(target_info_test target_info_test.cxx target_configure.cxx)
   target_include_directories(target_info_test PRIVATE ${OCC_MAIN_DIR}/common ${OCC_MAIN_DIR}/lib)
+  target_link_libraries(target_info_test PRIVATE common)
   add_test(NAME target_info_test COMMAND target_info_test)
 
   add_executable(data_layout_target_test data_layout_target_test.cxx)

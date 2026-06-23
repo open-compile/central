@@ -37,6 +37,7 @@ public:
                                        const char *current_name) const = 0;
   virtual void Emit_op(CGOP *op, FILE *out) const = 0;
   virtual const char *Pointer_directive() const = 0;
+  virtual bool Uses_literal_address_pool() const = 0;
 };
 
 std::unique_ptr<TARGET_BACKEND> Create_target_backend(

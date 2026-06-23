@@ -88,6 +88,7 @@ void ARM64_TARGET::Emit_function_header(FILE *out,
   const std::string symbol = Spell_global_symbol(name);
   fprintf(out, Is_apple(_info) ? ".globl %s\n" : ".global %s\n", symbol.c_str());
   if (!Is_apple(_info)) fprintf(out, ".type %s, %%function\n", symbol.c_str());
+  fprintf(out, "\t.p2align\t2\n");
   fprintf(out, "%s:\n", symbol.c_str());
 }
 
@@ -166,7 +167,26 @@ void ARM64_TARGET::Emit_op(CGOP *op, FILE *out) const {
     return;
   }
 
-  if (opcode == CGOPC_LDRLBL || opcode == CGOPC_LADDR) {
+  if (opcode == CGOPC_LADDR || opcode == CGOPC_LDRLBL) {
+    TN *label_tn = Operand(op, 1);
+    LABEL *label = LABEL_label(TN_label(label_tn));
+    const ST_IDX symbol_idx = label->Get_temp_sym();
+    if (symbol_idx != 0) {
+      const std::string symbol = Spell_global_symbol(ST_name(symbol_idx));
+      const std::string dst = Value_register(*this, Operand(op, 0), true);
+      if (Is_apple(_info)) {
+        fprintf(out, "\tadrp\t%s, %s@PAGE\n", dst.c_str(), symbol.c_str());
+        fprintf(out, "\tadd\t%s, %s, %s@PAGEOFF\n",
+                dst.c_str(), dst.c_str(), symbol.c_str());
+      } else {
+        fprintf(out, "\tadrp\t%s, %s\n", dst.c_str(), symbol.c_str());
+        fprintf(out, "\tadd\t%s, %s, :lo12:%s\n",
+                dst.c_str(), dst.c_str(), symbol.c_str());
+      }
+      return;
+    }
+    AssertThat(opcode == CGOPC_LDRLBL,
+               ("LADDR relocation label has no symbol"));
     fprintf(out, "\tldr\t%s, %s\n",
             Value_register(*this, Operand(op, 0), true).c_str(),
             Label_operand(*this, Operand(op, 1), false).c_str());

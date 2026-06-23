@@ -182,8 +182,7 @@ INT32 CG_full_process(COMPILER_CONFIG &conf) {
             selected_target->abi.pointer_size,
             selected_target->abi.stack_alignment));
   if (!selected_target->codegen_supported) {
-    Comp_Failure("Target %s is selected, but code generation is not implemented "
-                 "yet. Current builder/emitter support armv8-a32 (armv7-linux-gnueabihf) only.",
+    Comp_Failure("Target %s is selected, but code generation is not implemented yet.",
                  selected_target->triple.c_str());
   }
   AssertThat(conf.output_file.size() > 0, ("Incorrect output file name"));
@@ -282,6 +281,7 @@ void CG_EMITTER::Emit_tree(ST_IDX func_sym, FILE *out, FILE_MANAGER *file) {
   }
   LABEL_TABLE *tbl = File()->Tables()->Label();
   SCOPE *scope = File()->Scopes()->Current();
+  if (!Backend().Uses_literal_address_pool()) return;
   for (UINT32 i = 1; i < tbl->Length(scope); i++) {
     LABEL_IDX lbl_idx = (i << 8) + LOCAL_SYMTAB;
     if (LABEL_label(lbl_idx)->Get_kind() != LKIND_RELOC) {

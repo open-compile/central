@@ -30,6 +30,7 @@ public:
                                const char *current_name) const override;
   void Emit_op(CGOP *op, FILE *out) const override;
   const char *Pointer_directive() const override { return ".word"; }
+  bool Uses_literal_address_pool() const override { return true; }
 };
 
 #endif // OCC_ARMV7_LINUX_TARGET_H
