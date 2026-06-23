@@ -19,6 +19,20 @@ enum class TARGET_OS {
   DARWIN,
 };
 
+enum class HOST_OS {
+  LINUX,
+  DARWIN,
+  UNSUPPORTED,
+};
+
+enum class HOST_ARCH {
+  ARMV7,
+  AARCH64,
+  I386,
+  X86_64,
+  UNSUPPORTED,
+};
+
 enum class TARGET_ABI_KIND {
   AAPCS32_HARD_FLOAT,
   AAPCS64,
@@ -68,6 +82,9 @@ struct TARGET_INFO {
 
 const TARGET_INFO &Default_target();
 const std::vector<TARGET_INFO> &Supported_targets();
+
+std::string Native_target_name(HOST_OS os, HOST_ARCH arch);
+bool Detect_native_target(std::string *triple, std::string *error);
 
 bool Resolve_target(const std::string &name, const TARGET_INFO **target,
                     std::string *error);

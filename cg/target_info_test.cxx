@@ -13,6 +13,11 @@ static void Expect_resolves_to(const char *name, const char *triple) {
   assert(error.empty());
 }
 
+static void Expect_native_name(HOST_OS os, HOST_ARCH arch,
+                               const char *triple) {
+  assert(Native_target_name(os, arch) == triple);
+}
+
 int main() {
   const TARGET_INFO &default_target = Default_target();
   assert(default_target.triple == "armv7-linux-gnueabihf");
@@ -22,6 +27,22 @@ int main() {
   assert(default_target.abi.stack_alignment == 8);
   assert(default_target.abi.register_formal_count == 4);
   assert(default_target.abi.prologue_save_area == 36);
+
+  Expect_native_name(HOST_OS::DARWIN, HOST_ARCH::AARCH64,
+                     "arm64-apple-darwin");
+  Expect_native_name(HOST_OS::DARWIN, HOST_ARCH::X86_64,
+                     "x86_64-apple-darwin");
+  Expect_native_name(HOST_OS::LINUX, HOST_ARCH::AARCH64,
+                     "aarch64-linux-gnu");
+  Expect_native_name(HOST_OS::LINUX, HOST_ARCH::ARMV7,
+                     "armv7-linux-gnueabihf");
+  Expect_native_name(HOST_OS::LINUX, HOST_ARCH::X86_64,
+                     "x86_64-linux-gnu");
+  Expect_native_name(HOST_OS::LINUX, HOST_ARCH::I386,
+                     "i386-linux-gnu");
+  assert(Native_target_name(HOST_OS::DARWIN, HOST_ARCH::ARMV7).empty());
+  assert(Native_target_name(HOST_OS::UNSUPPORTED, HOST_ARCH::X86_64).empty());
+  assert(Native_target_name(HOST_OS::LINUX, HOST_ARCH::UNSUPPORTED).empty());
 
   Expect_resolves_to("armv7-linux-gnueabihf", "armv7-linux-gnueabihf");
   Expect_resolves_to("aarch64-linux-gnu", "aarch64-linux-gnu");
@@ -41,6 +62,10 @@ int main() {
 
   const TARGET_INFO *target = nullptr;
   std::string error;
+  assert(Resolve_target("", &target, &error));
+  assert(target == &default_target);
+  assert(!Resolve_target("native", &target, &error));
+  assert(target == nullptr);
   assert(!Resolve_target("mips64-linux-gnu", &target, &error));
   assert(target == nullptr);
   assert(error.find("unknown target") != std::string::npos);
@@ -58,6 +83,20 @@ int main() {
   assert(config.target.stack_alignment == 16);
   assert(config.target.register_set.find("%rax") != std::string::npos);
   assert(config.target.external_assembler_hint.find("clang -target") != std::string::npos);
+
+  std::string native_triple;
+  assert(Detect_native_target(&native_triple, &error));
+  assert(!native_triple.empty());
+  assert(error.empty());
+
+  COMPILER_CONFIG native_config;
+  assert(Configure_target("native", &native_config, &error));
+  assert(native_config.target.triple == native_triple);
+  assert(error.empty());
+
+  COMPILER_CONFIG normalized_native_config;
+  assert(Configure_target(" NaTiVe ", &normalized_native_config, &error));
+  assert(normalized_native_config.target.triple == native_triple);
 
   COMPILER_CONFIG invalid_config;
   assert(!Configure_target("mips", &invalid_config, &error));

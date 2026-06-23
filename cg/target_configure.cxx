@@ -1,6 +1,8 @@
 #include "target.h"
 #include "options.h"
 
+#include <algorithm>
+#include <cctype>
 #include <sstream>
 
 namespace {
@@ -30,12 +32,38 @@ std::string Join_registers(const std::vector<std::string> &regs) {
   return out.str();
 }
 
+std::string Normalize_configured_target(std::string name) {
+  size_t start = 0;
+  while (start < name.size() &&
+         isspace(static_cast<unsigned char>(name[start]))) {
+    ++start;
+  }
+  size_t end = name.size();
+  while (end > start &&
+         isspace(static_cast<unsigned char>(name[end - 1]))) {
+    --end;
+  }
+  name = name.substr(start, end - start);
+  std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
+    return static_cast<char>(tolower(c));
+  });
+  for (char &c : name) {
+    if (c == '.') c = '-';
+  }
+  return name;
+}
+
 } // namespace
 
 bool Configure_target(const std::string &name, COMPILER_CONFIG *config,
                       std::string *error) {
+  std::string resolved_name = name;
+  if (Normalize_configured_target(name) == "native" &&
+      !Detect_native_target(&resolved_name, error)) {
+    return false;
+  }
   const TARGET_INFO *target = nullptr;
-  if (config == nullptr || !Resolve_target(name, &target, error)) {
+  if (config == nullptr || !Resolve_target(resolved_name, &target, error)) {
     return false;
   }
   config->target.triple                      = target->triple;

@@ -166,6 +166,58 @@ const TARGET_INFO &Default_target() { return Targets().front(); }
 
 const std::vector<TARGET_INFO> &Supported_targets() { return Targets(); }
 
+std::string Native_target_name(HOST_OS os, HOST_ARCH arch) {
+  if (os == HOST_OS::DARWIN) {
+    if (arch == HOST_ARCH::AARCH64) return "arm64-apple-darwin";
+    if (arch == HOST_ARCH::X86_64) return "x86_64-apple-darwin";
+  } else if (os == HOST_OS::LINUX) {
+    if (arch == HOST_ARCH::ARMV7) return "armv7-linux-gnueabihf";
+    if (arch == HOST_ARCH::AARCH64) return "aarch64-linux-gnu";
+    if (arch == HOST_ARCH::I386) return "i386-linux-gnu";
+    if (arch == HOST_ARCH::X86_64) return "x86_64-linux-gnu";
+  }
+  return std::string();
+}
+
+bool Detect_native_target(std::string *triple, std::string *error) {
+  HOST_OS os = HOST_OS::UNSUPPORTED;
+#if defined(__APPLE__)
+  os = HOST_OS::DARWIN;
+#elif defined(__linux__)
+  os = HOST_OS::LINUX;
+#endif
+
+  HOST_ARCH arch = HOST_ARCH::UNSUPPORTED;
+#if defined(__aarch64__)
+  arch = HOST_ARCH::AARCH64;
+#elif defined(__arm__)
+  arch = HOST_ARCH::ARMV7;
+#elif defined(__x86_64__)
+  arch = HOST_ARCH::X86_64;
+#elif defined(__i386__)
+  arch = HOST_ARCH::I386;
+#endif
+
+  if (triple != nullptr) triple->clear();
+  if (os == HOST_OS::UNSUPPORTED) {
+    if (error != nullptr) *error = "unsupported native host operating system";
+    return false;
+  }
+  if (arch == HOST_ARCH::UNSUPPORTED) {
+    if (error != nullptr) *error = "unsupported native host architecture";
+    return false;
+  }
+
+  const std::string native = Native_target_name(os, arch);
+  if (native.empty()) {
+    if (error != nullptr) *error = "unsupported native host OS/architecture combination";
+    return false;
+  }
+  if (triple != nullptr) *triple = native;
+  if (error != nullptr) error->clear();
+  return true;
+}
+
 bool Resolve_target(const std::string &name, const TARGET_INFO **target,
                     std::string *error) {
   if (target != nullptr) {
