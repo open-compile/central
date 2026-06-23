@@ -15,6 +15,7 @@
 
 #include "host.h"
 #include "target.h"
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <map>
@@ -34,6 +35,12 @@ struct DRIVER_LINK_ITEM {
   DRIVER_LINK_ITEM_KIND kind = DRIVER_LINK_ITEM_KIND::INPUT;
   string input;
   std::vector<string> linker_args;
+};
+
+struct DRIVER_RESERVED_FILE {
+  string path;
+  std::uint64_t device = 0;
+  std::uint64_t inode = 0;
 };
 
 // 各类优化 pass 的开关
@@ -153,7 +160,11 @@ public:
   string assembly_output_file;
   string object_output_file;
   string final_output_file;
-  std::vector<string> reserved_intermediate_files;
+  // --keep publication destinations. Working files above remain hidden and
+  // atomically reserved until the external-toolchain workflow publishes them.
+  string retained_assembly_output_file;
+  string retained_object_output_file;
+  std::vector<DRIVER_RESERVED_FILE> reserved_intermediate_files;
   BOOL keep_intermediates = FALSE;
 
   // 优化器配置（新增）

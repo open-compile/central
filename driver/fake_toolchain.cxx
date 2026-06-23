@@ -46,20 +46,27 @@ int main(int argc, char **argv) {
   for (int i = 1; i < argc; ++i) {
     if (std::string(argv[i]) == "-c") object_phase = true;
   }
+  const char *output_path = nullptr;
+  for (int i = 1; i + 1 < argc; ++i) {
+    if (std::string(argv[i]) == "-o") output_path = argv[i + 1];
+  }
   const int requested_exit = Environment_exit(
       object_phase ? "CENTRAL_FAKE_TOOL_OBJECT_EXIT"
                    : "CENTRAL_FAKE_TOOL_LINK_EXIT");
   if (requested_exit != 0) return requested_exit;
 
+  if (output_path == nullptr &&
+      !Environment_enabled("CENTRAL_FAKE_TOOL_ALLOW_MISSING_OUTPUT")) {
+    return 2;
+  }
   if (Environment_enabled("CENTRAL_FAKE_TOOL_SKIP_OUTPUT") ||
       Environment_enabled(object_phase ? "CENTRAL_FAKE_TOOL_OBJECT_SKIP_OUTPUT"
                                        : "CENTRAL_FAKE_TOOL_LINK_SKIP_OUTPUT")) {
     return 0;
   }
 
-  for (int i = 1; i + 1 < argc; ++i) {
-    if (std::string(argv[i]) != "-o") continue;
-    std::ofstream output(argv[i + 1]);
+  if (output_path != nullptr) {
+    std::ofstream output(output_path);
     return output ? 0 : 2;
   }
   return 0;

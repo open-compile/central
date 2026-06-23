@@ -63,3 +63,31 @@ execute_process(
 if(NOT probe_result EQUAL 23)
   message(FATAL_ERROR "fake probe failure control did not return 23")
 endif()
+
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "${FAKE_TOOLCHAIN}" -c input.s
+  RESULT_VARIABLE missing_output_result)
+if(missing_output_result EQUAL 0)
+  message(FATAL_ERROR "fake normal invocation without -o unexpectedly passed")
+endif()
+
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "CENTRAL_FAKE_TOOL_SKIP_OUTPUT=1"
+          "${FAKE_TOOLCHAIN}" -c input.s
+  RESULT_VARIABLE skip_missing_output_result)
+if(skip_missing_output_result EQUAL 0)
+  message(FATAL_ERROR "skip-output implicitly allowed a missing -o")
+endif()
+
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "CENTRAL_FAKE_TOOL_ALLOW_MISSING_OUTPUT=1"
+          "${FAKE_TOOLCHAIN}" -c input.s
+  RESULT_VARIABLE allowed_missing_output_result)
+if(NOT allowed_missing_output_result EQUAL 0)
+  message(FATAL_ERROR "fake missing-output override was not honored")
+endif()

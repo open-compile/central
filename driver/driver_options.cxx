@@ -175,19 +175,8 @@ bool Path_conflicts(const std::string &path,
 
 bool Reserve_intermediate(
     const std::string &directory, const std::string &source_base,
-    const std::string &extension, bool keep,
-    const std::vector<std::string> &occupied, COMPILER_CONFIG *config,
+    const std::string &extension, COMPILER_CONFIG *config,
     std::string *reserved, std::string *error) {
-  const std::string visible = directory + source_base + extension;
-  if (keep && !Path_conflicts(visible, occupied)) {
-    struct stat visible_info;
-    if (lstat(visible.c_str(), &visible_info) != 0 ||
-        S_ISREG(visible_info.st_mode)) {
-      *reserved = visible;
-      return true;
-    }
-  }
-
   std::string pattern = directory + "." + source_base + ".central-XXXXXX" +
                         extension;
   std::vector<char> storage(pattern.begin(), pattern.end());
@@ -198,6 +187,16 @@ bool Reserve_intermediate(
              std::strerror(errno);
     return false;
   }
+  struct stat reserved_info;
+  const bool identified = fstat(fd, &reserved_info) == 0;
+  if (!identified || !S_ISREG(reserved_info.st_mode)) {
+    const int saved_errno = identified ? EINVAL : errno;
+    close(fd);
+    unlink(storage.data());
+    *error = "cannot identify reserved intermediate file '" +
+             std::string(storage.data()) + "': " + std::strerror(saved_errno);
+    return false;
+  }
   if (close(fd) != 0) {
     const int saved_errno = errno;
     unlink(storage.data());
@@ -206,8 +205,20 @@ bool Reserve_intermediate(
     return false;
   }
   *reserved = storage.data();
-  config->reserved_intermediate_files.push_back(*reserved);
+  DRIVER_RESERVED_FILE owned;
+  owned.path = *reserved;
+  owned.device = static_cast<std::uint64_t>(reserved_info.st_dev);
+  owned.inode = static_cast<std::uint64_t>(reserved_info.st_ino);
+  config->reserved_intermediate_files.push_back(owned);
   return true;
+}
+
+std::string Retained_path(const std::string &directory,
+                          const std::string &source_base,
+                          const std::string &extension,
+                          const std::vector<std::string> &occupied) {
+  const std::string path = directory + source_base + extension;
+  return Path_conflicts(path, occupied) ? "" : path;
 }
 
 }  // namespace
@@ -328,6 +339,10 @@ bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
   config->assembly_output_file.clear();
   config->object_output_file.clear();
   config->final_output_file.clear();
+  config->retained_assembly_output_file.clear();
+  config->retained_object_output_file.clear();
+  // PREPROCESS is the legacy FE-only/no-output path. Run_preprocess is still a
+  // stub; implementing a real preprocessor is outside external-toolchain work.
   if (mode == DRIVER_OUTPUT_MODE::PREPROCESS) return true;
 
   const std::string source_base = Basename_without_extension(source_file);
@@ -360,22 +375,25 @@ bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
   } else {
     config->final_output_file = final_output;
     const std::string directory = Directory(config->final_output_file);
-    if (!Reserve_intermediate(directory, source_base, ".s", keep_intermediates,
-                              {source_file, config->final_output_file}, config,
+    if (!Reserve_intermediate(directory, source_base, ".s", config,
                               &config->assembly_output_file, error)) {
       Cleanup_reserved_intermediates(config);
       return false;
     }
-    if (mode == DRIVER_OUTPUT_MODE::OBJECT) {
-      config->object_output_file = config->final_output_file;
-    } else {
-      if (!Reserve_intermediate(
-              directory, source_base, ".o", keep_intermediates,
-              {source_file, config->final_output_file,
-               config->assembly_output_file},
-              config, &config->object_output_file, error)) {
-        Cleanup_reserved_intermediates(config);
-        return false;
+    if (!Reserve_intermediate(directory, source_base, ".o", config,
+                              &config->object_output_file, error)) {
+      Cleanup_reserved_intermediates(config);
+      return false;
+    }
+    if (keep_intermediates) {
+      config->retained_assembly_output_file = Retained_path(
+          directory, source_base, ".s",
+          {source_file, config->final_output_file});
+      if (mode == DRIVER_OUTPUT_MODE::LINK) {
+        config->retained_object_output_file = Retained_path(
+            directory, source_base, ".o",
+            {source_file, config->final_output_file,
+             config->retained_assembly_output_file});
       }
     }
   }
@@ -384,8 +402,16 @@ bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
 }
 
 void Cleanup_reserved_intermediates(COMPILER_CONFIG *config) {
-  for (const std::string &path : config->reserved_intermediate_files) {
-    unlink(path.c_str());
+  for (const DRIVER_RESERVED_FILE &owned :
+       config->reserved_intermediate_files) {
+    struct stat current;
+    if (lstat(owned.path.c_str(), &current) != 0 ||
+        !S_ISREG(current.st_mode) ||
+        static_cast<std::uint64_t>(current.st_dev) != owned.device ||
+        static_cast<std::uint64_t>(current.st_ino) != owned.inode) {
+      continue;
+    }
+    unlink(owned.path.c_str());
   }
   config->reserved_intermediate_files.clear();
 }

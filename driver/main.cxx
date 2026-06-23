@@ -818,6 +818,8 @@ INT32 Execute(COMPILER_CONFIG &config) {
   // Run FE
   Run_component(COMPONENT_FE, config);
 
+  // PREPROCESS intentionally remains the legacy FE-only/no-output behavior;
+  // Run_preprocess is a stub and is outside this external-toolchain feature.
   if (config.output_mode == DRIVER_OUTPUT_MODE::PREPROCESS) return 0;
 
   if (!config.fe_only) {
