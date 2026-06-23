@@ -7,7 +7,7 @@
 #include "main.h"
 #include "file_util.h"
 #include "timing.h"
-#include "target_info.h"
+#include "target.h"
 #include <set>
 #include <vector>
 #include <string>
@@ -305,7 +305,6 @@ static BOOL Parse_grouped_driver_option(const std::string &arg,
     conf.timing = TRUE;
     return TRUE;
   }
-
   enum { GROUP_NONE, GROUP_OPT, GROUP_CG, GROUP_PHASE, GROUP_SSA, GROUP_TRACE } group = GROUP_NONE;
   if (Split_prefixed_option(opt_arg, "-OPT:", &key, &value_text)) {
     group = GROUP_OPT;
@@ -387,6 +386,14 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     "  compiler -TRACE:cross=DATA input.c\n"
     "  compiler -TRACE:cross=EMIT_CORE input.c\n"
     "\n"
+    "Target options:\n"
+    "  --target=<arch> or --march=<arch>\n"
+    "  Supported targets: armv8-a32/aarch32, armv8-a64/armv9-a64/aarch64,\n"
+    "  x86-64.\n"
+    "  armv8-a32 is the currently implemented code generation target;\n"
+    "  armv8/armv9-a64 and x86-64 are accepted as explicit target selections and\n"
+    "  fail before emission until their builders/emitters are implemented.\n"
+    "\n"
     "All Rights Reserved to the Compiler Group in Shenzhen Univ.\n"
     "Contact lu.gt@163.com for details.\n");
   parser.Prog("compiler");
@@ -466,7 +473,7 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
                                          "Address bit width, between 8, 16, 32, 64",
                                          {'m', "width"});
   args::ValueFlag<std::string> architecture_name(opt_group, "architecture",
-                                          "Specify target architecture",
+                                          "Specify target architecture: armv8-a32/aarch32, armv8-a64/armv9-a64/aarch64, x86-64",
                                           {"march", "arch"});
   args::ValueFlag<std::string> target_name(opt_group, "target",
                                           "Specify canonical target triple",
@@ -553,6 +560,19 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
                   << architecture_name.Get() << std::endl;
         exit(EXIT_OPTION_ERR);
       }
+    }
+  }
+  // Width-based target selection (-m 32/-m 64) used only when no explicit target was given
+  if (requested_target.empty() && architecture_width) {
+    INT32 width = architecture_width.Get();
+    if (width == 32) {
+      requested_target = "armv7-linux-gnueabihf";
+    } else if (width == 64) {
+      requested_target = "aarch64-linux-gnu";
+    } else {
+      std::cerr << "Unsupported architecture width '" << width
+                << "'; use 32 or 64" << std::endl;
+      exit(EXIT_OPTION_ERR);
     }
   }
   if (!Configure_target(requested_target, &conf, &target_error)) {
@@ -683,6 +703,9 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   if (timing) {
     conf.timing = TRUE;
   }
+  Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS),
+           (TFile, "Target architecture: %s (triple: %s)\n",
+            Target_arch_name(conf.target_arch), conf.target.triple.c_str()));
 
   // ---- 二进制 IR dump / load 选项解析 (Step 10) ----
   for (auto const &kv : args::get(dump_ir_after)) {
@@ -881,7 +904,7 @@ INT32 Run_component(COMPONENTS_WHOLE component, COMPILER_CONFIG &config) {
       Compilation_Phase = COMP_PHASE_ASM;
 #ifdef SUBPROCESS_ENABLED
       for (INT32 file_id = 0; file_id < config.files.size(); file_id++) {
-        operands[0] = "arm-linux-gnueabihf-as";
+        operands[0] = config.target.assembler.c_str();
         operands[1] = (config.files[file_id] + ASSEMBLY_EXT_SUFFIX).c_str();
         operands[2] = "-o";
         operands[3] = (config.files[file_id] + OBJECT_EXT_SUFFIX).c_str();

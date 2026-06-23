@@ -1,5 +1,5 @@
 #include "data_layout.h"
-#include "target_info.h"
+#include "target.h"
 
 #include <cassert>
 #include <string>

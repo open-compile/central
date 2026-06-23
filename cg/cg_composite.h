@@ -4,7 +4,7 @@
 
 #include "cgir.h"
 #include "lra.h"
-#include "target_info.h"
+#include "target.h"
 #include "target_backend.h"
 
 #include <memory>

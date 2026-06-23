@@ -1,7 +1,7 @@
 #ifndef OCC_TARGET_BACKEND_H
 #define OCC_TARGET_BACKEND_H
 
-#include "target_info.h"
+#include "target.h"
 
 #include <cstdio>
 #include <memory>

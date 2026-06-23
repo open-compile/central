@@ -6,7 +6,7 @@
 #define OCC_DATA_LAYOUT_H
 
 #include "symtab.h"
-#include "target_info.h"
+#include "target.h"
 #include <vector>
 #include <set>
 #include <map>

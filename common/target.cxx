@@ -1,6 +1,7 @@
-#include "target_info.h"
-#include "options.h"
+#include "target.h"
 
+#include <algorithm>
+#include <cctype>
 #include <map>
 #include <sstream>
 #include <utility>
@@ -47,41 +48,74 @@ const std::vector<TARGET_INFO> &Targets() {
                 {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
                  "r8", "r10", "fp"}),
        "", TARGET_SECTION_SYNTAX::GNU_ELF, "#",
-       "arm-linux-gnueabihf-gcc -marm -march=armv7-a -c", true, true},
+       "arm-linux-gnueabihf-gcc -marm -march=armv7-a -c",
+       "arm-linux-gnueabihf-as",
+       /*assembly_supported=*/true, /*integrated_object_supported=*/true,
+       /*codegen_supported=*/true},
       {"aarch64-linux-gnu", TARGET_ARCH::AARCH64, TARGET_OS::LINUX,
        Make_abi(TARGET_ABI_KIND::AAPCS64, 8, 16, 8, 16, "sp", "x29",
                 "x30", "x0", {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"},
-                {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x30"},
+                {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9",
+                 "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x30"},
                 {"x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29"},
-                {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28"}),
-       "", TARGET_SECTION_SYNTAX::GNU_ELF, "//", "aarch64-linux-gnu-gcc -c", true, false},
+                {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9",
+                 "x10", "x11", "x12", "x13", "x14", "x15", "x19", "x20", "x21",
+                 "x22", "x23", "x24", "x25", "x26", "x27", "x28"}),
+       "", TARGET_SECTION_SYNTAX::GNU_ELF, "//",
+       "aarch64-linux-gnu-gcc -c",
+       "aarch64-linux-gnu-as",
+       /*assembly_supported=*/true, /*integrated_object_supported=*/false,
+       /*codegen_supported=*/false},
       {"arm64-apple-darwin", TARGET_ARCH::AARCH64, TARGET_OS::DARWIN,
        Make_abi(TARGET_ABI_KIND::DARWIN_ARM64, 8, 16, 8, 16, "sp", "x29",
                 "x30", "x0", {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"},
-                {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x30"},
+                {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9",
+                 "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x30"},
                 {"x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29"},
-                {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28"}),
-       "_", TARGET_SECTION_SYNTAX::MACH_O, "//", "clang -target arm64-apple-macos -c", true, false},
+                {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9",
+                 "x10", "x11", "x12", "x13", "x14", "x15", "x19", "x20", "x21",
+                 "x22", "x23", "x24", "x25", "x26", "x27", "x28"}),
+       "_", TARGET_SECTION_SYNTAX::MACH_O, "//",
+       "clang -target arm64-apple-macos -c",
+       "as",
+       /*assembly_supported=*/true, /*integrated_object_supported=*/false,
+       /*codegen_supported=*/false},
       {"i386-linux-gnu", TARGET_ARCH::I386, TARGET_OS::LINUX,
        Make_abi(TARGET_ABI_KIND::SYSV_I386, 4, 16, 0, 8, "%esp", "%ebp",
                 "", "%eax", {}, {"%eax", "%ecx", "%edx"},
                 {"%ebx", "%esi", "%edi", "%ebp"},
                 {"%eax", "%ebx", "%ecx", "%edx", "%esi", "%edi"}),
-       "", TARGET_SECTION_SYNTAX::GNU_ELF, "#", "gcc -m32 -c", true, false},
+       "", TARGET_SECTION_SYNTAX::GNU_ELF, "#",
+       "gcc -m32 -c",
+       "as",
+       /*assembly_supported=*/true, /*integrated_object_supported=*/false,
+       /*codegen_supported=*/false},
       {"x86_64-linux-gnu", TARGET_ARCH::X86_64, TARGET_OS::LINUX,
        Make_abi(TARGET_ABI_KIND::SYSV_X86_64, 8, 16, 6, 16, "%rsp", "%rbp",
-                "", "%rax", {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"},
+                "", "%rax",
+                {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"},
                 {"%rax", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11"},
                 {"%rbx", "%rbp", "%r12", "%r13", "%r14", "%r15"},
-                {"%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"}),
-       "", TARGET_SECTION_SYNTAX::GNU_ELF, "#", "gcc -m64 -c", true, false},
+                {"%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi",
+                 "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"}),
+       "", TARGET_SECTION_SYNTAX::GNU_ELF, "#",
+       "gcc -m64 -c",
+       "as",
+       /*assembly_supported=*/true, /*integrated_object_supported=*/false,
+       /*codegen_supported=*/false},
       {"x86_64-apple-darwin", TARGET_ARCH::X86_64, TARGET_OS::DARWIN,
        Make_abi(TARGET_ABI_KIND::DARWIN_X86_64, 8, 16, 6, 16, "%rsp", "%rbp",
-                "", "%rax", {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"},
+                "", "%rax",
+                {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"},
                 {"%rax", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11"},
                 {"%rbx", "%rbp", "%r12", "%r13", "%r14", "%r15"},
-                {"%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"}),
-       "_", TARGET_SECTION_SYNTAX::MACH_O, "#", "clang -target x86_64-apple-macos -c", true, false},
+                {"%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi",
+                 "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"}),
+       "_", TARGET_SECTION_SYNTAX::MACH_O, "#",
+       "clang -target x86_64-apple-macos -c",
+       "as",
+       /*assembly_supported=*/true, /*integrated_object_supported=*/false,
+       /*codegen_supported=*/false},
   };
   return targets;
 }
@@ -100,6 +134,32 @@ const std::map<std::string, std::string> &Aliases() {
   return aliases;
 }
 
+std::string Normalize_target_name(std::string s) {
+  size_t start = 0;
+  while (start < s.size() && isspace(static_cast<unsigned char>(s[start])))
+    ++start;
+  size_t end = s.size();
+  while (end > start && isspace(static_cast<unsigned char>(s[end - 1])))
+    --end;
+  s = s.substr(start, end - start);
+  std::transform(s.begin(), s.end(), s.begin(),
+                 [](unsigned char c) { return static_cast<char>(tolower(c)); });
+  for (size_t i = 0; i < s.size(); ++i) {
+    if (s[i] == '_' || s[i] == '.') s[i] = '-';
+  }
+  return s;
+}
+
+const char *Arch_name(TARGET_ARCH arch) {
+  switch (arch) {
+    case TARGET_ARCH::ARMV7:  return "armv7";
+    case TARGET_ARCH::AARCH64: return "aarch64";
+    case TARGET_ARCH::I386:   return "i386";
+    case TARGET_ARCH::X86_64: return "x86_64";
+  }
+  return "unknown";
+}
+
 } // namespace
 
 const TARGET_INFO &Default_target() { return Targets().front(); }
@@ -111,7 +171,8 @@ bool Resolve_target(const std::string &name, const TARGET_INFO **target,
   if (target != nullptr) {
     *target = nullptr;
   }
-  std::string canonical = name.empty() ? Default_target().triple : name;
+  std::string canonical = name.empty() ? Default_target().triple
+                                       : Normalize_target_name(name);
   const auto alias = Aliases().find(canonical);
   if (alias != Aliases().end()) {
     canonical = alias->second;
@@ -138,63 +199,29 @@ bool Resolve_target(const std::string &name, const TARGET_INFO **target,
   return false;
 }
 
-namespace {
-
-const char *Arch_name(TARGET_ARCH arch) {
-  switch (arch) {
-    case TARGET_ARCH::ARMV7: return "armv7";
-    case TARGET_ARCH::AARCH64: return "aarch64";
-    case TARGET_ARCH::I386: return "i386";
-    case TARGET_ARCH::X86_64: return "x86_64";
-  }
-  return "unknown";
+const char *Target_arch_name(TARGET_ARCH arch) {
+  return Arch_name(arch);
 }
 
-const char *Os_name(TARGET_OS os) {
-  return os == TARGET_OS::LINUX ? "linux" : "darwin";
-}
-
-const char *Abi_name(TARGET_ABI_KIND abi) {
-  switch (abi) {
-    case TARGET_ABI_KIND::AAPCS32_HARD_FLOAT: return "aapcs32-hard-float";
-    case TARGET_ABI_KIND::AAPCS64: return "aapcs64";
-    case TARGET_ABI_KIND::SYSV_I386: return "sysv-i386";
-    case TARGET_ABI_KIND::SYSV_X86_64: return "sysv-x86_64";
-    case TARGET_ABI_KIND::DARWIN_ARM64: return "darwin-arm64";
-    case TARGET_ABI_KIND::DARWIN_X86_64: return "darwin-x86_64";
-  }
-  return "unknown";
-}
-
-std::string Join_registers(const std::vector<std::string> &registers) {
-  std::ostringstream result;
-  for (std::size_t i = 0; i < registers.size(); ++i) {
-    if (i != 0) result << ',';
-    result << registers[i];
-  }
-  return result.str();
-}
-
-} // namespace
-
-bool Configure_target(const std::string &name, COMPILER_CONFIG *config,
-                      std::string *error) {
+bool Parse_target_arch(const std::string &text, TARGET_ARCH *arch) {
   const TARGET_INFO *target = nullptr;
-  if (config == nullptr || !Resolve_target(name, &target, error)) {
+  std::string err;
+  if (!Resolve_target(text, &target, &err)) {
     return false;
   }
-  config->target.triple = target->triple;
-  config->target.arch = Arch_name(target->arch);
-  config->target.os = Os_name(target->os);
-  config->target.pointer_size = target->abi.pointer_size;
-  config->target.abi = Abi_name(target->abi.kind);
-  config->target.symbol_prefix = target->symbol_prefix;
-  config->target.section_syntax =
-      target->section_syntax == TARGET_SECTION_SYNTAX::GNU_ELF ? "gnu-elf" : "mach-o";
-  config->target.stack_alignment = target->abi.stack_alignment;
-  config->target.register_set = Join_registers(target->abi.allocatable_registers);
-  config->target.external_assembler_hint = target->external_assembler_hint;
-  config->target.assembly_supported = target->assembly_supported;
-  config->target.integrated_object_supported = target->integrated_object_supported;
+  if (arch != nullptr) {
+    *arch = target->arch;
+  }
   return true;
+}
+
+std::string Supported_target_arches() {
+  std::ostringstream out;
+  bool first = true;
+  for (const TARGET_INFO &t : Targets()) {
+    if (!first) out << ", ";
+    out << t.triple;
+    first = false;
+  }
+  return out.str();
 }

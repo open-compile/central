@@ -14,6 +14,7 @@
 #define _OCC_OPTIONS_H_
 
 #include "host.h"
+#include "target.h"
 #include <string>
 #include <vector>
 #include <map>
@@ -112,6 +113,7 @@ struct CG_TARGET_CONFIG {
   UINT32 stack_alignment = 0;
   string register_set;
   string external_assembler_hint;
+  string assembler;                         // standalone assembler binary (for -c via subprocess)
   BOOL assembly_supported = FALSE;
   BOOL integrated_object_supported = FALSE;
 };
@@ -125,6 +127,7 @@ public:
   BOOL   run_prep    = FALSE;
   BOOL   opt_bin     = TRUE;
   BOOL   timing      = FALSE;
+  TARGET_ARCH target_arch = TARGET_ARCH::ARMV7;
   STRVEC files;
   STRVEC assemble_files;
   STRVEC object_files;

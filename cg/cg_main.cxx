@@ -9,7 +9,7 @@
 #include "cg_composite.h"
 #include "tn.h"
 #include "timing.h"
-#include "target_info.h"
+#include "target.h"
 
 INLINE BOOL TR_EMIT() {
   return Tracing(COMPONENT_CG_EMIT, TRACE_EMIT_CORE);
@@ -173,16 +173,19 @@ INT32 CG_full_process(COMPILER_CONFIG &conf) {
   if (!Resolve_target(conf.target.triple, &selected_target, &target_error)) {
     Comp_Failure("%s", target_error.c_str());
   }
-  if (!selected_target->assembly_supported) {
-    Comp_Failure("target backend is not implemented yet: %s (assembler hint: %s)",
-                 selected_target->triple.c_str(),
-                 selected_target->external_assembler_hint.c_str());
-  }
-
-  // Local and Global register allocation
-  // Instruction scheduling etc.,
   Is_Trace(Tracing(COMPONENT_CG, TRACE_OPTIONS),
            (TFile, "Writing assembly to %s\n", conf.output_file.c_str()));
+  Is_Trace(Tracing(COMPONENT_CG, TRACE_OPTIONS),
+           (TFile,
+            "Code generation target: triple=%s ptr=%u stack_align=%u\n",
+            selected_target->triple.c_str(),
+            selected_target->abi.pointer_size,
+            selected_target->abi.stack_alignment));
+  if (!selected_target->codegen_supported) {
+    Comp_Failure("Target %s is selected, but code generation is not implemented "
+                 "yet. Current builder/emitter support armv8-a32 (armv7-linux-gnueabihf) only.",
+                 selected_target->triple.c_str());
+  }
   AssertThat(conf.output_file.size() > 0, ("Incorrect output file name"));
 
   // This should only be run once.
