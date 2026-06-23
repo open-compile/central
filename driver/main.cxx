@@ -817,21 +817,24 @@ INT32 Execute(COMPILER_CONFIG &config) {
   // Run_preprocess is a stub and is outside this external-toolchain feature.
   if (config.output_mode == DRIVER_OUTPUT_MODE::PREPROCESS) return 0;
 
-  if (!config.fe_only) {
-    if (config.assembly) {
-      // Run OPT
-      Run_component(COMPONENT_BE, config);
+  if (config.fe_only) {
+    Cleanup_reserved_intermediates(&config);
+    return 0;
+  }
 
-      // Run CG
-      Run_component(COMPONENT_CG, config);
-    }
-    if (config.output_mode == DRIVER_OUTPUT_MODE::OBJECT ||
-        config.output_mode == DRIVER_OUTPUT_MODE::LINK) {
-      std::string external_error;
-      const INT32 status = Run_external_toolchain(&config, &external_error);
-      if (status != 0) std::cerr << external_error << std::endl;
-      return status;
-    }
+  if (config.assembly) {
+    // Run OPT
+    Run_component(COMPONENT_BE, config);
+
+    // Run CG
+    Run_component(COMPONENT_CG, config);
+  }
+  if (config.output_mode == DRIVER_OUTPUT_MODE::OBJECT ||
+      config.output_mode == DRIVER_OUTPUT_MODE::LINK) {
+    std::string external_error;
+    const INT32 status = Run_external_toolchain(&config, &external_error);
+    if (status != 0) std::cerr << external_error << std::endl;
+    return status;
   }
   return 0;
 }

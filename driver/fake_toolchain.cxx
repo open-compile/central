@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <fstream>
+#include <iostream>
 #include <string>
 
 namespace {
@@ -46,6 +47,19 @@ int main(int argc, char **argv) {
     const char *fail_program =
         std::getenv("CENTRAL_FAKE_TOOL_PROBE_FAIL_PROGRAM");
     if (fail_program != nullptr && Basename(argv[0]) == fail_program) return 1;
+    const char *masquerade =
+        std::getenv("CENTRAL_FAKE_TOOL_MASQUERADE_PROGRAM");
+    const char *forced_identity =
+        std::getenv("CENTRAL_FAKE_TOOL_IDENTITY");
+    bool clang_identity =
+        (masquerade != nullptr && Basename(argv[0]) == masquerade) ||
+        Basename(argv[0]).find("clang") != std::string::npos;
+    if (forced_identity != nullptr && std::string(forced_identity) == "clang")
+      clang_identity = true;
+    if (forced_identity != nullptr && std::string(forced_identity) == "gcc")
+      clang_identity = false;
+    std::cout << (clang_identity ? "clang version fake\n"
+                                 : "gcc (GCC) fake\n");
     return Environment_exit("CENTRAL_FAKE_TOOL_PROBE_EXIT");
   }
 

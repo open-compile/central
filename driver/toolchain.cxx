@@ -11,6 +11,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -146,6 +148,137 @@ std::string Failure(const char *phase, const std::string &triple,
          detail;
 }
 
+TOOLCHAIN_RUN_RESULT Run_probe_command(const std::vector<std::string> &argv,
+                                       const std::string &triple,
+                                       std::string *output) {
+  TOOLCHAIN_RUN_RESULT result;
+  output->clear();
+  int launch_pipe[2] = {-1, -1};
+  int output_pipe[2] = {-1, -1};
+  if (pipe(launch_pipe) != 0 || pipe(output_pipe) != 0) {
+    const int saved = errno;
+    if (launch_pipe[0] >= 0) {
+      close(launch_pipe[0]);
+      close(launch_pipe[1]);
+    }
+    result.error = Failure("probe", triple, argv,
+                           "launch=" + std::string(std::strerror(saved)));
+    return result;
+  }
+  if (fcntl(launch_pipe[1], F_SETFD, FD_CLOEXEC) != 0) {
+    const int saved = errno;
+    close(launch_pipe[0]);
+    close(launch_pipe[1]);
+    close(output_pipe[0]);
+    close(output_pipe[1]);
+    result.error = Failure("probe", triple, argv,
+                           "launch=" + std::string(std::strerror(saved)));
+    return result;
+  }
+  const pid_t pid = fork();
+  if (pid < 0) {
+    const int saved = errno;
+    close(launch_pipe[0]);
+    close(launch_pipe[1]);
+    close(output_pipe[0]);
+    close(output_pipe[1]);
+    result.error = Failure("probe", triple, argv,
+                           "launch=" + std::string(std::strerror(saved)));
+    return result;
+  }
+  if (pid == 0) {
+    close(launch_pipe[0]);
+    close(output_pipe[0]);
+    if (dup2(output_pipe[1], STDOUT_FILENO) < 0 ||
+        dup2(output_pipe[1], STDERR_FILENO) < 0) {
+      const int saved = errno;
+      (void)!write(launch_pipe[1], &saved, sizeof(saved));
+      _exit(127);
+    }
+    close(output_pipe[1]);
+    std::vector<char *> child_argv;
+    child_argv.reserve(argv.size() + 1);
+    for (const std::string &arg : argv)
+      child_argv.push_back(const_cast<char *>(arg.c_str()));
+    child_argv.push_back(nullptr);
+    execvp(child_argv[0], child_argv.data());
+    const int saved = errno;
+    (void)!write(launch_pipe[1], &saved, sizeof(saved));
+    _exit(127);
+  }
+
+  close(launch_pipe[1]);
+  close(output_pipe[1]);
+  int child_errno = 0;
+  ssize_t launch_bytes;
+  do {
+    launch_bytes = read(launch_pipe[0], &child_errno, sizeof(child_errno));
+  } while (launch_bytes < 0 && errno == EINTR);
+  close(launch_pipe[0]);
+  char buffer[4096];
+  for (;;) {
+    const ssize_t count = read(output_pipe[0], buffer, sizeof(buffer));
+    if (count > 0) {
+      const size_t limit = 64 * 1024;
+      const size_t available = output->size() < limit
+                                   ? limit - output->size()
+                                   : 0;
+      output->append(buffer,
+                     std::min(available, static_cast<size_t>(count)));
+    } else if (count < 0 && errno == EINTR) {
+      continue;
+    } else {
+      break;
+    }
+  }
+  close(output_pipe[0]);
+  int wait_status = 0;
+  while (waitpid(pid, &wait_status, 0) < 0) {
+    if (errno == EINTR) continue;
+    result.error = Failure("probe", triple, argv,
+                           "wait=" + std::string(std::strerror(errno)));
+    return result;
+  }
+  if (launch_bytes > 0) {
+    result.error = Failure("probe", triple, argv,
+                           "launch=" + std::string(std::strerror(child_errno)));
+    return result;
+  }
+  if (launch_bytes < 0) {
+    result.error = Failure("probe", triple, argv, "launch=pipe-read-error");
+    return result;
+  }
+  result.launched = true;
+  result.status = WIFEXITED(wait_status)
+                      ? WEXITSTATUS(wait_status)
+                      : WIFSIGNALED(wait_status)
+                            ? 128 + WTERMSIG(wait_status)
+                            : 255;
+  if (result.status != 0) {
+    result.error = Failure("probe", triple, argv,
+                           "status=" + std::to_string(result.status));
+  }
+  return result;
+}
+
+std::string Lower(std::string value) {
+  for (char &c : value)
+    c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+  return value;
+}
+
+bool Family_matches(TOOLCHAIN_FAMILY family, const std::string &version) {
+  const std::string lower = Lower(version);
+  if (family == TOOLCHAIN_FAMILY::GCC)
+    return lower.find("clang") == std::string::npos;
+  if (family == TOOLCHAIN_FAMILY::CLANG) {
+    return lower.find("free software foundation") == std::string::npos &&
+           (lower.find("gcc") == std::string::npos ||
+            lower.find("clang") != std::string::npos);
+  }
+  return true;
+}
+
 }  // namespace
 
 TOOLCHAIN_RUN_RESULT Run_tool_command(const std::vector<std::string> &argv,
@@ -247,12 +380,16 @@ bool Discover_toolchain(const std::string &triple,
     probe.insert(probe.end(), candidate.target_args.begin(),
                  candidate.target_args.end());
     probe.push_back("--version");
-    const auto result = Run_tool_command(probe, "probe", triple, false);
-    if (result.ok()) {
+    std::string version;
+    const auto result = Run_probe_command(probe, triple, &version);
+    if (result.ok() && Family_matches(candidate.family, version)) {
       *selected = candidate;
       return true;
     }
-    last_error = result.error;
+    last_error = result.ok()
+                     ? Failure("probe", triple, probe,
+                               "status=0 family-identity-mismatch")
+                     : result.error;
   }
   *error = "no usable external toolchain for target " + triple;
   if (!last_error.empty()) *error += ": " + last_error;

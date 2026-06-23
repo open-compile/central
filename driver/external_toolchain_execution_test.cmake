@@ -6,6 +6,8 @@ foreach(alias clang gcc aarch64-linux-gnu-gcc arm-linux-gnueabihf-gcc)
   execute_process(COMMAND "${CMAKE_COMMAND}" -E create_symlink
                   "${FAKE_TOOLCHAIN}" "${fake_bin}/${alias}")
 endforeach()
+file(GLOB stale_hidden "${OUTPUT_DIR}/.simple.central-*")
+file(REMOVE ${stale_hidden})
 
 function(run_compiler result_var error_var)
   execute_process(
@@ -25,6 +27,10 @@ run_compiler(result error "${COMPILER}" -c -CG:lra=0 --target=x86_64-linux-gnu
 if(NOT result EQUAL 0 OR NOT EXISTS "${object}")
   message(FATAL_ERROR "object pipeline failed (${result}): ${error}")
 endif()
+file(GLOB hidden "${OUTPUT_DIR}/.simple.central-*")
+if(hidden)
+  message(FATAL_ERROR "ordinary object success left hidden intermediates: ${hidden}")
+endif()
 file(READ "${log}" contents)
 string(REGEX MATCHALL "[^\n]+" lines "${contents}")
 list(LENGTH lines count)
@@ -40,6 +46,10 @@ run_compiler(result error "${COMPILER}" -CG:lra=0 --target=x86_64-linux-gnu
              -o "${program}")
 if(NOT result EQUAL 0 OR NOT EXISTS "${program}")
   message(FATAL_ERROR "link pipeline failed (${result}): ${error}")
+endif()
+file(GLOB hidden "${OUTPUT_DIR}/.simple.central-*")
+if(hidden)
+  message(FATAL_ERROR "ordinary link success left hidden intermediates: ${hidden}")
 endif()
 file(READ "${log}" contents)
 string(REGEX MATCHALL "[^\n]+" lines "${contents}")
@@ -97,7 +107,8 @@ execute_process(
   RESULT_VARIABLE result ERROR_VARIABLE error)
 if(NOT result EQUAL 17 OR
    NOT error MATCHES "target=x86_64-linux-gnu" OR
-   NOT error MATCHES "phase=object" OR NOT error MATCHES "status=17")
+   NOT error MATCHES "phase=object" OR NOT error MATCHES "argv=\\[" OR
+   NOT error MATCHES "status=17")
   message(FATAL_ERROR "object failure contract mismatch (${result}): ${error}")
 endif()
 file(GLOB retained "${OUTPUT_DIR}/.simple.central-*.s"
@@ -132,7 +143,8 @@ execute_process(
           "${COMPILER}" -CG:lra=0 --target=x86_64-linux-gnu -gcc "${SOURCE}"
           -o "${program}"
   RESULT_VARIABLE result ERROR_VARIABLE error)
-if(NOT result EQUAL 19 OR NOT error MATCHES "phase=link" OR
+if(NOT result EQUAL 19 OR NOT error MATCHES "target=x86_64-linux-gnu" OR
+   NOT error MATCHES "phase=link" OR NOT error MATCHES "argv=\\[" OR
    NOT error MATCHES "status=19")
   message(FATAL_ERROR "link failure contract mismatch (${result}): ${error}")
 endif()
@@ -200,4 +212,71 @@ execute_process(
   RESULT_VARIABLE result ERROR_VARIABLE error)
 if(result EQUAL 0 OR NOT error MATCHES "GNU GCC is not supported for Apple target arm64-apple-darwin")
   message(FATAL_ERROR "Apple forced-GCC diagnostic mismatch: ${error}")
+endif()
+
+file(REMOVE "${log}" "${object}")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "PATH=${fake_bin}:$ENV{PATH}"
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "CENTRAL_FAKE_TOOL_MASQUERADE_PROGRAM=gcc"
+          "${COMPILER}" -c -CG:lra=0 --target=x86_64-linux-gnu
+          "${SOURCE}" -o "${object}"
+  RESULT_VARIABLE result ERROR_VARIABLE error)
+if(NOT result EQUAL 0)
+  message(FATAL_ERROR "family-aware auto fallback failed (${result}): ${error}")
+endif()
+file(READ "${log}" contents)
+if(NOT contents MATCHES "gcc.*--version.*clang.*--version.*clang.*-c")
+  message(FATAL_ERROR "masquerading GCC was not rejected: ${contents}")
+endif()
+
+file(REMOVE "${log}" "${object}")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "PATH=${fake_bin}:$ENV{PATH}"
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "CENTRAL_FAKE_TOOL_MASQUERADE_PROGRAM=gcc"
+          "${COMPILER}" -c -CG:lra=0 --target=x86_64-linux-gnu -gcc
+          "${SOURCE}" -o "${object}"
+  RESULT_VARIABLE result ERROR_VARIABLE error)
+if(result EQUAL 0 OR NOT error MATCHES "family-identity-mismatch" OR
+   error MATCHES "clang.*-c")
+  message(FATAL_ERROR "forced GCC accepted Clang identity: ${error}")
+endif()
+
+file(REMOVE "${log}" "${object}")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "PATH=${fake_bin}:$ENV{PATH}"
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "CENTRAL_FAKE_TOOL_IDENTITY=gcc"
+          "${COMPILER}" -c -CG:lra=0 --target=x86_64-linux-gnu -clang
+          "${SOURCE}" -o "${object}"
+  RESULT_VARIABLE result ERROR_VARIABLE error)
+if(result EQUAL 0 OR NOT error MATCHES "family-identity-mismatch" OR
+   error MATCHES "gcc.*-c")
+  message(FATAL_ERROR "forced Clang accepted GNU identity: ${error}")
+endif()
+
+file(GLOB stale_hidden "${OUTPUT_DIR}/.simple.central-*")
+file(REMOVE ${stale_hidden})
+file(REMOVE "${log}")
+set(feonly_output "${OUTPUT_DIR}/feonly.o")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "PATH=${fake_bin}:$ENV{PATH}"
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "${COMPILER}" -c --feonly -CG:lra=0 --target=x86_64-linux-gnu
+          "${SOURCE}" -o "${feonly_output}"
+  RESULT_VARIABLE result ERROR_VARIABLE error)
+if(NOT result EQUAL 0 OR EXISTS "${feonly_output}")
+  message(FATAL_ERROR "--feonly compatibility failed (${result}): ${error}")
+endif()
+if(EXISTS "${log}")
+  message(FATAL_ERROR "--feonly unexpectedly executed an external tool")
+endif()
+file(GLOB hidden "${OUTPUT_DIR}/.simple.central-*")
+if(hidden)
+  message(FATAL_ERROR "--feonly leaked reserved intermediates: ${hidden}")
 endif()
