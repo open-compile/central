@@ -25,6 +25,7 @@ deb-uris.txt
 
 # output dir
 build
+.worktrees
 out
 target
 **/CMakeFiles
