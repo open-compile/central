@@ -104,6 +104,33 @@ std::string Intermediate_path(const std::string &directory,
   return path.str();
 }
 
+bool Path_is_occupied(const std::string &path,
+                      const std::vector<std::string> &occupied) {
+  for (const std::string &other : occupied) {
+    if (path == other) return true;
+  }
+  return false;
+}
+
+std::string Safe_intermediate_path(
+    const std::string &directory, const std::string &source_base,
+    const std::string &extension, bool keep, long process_id,
+    const std::vector<std::string> &occupied) {
+  std::string path = Intermediate_path(directory, source_base, extension, keep,
+                                       process_id);
+  if (!Path_is_occupied(path, occupied)) return path;
+
+  path = Intermediate_path(directory, source_base, extension, false,
+                           process_id);
+  for (unsigned suffix = 1; Path_is_occupied(path, occupied); ++suffix) {
+    std::ostringstream alternate;
+    alternate << directory << "." << source_base << ".central-" << process_id
+              << "-" << suffix << extension;
+    path = alternate.str();
+  }
+  return path;
+}
+
 }  // namespace
 
 bool Consume_external_driver_options(int argc, char **argv,
@@ -159,9 +186,9 @@ bool Consume_external_driver_options(int argc, char **argv,
       if (i + 1 < argc) filtered_args->push_back(argv[++i]);
       continue;
     }
-    if (arg == "-L") {
+    if (arg == "-L" || arg == "-l") {
       if (i + 1 >= argc || std::string(argv[i + 1]).empty()) {
-        *error = "-L expects a non-empty path";
+        *error = arg + " expects a non-empty value";
         return false;
       }
       Add_link_input(arg, config);
@@ -219,13 +246,15 @@ bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
                                            : "a.out")
                                     : requested_output;
     const std::string directory = Directory(config->final_output_file);
-    config->assembly_output_file = Intermediate_path(
-        directory, source_base, ".s", keep_intermediates, process_id);
+    config->assembly_output_file = Safe_intermediate_path(
+        directory, source_base, ".s", keep_intermediates, process_id,
+        {config->final_output_file});
     if (mode == DRIVER_OUTPUT_MODE::OBJECT) {
       config->object_output_file = config->final_output_file;
     } else {
-      config->object_output_file = Intermediate_path(
-          directory, source_base, ".o", keep_intermediates, process_id);
+      config->object_output_file = Safe_intermediate_path(
+          directory, source_base, ".o", keep_intermediates, process_id,
+          {config->final_output_file, config->assembly_output_file});
     }
   }
   config->output_file = config->assembly_output_file;

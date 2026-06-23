@@ -46,14 +46,14 @@ static void Test_pass_through_groups_and_link_order() {
   std::string error;
   assert(Parse({"compiler", "input.c", "-Wa,-g,-Iinc", "-Ws,--fatal-warnings",
                 "first.o", "-Wl,-Map,out.map", "-L/sdk/lib", "-L",
-                "other/lib", "-lfoo", "libbar.a", "libshared.so",
-                "libnative.dylib", "-Wl,--gc-sections"},
+                "other/lib", "-lfoo", "-l", "split", "libbar.a",
+                "libshared.so", "libnative.dylib", "-Wl,--gc-sections"},
                &config, &filtered, &error));
   assert((config.assembler_arg_groups ==
           std::vector<std::vector<std::string>>{{"-g", "-Iinc"},
                                                 {"--fatal-warnings"}}));
   assert(filtered == std::vector<std::string>({"compiler", "input.c"}));
-  assert(config.link_items.size() == 10);
+  assert(config.link_items.size() == 12);
   assert(config.link_items[0].kind == DRIVER_LINK_ITEM_KIND::INPUT);
   assert(config.link_items[0].input == "first.o");
   assert(config.link_items[1].kind == DRIVER_LINK_ITEM_KIND::LINKER_ARG_GROUP);
@@ -63,10 +63,12 @@ static void Test_pass_through_groups_and_link_order() {
   assert(config.link_items[3].input == "-L");
   assert(config.link_items[4].input == "other/lib");
   assert(config.link_items[5].input == "-lfoo");
-  assert(config.link_items[6].input == "libbar.a");
-  assert(config.link_items[7].input == "libshared.so");
-  assert(config.link_items[8].input == "libnative.dylib");
-  assert((config.link_items[9].linker_args ==
+  assert(config.link_items[6].input == "-l");
+  assert(config.link_items[7].input == "split");
+  assert(config.link_items[8].input == "libbar.a");
+  assert(config.link_items[9].input == "libshared.so");
+  assert(config.link_items[10].input == "libnative.dylib");
+  assert((config.link_items[11].linker_args ==
           std::vector<std::string>{"--gc-sections"}));
 }
 
@@ -139,6 +141,30 @@ static void Test_output_modes_and_paths() {
   assert(config.assembly_output_file == "dist/hello.s");
   assert(config.object_output_file == "dist/hello.o");
   assert(config.final_output_file == "dist/program");
+
+  config = COMPILER_CONFIG();
+  assert(Configure_driver_outputs(DRIVER_OUTPUT_MODE::OBJECT, "src/hello.c",
+                                  "dist/hello.s", true, 42, &config,
+                                  &error));
+  assert(config.final_output_file == "dist/hello.s");
+  assert(config.assembly_output_file == "dist/.hello.central-42.s");
+  assert(config.assembly_output_file != config.final_output_file);
+
+  config = COMPILER_CONFIG();
+  assert(Configure_driver_outputs(DRIVER_OUTPUT_MODE::LINK, "src/hello.c",
+                                  "dist/hello.o", true, 42, &config,
+                                  &error));
+  assert(config.final_output_file == "dist/hello.o");
+  assert(config.assembly_output_file == "dist/hello.s");
+  assert(config.object_output_file == "dist/.hello.central-42.o");
+  assert(config.object_output_file != config.final_output_file);
+
+  config = COMPILER_CONFIG();
+  assert(Configure_driver_outputs(DRIVER_OUTPUT_MODE::LINK, "src/hello.c",
+                                  "dist/.hello.central-42.s", false, 42,
+                                  &config, &error));
+  assert(config.assembly_output_file == "dist/.hello.central-42-1.s");
+  assert(config.assembly_output_file != config.final_output_file);
 
   config = COMPILER_CONFIG();
   config.toolchain_mode = EXTERNAL_TOOLCHAIN_MODE::OFF;

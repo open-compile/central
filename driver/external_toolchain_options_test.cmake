@@ -23,6 +23,20 @@ function(run_option_error name expected)
   endif()
 endfunction()
 
+set(preprocess_output "${OUTPUT_DIR}/preprocess-only.out")
+file(REMOVE "${preprocess_output}" "${OUTPUT_DIR}/expr.s"
+            "${OUTPUT_DIR}/expr.o" "${OUTPUT_DIR}/a.out")
+file(GLOB old_preprocess_intermediates "${OUTPUT_DIR}/.expr.central-*")
+file(REMOVE ${old_preprocess_intermediates})
+run_success(preprocess_only
+  -E -CG:lra=0 --toolchain=off "${SECOND_SOURCE}" -o "${preprocess_output}")
+file(GLOB preprocess_intermediates "${OUTPUT_DIR}/.expr.central-*")
+if(EXISTS "${preprocess_output}" OR EXISTS "${OUTPUT_DIR}/expr.s" OR
+   EXISTS "${OUTPUT_DIR}/expr.o" OR EXISTS "${OUTPUT_DIR}/a.out" OR
+   preprocess_intermediates)
+  message(FATAL_ERROR "-E created a compiler output or intermediate")
+endif()
+
 set(explicit_output "${OUTPUT_DIR}/external-options-explicit.s")
 file(REMOVE "${explicit_output}")
 run_success(recognizes_external_options

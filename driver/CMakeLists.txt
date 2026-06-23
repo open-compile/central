@@ -42,6 +42,14 @@ if(BUILD_TESTING)
       -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/external_toolchain_options_test.cmake)
 
+  add_test(NAME external_toolchain_no_execution_test
+    COMMAND ${CMAKE_COMMAND}
+      -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>
+      -DFAKE_TOOLCHAIN=$<TARGET_FILE:fake_toolchain>
+      -DSOURCE=${OCC_MAIN_DIR}/testcase/simple/simple.c
+      -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/external_toolchain_no_execution_test.cmake)
+
   add_executable(toolchain_test toolchain_test.cxx toolchain.cxx)
   target_include_directories(toolchain_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
   add_test(NAME toolchain_test COMMAND toolchain_test)

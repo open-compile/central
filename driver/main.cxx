@@ -632,13 +632,15 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "By Default Enabled Link Mode \n"));
   }
 
-  std::string output_error;
-  const std::string requested_output = output_file ? output_file.Get() : "";
-  if (!Configure_driver_outputs(output_mode, file_vec[0], requested_output,
-                                keep, static_cast<long>(getpid()), &conf,
-                                &output_error)) {
-    std::cerr << output_error << std::endl;
-    exit(EXIT_OPTION_ERR);
+  if (!preprocess) {
+    std::string output_error;
+    const std::string requested_output = output_file ? output_file.Get() : "";
+    if (!Configure_driver_outputs(output_mode, file_vec[0], requested_output,
+                                  keep, static_cast<long>(getpid()), &conf,
+                                  &output_error)) {
+      std::cerr << output_error << std::endl;
+      exit(EXIT_OPTION_ERR);
+    }
   }
 
   if (conf.object_gen && !conf.target.integrated_object_supported) {
