@@ -8,6 +8,7 @@
 #include "file_util.h"
 #include "timing.h"
 #include "target.h"
+#include "driver_options.h"
 #include <set>
 #include <vector>
 #include <string>
@@ -17,6 +18,7 @@
 #include <stdlib.h>
 #include "ir.h"
 #include "ir_io.h"
+#include <unistd.h>
 
 #ifdef SUBPROCESS_ENABLED
 #include "subprocess.h" // Unlicense
@@ -394,6 +396,10 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     "  armv8/armv9-a64 and x86-64 are accepted as explicit target selections and\n"
     "  fail before emission until their builders/emitters are implemented.\n"
     "\n"
+    "External toolchain options:\n"
+    "  -clang or -gcc; --toolchain=auto|required|off\n"
+    "  -Wa,<args> (-Ws alias) and -Wl,<args> are repeatable.\n"
+    "\n"
     "All Rights Reserved to the Compiler Group in Shenzhen Univ.\n"
     "Contact lu.gt@163.com for details.\n");
   parser.Prog("compiler");
@@ -500,19 +506,28 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
 
   // Init tracing options first.
   Init_trace_opts();
+  std::vector<std::string> external_filtered_args;
+  std::string external_error;
+  if (!Consume_external_driver_options(argc, argv, &conf,
+                                       &external_filtered_args,
+                                       &external_error)) {
+    std::cerr << external_error << std::endl;
+    exit(EXIT_OPTION_ERR);
+  }
+
   std::vector<std::string> filtered_args;
-  filtered_args.reserve(argc);
-  filtered_args.push_back(argv[0]);
-  for (INT32 i = 1; i < argc; ++i) {
+  filtered_args.reserve(external_filtered_args.size());
+  filtered_args.push_back(external_filtered_args[0]);
+  for (UINT32 i = 1; i < external_filtered_args.size(); ++i) {
     std::string err;
-    if (Parse_grouped_driver_option(argv[i], conf, &err)) {
+    if (Parse_grouped_driver_option(external_filtered_args[i], conf, &err)) {
       if (!err.empty()) {
         std::cerr << err << std::endl;
         exit(EXIT_OPTION_ERR);
       }
       continue;
     }
-    filtered_args.push_back(argv[i]);
+    filtered_args.push_back(external_filtered_args[i]);
   }
   std::vector<char *> filtered_argv;
   filtered_argv.reserve(filtered_args.size());
@@ -596,21 +611,34 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     Comp_Usual_Error("no input files");
     Comp_Failure("No input file given.");
   }
+  if (file_vec.size() != 1) {
+    std::cerr << "exactly one source file is supported; got "
+              << file_vec.size() << std::endl;
+    exit(EXIT_OPTION_ERR);
+  }
   if (preprocess) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Enabled Preprocess Mode \n"));
   }
+  DRIVER_OUTPUT_MODE output_mode = DRIVER_OUTPUT_MODE::LINK;
   if (assembly) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Enabled Assembly Mode \n"));
-    conf.assembly = TRUE;
+    output_mode = DRIVER_OUTPUT_MODE::ASSEMBLY;
   } else if (object) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Enabled Object Generation Mode \n"));
-    conf.assembly = TRUE;
-    conf.object_gen = TRUE;
+    output_mode = DRIVER_OUTPUT_MODE::OBJECT;
   } else if (preprocess) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Only Running Preprocess \n"));
   } else {
-    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "By Default Enabled Assembly Mode \n"));
-    conf.assembly = TRUE; // by
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "By Default Enabled Link Mode \n"));
+  }
+
+  std::string output_error;
+  const std::string requested_output = output_file ? output_file.Get() : "";
+  if (!Configure_driver_outputs(output_mode, file_vec[0], requested_output,
+                                keep, static_cast<long>(getpid()), &conf,
+                                &output_error)) {
+    std::cerr << output_error << std::endl;
+    exit(EXIT_OPTION_ERR);
   }
 
   if (conf.object_gen && !conf.target.integrated_object_supported) {
@@ -728,46 +756,14 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     conf.dump_textual_after_dump = TRUE;
   }
 
-  /***
-   *  Add intermediate result file names to the list
-   **/
-  if (conf.object_gen) {
-    for (auto it = file_vec.begin(); it != file_vec.end(); it++) {
-      std::string assembly_file_name = (*it) + ".s";
-      std::string object_file_name = (*it) + ".o";
-      std::cout << "Assemble file added to worklist: " << assembly_file_name << std::endl;
-      std::cout << "Object file added to worklist: " << object_file_name << std::endl;
-      conf.assemble_files.push_back(assembly_file_name);
-      conf.object_files.push_back(object_file_name);
-    } 
-  }
-
   if (optimization_level) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Optimisation Level: %d\n", optimization_level.Get()));
     conf.opt_level = optimization_level.Get();
   }
 
-  // Check if use has specified an output file name.
-  if (output_file) {
-    // If so, use the user specified file name.
-    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Output file : %s\n", output_file.Get().c_str()));
-    conf.output_file = output_file.Get();
-    AssertThat(strlen(conf.output_file.c_str()) > 0, ("Invalid file name specified"));
-  } else {
-    // If not, then we'd calculate a default file name for the user.
-    // Finding base name of file (without directory names)
-    AssertThat(file_vec.size() > 0, ("Failed to find any file"));
-    const std::set<char> delims({'\\', '/'});
-    std::vector<std::string> result = File_split_path(file_vec[0], delims);
-    AssertThat(result.size() > 0, ("Unknwon filename met : %s", file_vec[0].c_str()));
-
-    // Changing extension
-    std::string base_name = result[result.size() - 1];
-    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Input file base name : %s\n", base_name.c_str()));
-    File_change_extension(base_name, "s"); // This will change the base_name, by replacing the extension part
-    conf.output_file = base_name;
-    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Default output file : %s\n", conf.output_file.c_str()));
-  }
+  Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS),
+           (TFile, "Assembly output file: %s\n",
+            conf.assembly_output_file.c_str()));
 
   return 0;
 }

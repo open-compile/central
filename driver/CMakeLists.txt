@@ -6,7 +6,7 @@ cmake_policy(SET CMP0003 NEW)
 set(DRIVER_TARGET_NAME compiler)
 
 add_compile_options(-DDebug_Mode=1 -std=c++11)
-add_executable(${DRIVER_TARGET_NAME} main.cxx toolchain.cxx)
+add_executable(${DRIVER_TARGET_NAME} main.cxx driver_options.cxx toolchain.cxx)
 target_include_directories(${DRIVER_TARGET_NAME} PRIVATE
         ${OCC_MAIN_DIR}/common
         ${OCC_MAIN_DIR}/cg
@@ -20,6 +20,28 @@ INSTALL(TARGETS ${DRIVER_TARGET_NAME}
 )
 
 if(BUILD_TESTING)
+  add_executable(fake_toolchain fake_toolchain.cxx)
+  add_test(NAME fake_toolchain_fixture_test
+    COMMAND ${CMAKE_COMMAND}
+      -DFAKE_TOOLCHAIN=$<TARGET_FILE:fake_toolchain>
+      -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/fake_toolchain_test.cmake)
+
+  add_executable(driver_options_test driver_options_test.cxx driver_options.cxx)
+  target_include_directories(driver_options_test PRIVATE
+          ${CMAKE_CURRENT_SOURCE_DIR}
+          ${OCC_MAIN_DIR}/common
+          ${OCC_MAIN_DIR}/lib)
+  add_test(NAME driver_options_test COMMAND driver_options_test)
+
+  add_test(NAME external_toolchain_options_test
+    COMMAND ${CMAKE_COMMAND}
+      -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>
+      -DSOURCE=${OCC_MAIN_DIR}/testcase/simple/simple.c
+      -DSECOND_SOURCE=${OCC_MAIN_DIR}/testcase/simple/expr.c
+      -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/external_toolchain_options_test.cmake)
+
   add_executable(toolchain_test toolchain_test.cxx toolchain.cxx)
   target_include_directories(toolchain_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
   add_test(NAME toolchain_test COMMAND toolchain_test)

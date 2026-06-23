@@ -24,6 +24,18 @@
 using STRVEC = std::vector<std::string>;
 using std::string;
 
+enum class DRIVER_OUTPUT_MODE { ASSEMBLY, OBJECT, LINK };
+enum class EXTERNAL_TOOLCHAIN_MODE { AUTO, REQUIRED, OFF };
+enum class EXTERNAL_TOOLCHAIN_FAMILY { AUTO, CLANG, GCC };
+
+enum class DRIVER_LINK_ITEM_KIND { INPUT, LINKER_ARG_GROUP };
+
+struct DRIVER_LINK_ITEM {
+  DRIVER_LINK_ITEM_KIND kind = DRIVER_LINK_ITEM_KIND::INPUT;
+  string input;
+  std::vector<string> linker_args;
+};
+
 // 各类优化 pass 的开关
 enum OPT_KIND {
   // 基础
@@ -132,6 +144,16 @@ public:
   STRVEC assemble_files;
   STRVEC object_files;
   string output_file;
+  DRIVER_OUTPUT_MODE output_mode = DRIVER_OUTPUT_MODE::LINK;
+  EXTERNAL_TOOLCHAIN_MODE toolchain_mode = EXTERNAL_TOOLCHAIN_MODE::AUTO;
+  EXTERNAL_TOOLCHAIN_FAMILY toolchain_family =
+      EXTERNAL_TOOLCHAIN_FAMILY::AUTO;
+  std::vector<std::vector<string>> assembler_arg_groups;
+  std::vector<DRIVER_LINK_ITEM> link_items;
+  string assembly_output_file;
+  string object_output_file;
+  string final_output_file;
+  BOOL keep_intermediates = FALSE;
 
   // 优化器配置（新增）
   OPT_CONFIG opt_cfg;
