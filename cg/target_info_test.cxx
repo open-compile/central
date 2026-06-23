@@ -5,14 +5,16 @@
 #include <string>
 
 #if defined(__APPLE__) &&                                                \
-    ((defined(__aarch64__) && !defined(__AARCH64EB__)) ||               \
-     defined(__x86_64__))
+    ((defined(__aarch64__) && !defined(__AARCH64EB__) &&                \
+      !defined(__ILP32__)) ||                                           \
+     (defined(__x86_64__) && !defined(__ILP32__)))
 #define EXPECT_SUPPORTED_NATIVE_HOST 1
 #elif defined(__linux__) &&                                              \
-    ((defined(__aarch64__) && !defined(__AARCH64EB__)) ||               \
+    ((defined(__aarch64__) && !defined(__AARCH64EB__) &&                \
+      !defined(__ILP32__)) ||                                           \
      (defined(__arm__) && !defined(__ARMEB__) && defined(__ARM_ARCH) && \
       __ARM_ARCH >= 7 && defined(__ARM_PCS_VFP)) ||                     \
-     defined(__x86_64__) || defined(__i386__))
+     (defined(__x86_64__) && !defined(__ILP32__)) || defined(__i386__))
 #define EXPECT_SUPPORTED_NATIVE_HOST 1
 #else
 #define EXPECT_SUPPORTED_NATIVE_HOST 0

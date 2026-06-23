@@ -190,7 +190,9 @@ bool Detect_native_target(std::string *triple, std::string *error) {
   HOST_ARCH arch = HOST_ARCH::UNSUPPORTED;
   const char *arch_error = "unsupported native host architecture";
 #if defined(__aarch64__)
-#if defined(__AARCH64EB__)
+#if defined(__ILP32__)
+  arch_error = "unsupported native AArch64 ILP32 ABI";
+#elif defined(__AARCH64EB__)
   arch_error = "unsupported native big-endian AArch64 host";
 #else
   arch = HOST_ARCH::AARCH64;
@@ -206,7 +208,11 @@ bool Detect_native_target(std::string *triple, std::string *error) {
   arch = HOST_ARCH::ARMV7;
 #endif
 #elif defined(__x86_64__)
+#if defined(__ILP32__)
+  arch_error = "unsupported native x86_64 ILP32 ABI";
+#else
   arch = HOST_ARCH::X86_64;
+#endif
 #elif defined(__i386__)
   arch = HOST_ARCH::I386;
 #endif

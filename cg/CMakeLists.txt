@@ -11,6 +11,14 @@ if(BUILD_TESTING)
   target_link_libraries(target_info_test PRIVATE common)
   add_test(NAME target_info_test COMMAND target_info_test)
 
+  add_executable(native_ilp32_target_test native_ilp32_target_test.cxx
+    ${OCC_MAIN_DIR}/common/target.cxx)
+  target_compile_definitions(native_ilp32_target_test PRIVATE
+    __ILP32__=1)
+  target_include_directories(native_ilp32_target_test PRIVATE
+    ${OCC_MAIN_DIR}/common)
+  add_test(NAME native_ilp32_target_test COMMAND native_ilp32_target_test)
+
   add_executable(data_layout_target_test data_layout_target_test.cxx)
   target_include_directories(data_layout_target_test PRIVATE
     ${OCC_MAIN_DIR}/common ${OCC_MAIN_DIR}/lib ${OCC_MAIN_DIR}/opt)
