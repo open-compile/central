@@ -390,16 +390,25 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     "  compiler -TRACE:cross=EMIT_CORE input.c\n"
     "\n"
     "Target options:\n"
-    "  --target=<arch> or --march=<arch>\n"
-    "  Supported targets: armv8-a32/aarch32, armv8-a64/armv9-a64/aarch64,\n"
-    "  x86-64.\n"
-    "  armv8-a32 is the currently implemented code generation target;\n"
-    "  armv8/armv9-a64 and x86-64 are accepted as explicit target selections and\n"
-    "  fail before emission until their builders/emitters are implemented.\n"
+    "  --target=<triple>; --arch and --march accept the same names.\n"
+    "  Default: armv7-linux-gnueabihf (ARMv7 Linux).\n"
+    "  --target=native maps the host OS and architecture to a supported triple.\n"
+    "  Supported triples: armv7-linux-gnueabihf, aarch64-linux-gnu,\n"
+    "  arm64-apple-darwin, i386-linux-gnu, x86_64-linux-gnu,\n"
+    "  x86_64-apple-darwin.\n"
+    "  Aliases: armv7, arm32, aarch64-linux, arm64-linux, arm64-macos,\n"
+    "  x86-linux, x64-linux, x64-macos.\n"
+    "\n"
+    "Output modes:\n"
+    "  -S: emit assembly; -c: emit an object; default: link an executable.\n"
     "\n"
     "External toolchain options:\n"
-    "  -clang or -gcc; --toolchain=auto|required|off\n"
-    "  -Wa,<args> (-Ws alias) and -Wl,<args> are repeatable.\n"
+    "  --toolchain=auto|required|off enables discovery or limits output to -E/-S.\n"
+    "  -clang/--clang and -gcc/--gcc are mutually exclusive;\n"
+    "  forcing either family disables fallback.\n"
+    "  -Wa,<args> passes assembler arguments; -Ws,<args> is its alias.\n"
+    "  -Wl,<args> passes linker arguments; all pass-through groups repeat.\n"
+    "  --keep publishes generated assembly and object intermediates.\n"
     "\n"
     "All Rights Reserved to the Compiler Group in Shenzhen Univ.\n"
     "Contact lu.gt@163.com for details.\n");
@@ -480,10 +489,10 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
                                          "Address bit width, between 8, 16, 32, 64",
                                          {'m', "width"});
   args::ValueFlag<std::string> architecture_name(opt_group, "architecture",
-                                          "Specify target architecture: armv8-a32/aarch32, armv8-a64/armv9-a64/aarch64, x86-64",
+                                          "Specify a supported target triple or alias",
                                           {"march", "arch"});
   args::ValueFlag<std::string> target_name(opt_group, "target",
-                                          "Specify canonical target triple",
+                                          "Specify a supported target triple, alias, or native",
                                           {"target"});
   args::ValueFlagList<std::string> include_list(file_group, "includeDir",
                                           "Specify include directories that preceed normal include dir",

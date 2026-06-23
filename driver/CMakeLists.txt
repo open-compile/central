@@ -86,12 +86,14 @@ if(BUILD_TESTING)
   add_test(NAME target_cli_test
     COMMAND ${CMAKE_COMMAND}
       -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>
+      -DFAKE_TOOLCHAIN=$<TARGET_FILE:fake_toolchain>
       -DSOURCE=${OCC_MAIN_DIR}/testcase/simple/simple.c
       -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/target_cli_test.cmake)
   add_test(NAME arm64_cli_test
     COMMAND ${CMAKE_COMMAND}
       -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>
+      -DFAKE_TOOLCHAIN=$<TARGET_FILE:fake_toolchain>
       -DSIMPLE_SOURCE=${OCC_MAIN_DIR}/testcase/simple/simple.c
       -DARGS_SOURCE=${OCC_MAIN_DIR}/testcase/cgcase/arm64_args.c
       -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
@@ -99,6 +101,7 @@ if(BUILD_TESTING)
   add_test(NAME x86_cli_test
     COMMAND ${CMAKE_COMMAND}
       -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>
+      -DFAKE_TOOLCHAIN=$<TARGET_FILE:fake_toolchain>
       -DSIMPLE_SOURCE=${OCC_MAIN_DIR}/testcase/simple/simple.c
       -DARGS_SOURCE=${OCC_MAIN_DIR}/testcase/cgcase/arm64_args.c
       -DGLOBALS_SOURCE=${OCC_MAIN_DIR}/testcase/simple/expr.c
