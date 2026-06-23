@@ -1,7 +1,10 @@
 #include <cstdlib>
+#include <csignal>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <sys/stat.h>
+#include <unistd.h>
 
 namespace {
 
@@ -51,15 +54,25 @@ int main(int argc, char **argv) {
         std::getenv("CENTRAL_FAKE_TOOL_MASQUERADE_PROGRAM");
     const char *forced_identity =
         std::getenv("CENTRAL_FAKE_TOOL_IDENTITY");
+    const char *empty_version =
+        std::getenv("CENTRAL_FAKE_TOOL_EMPTY_VERSION_PROGRAM");
     bool clang_identity =
         (masquerade != nullptr && Basename(argv[0]) == masquerade) ||
         Basename(argv[0]).find("clang") != std::string::npos;
-    if (forced_identity != nullptr && std::string(forced_identity) == "clang")
-      clang_identity = true;
-    if (forced_identity != nullptr && std::string(forced_identity) == "gcc")
-      clang_identity = false;
-    std::cout << (clang_identity ? "clang version fake\n"
-                                 : "gcc (GCC) fake\n");
+    if (empty_version != nullptr && Basename(argv[0]) == empty_version) {
+      // Deliberately emit no identity text.
+    } else if (forced_identity != nullptr &&
+               std::string(forced_identity) == "clang") {
+      std::cout << "clang version fake\n";
+    } else if (forced_identity != nullptr &&
+               std::string(forced_identity) == "gcc") {
+      std::cout << "gcc (GCC) fake\n";
+    } else if (forced_identity != nullptr) {
+      std::cout << forced_identity << '\n';
+    } else {
+      std::cout << (clang_identity ? "clang version fake\n"
+                                   : "gcc (GCC) fake\n");
+    }
     return Environment_exit("CENTRAL_FAKE_TOOL_PROBE_EXIT");
   }
 
@@ -71,6 +84,10 @@ int main(int argc, char **argv) {
   for (int i = 1; i + 1 < argc; ++i) {
     if (std::string(argv[i]) == "-o") output_path = argv[i + 1];
   }
+  const int requested_signal = Environment_exit(
+      object_phase ? "CENTRAL_FAKE_TOOL_OBJECT_SIGNAL"
+                   : "CENTRAL_FAKE_TOOL_LINK_SIGNAL");
+  if (requested_signal != 0) raise(requested_signal);
   const int requested_exit = Environment_exit(
       object_phase ? "CENTRAL_FAKE_TOOL_OBJECT_EXIT"
                    : "CENTRAL_FAKE_TOOL_LINK_EXIT");
@@ -87,9 +104,14 @@ int main(int argc, char **argv) {
   }
 
   if (output_path != nullptr) {
-    std::ofstream output(output_path);
+    const std::string temporary = std::string(output_path) + ".fake-tmp";
+    std::ofstream output(temporary);
     output << (object_phase ? "fake object\n" : "fake executable\n");
-    return output ? 0 : 2;
+    output.close();
+    if (!output) return 2;
+    if (!object_phase && chmod(temporary.c_str(), 0755) != 0) return 2;
+    if (rename(temporary.c_str(), output_path) != 0) return 2;
+    return 0;
   }
   return 0;
 }

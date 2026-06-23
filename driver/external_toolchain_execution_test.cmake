@@ -7,7 +7,7 @@ foreach(alias clang gcc aarch64-linux-gnu-gcc arm-linux-gnueabihf-gcc)
                   "${FAKE_TOOLCHAIN}" "${fake_bin}/${alias}")
 endforeach()
 file(GLOB stale_hidden "${OUTPUT_DIR}/.simple.central-*")
-file(REMOVE ${stale_hidden})
+file(REMOVE_RECURSE ${stale_hidden})
 
 function(run_compiler result_var error_var)
   execute_process(
@@ -46,6 +46,10 @@ run_compiler(result error "${COMPILER}" -CG:lra=0 --target=x86_64-linux-gnu
              -o "${program}")
 if(NOT result EQUAL 0 OR NOT EXISTS "${program}")
   message(FATAL_ERROR "link pipeline failed (${result}): ${error}")
+endif()
+execute_process(COMMAND test -x "${program}" RESULT_VARIABLE executable_result)
+if(NOT executable_result EQUAL 0)
+  message(FATAL_ERROR "fake linked output is not executable")
 endif()
 file(GLOB hidden "${OUTPUT_DIR}/.simple.central-*")
 if(hidden)
@@ -108,15 +112,32 @@ execute_process(
 if(NOT result EQUAL 17 OR
    NOT error MATCHES "target=x86_64-linux-gnu" OR
    NOT error MATCHES "phase=object" OR NOT error MATCHES "argv=\\[" OR
-   NOT error MATCHES "status=17")
+   NOT error MATCHES "status=17" OR
+   NOT error MATCHES "requested-family=gcc" OR
+   NOT error MATCHES "selected-family=gcc")
   message(FATAL_ERROR "object failure contract mismatch (${result}): ${error}")
 endif()
-file(GLOB retained "${OUTPUT_DIR}/.simple.central-*.s"
-                         "${OUTPUT_DIR}/.simple.central-*.o")
+file(GLOB retained "${OUTPUT_DIR}/.simple.central-*")
 if(NOT retained)
   message(FATAL_ERROR "failed object stage did not retain intermediates")
 endif()
-file(REMOVE ${retained})
+file(REMOVE_RECURSE ${retained})
+
+file(REMOVE "${log}" "${object}")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "PATH=${fake_bin}:$ENV{PATH}"
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "CENTRAL_FAKE_TOOL_OBJECT_SIGNAL=15"
+          "${COMPILER}" -c -CG:lra=0 --target=x86_64-linux-gnu -gcc
+          "${SOURCE}" -o "${object}"
+  RESULT_VARIABLE result ERROR_VARIABLE error)
+if(NOT result EQUAL 143 OR NOT error MATCHES "phase=object" OR
+   NOT error MATCHES "status=143")
+  message(FATAL_ERROR "signaled object child contract mismatch (${result}): ${error}")
+endif()
+file(GLOB retained "${OUTPUT_DIR}/.simple.central-*")
+file(REMOVE_RECURSE ${retained})
 
 file(REMOVE "${log}" "${program}")
 execute_process(
@@ -132,7 +153,7 @@ if(result EQUAL 0 OR NOT error MATCHES "phase=link" OR
   message(FATAL_ERROR "missing link output was not rejected: ${error}")
 endif()
 file(GLOB retained "${OUTPUT_DIR}/.simple.central-*")
-file(REMOVE ${retained})
+file(REMOVE_RECURSE ${retained})
 
 file(REMOVE "${log}" "${program}")
 execute_process(
@@ -145,14 +166,16 @@ execute_process(
   RESULT_VARIABLE result ERROR_VARIABLE error)
 if(NOT result EQUAL 19 OR NOT error MATCHES "target=x86_64-linux-gnu" OR
    NOT error MATCHES "phase=link" OR NOT error MATCHES "argv=\\[" OR
-   NOT error MATCHES "status=19")
+   NOT error MATCHES "status=19" OR
+   NOT error MATCHES "requested-family=gcc" OR
+   NOT error MATCHES "selected-family=gcc")
   message(FATAL_ERROR "link failure contract mismatch (${result}): ${error}")
 endif()
 file(GLOB retained "${OUTPUT_DIR}/.simple.central-*")
 if(NOT retained)
   message(FATAL_ERROR "failed link stage did not retain intermediates")
 endif()
-file(REMOVE ${retained})
+file(REMOVE_RECURSE ${retained})
 
 file(REMOVE "${object}")
 execute_process(
@@ -170,7 +193,7 @@ file(GLOB retained "${OUTPUT_DIR}/.simple.central-*")
 if(NOT retained)
   message(FATAL_ERROR "missing-output failure did not retain intermediates")
 endif()
-file(REMOVE ${retained})
+file(REMOVE_RECURSE ${retained})
 
 set(keep_program "${OUTPUT_DIR}/keep-program")
 file(REMOVE "${keep_program}" "${OUTPUT_DIR}/simple.s" "${OUTPUT_DIR}/simple.o")
@@ -236,6 +259,23 @@ execute_process(
   COMMAND "${CMAKE_COMMAND}" -E env
           "PATH=${fake_bin}:$ENV{PATH}"
           "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "CENTRAL_FAKE_TOOL_EMPTY_VERSION_PROGRAM=gcc"
+          "${COMPILER}" -c -CG:lra=0 --target=x86_64-linux-gnu
+          "${SOURCE}" -o "${object}"
+  RESULT_VARIABLE result ERROR_VARIABLE error)
+if(NOT result EQUAL 0)
+  message(FATAL_ERROR "empty-version auto fallback failed (${result}): ${error}")
+endif()
+file(READ "${log}" contents)
+if(NOT contents MATCHES "gcc.*--version.*clang.*--version.*clang.*-c")
+  message(FATAL_ERROR "empty GCC version was not rejected: ${contents}")
+endif()
+
+file(REMOVE "${log}" "${object}")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "PATH=${fake_bin}:$ENV{PATH}"
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
           "CENTRAL_FAKE_TOOL_MASQUERADE_PROGRAM=gcc"
           "${COMPILER}" -c -CG:lra=0 --target=x86_64-linux-gnu -gcc
           "${SOURCE}" -o "${object}"
@@ -259,8 +299,21 @@ if(result EQUAL 0 OR NOT error MATCHES "family-identity-mismatch" OR
   message(FATAL_ERROR "forced Clang accepted GNU identity: ${error}")
 endif()
 
+file(REMOVE "${log}" "${object}")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "PATH=${fake_bin}:$ENV{PATH}"
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "CENTRAL_FAKE_TOOL_IDENTITY=unrelated tool version"
+          "${COMPILER}" -c -CG:lra=0 --target=x86_64-linux-gnu -gcc
+          "${SOURCE}" -o "${object}"
+  RESULT_VARIABLE result ERROR_VARIABLE error)
+if(result EQUAL 0 OR NOT error MATCHES "family-identity-mismatch")
+  message(FATAL_ERROR "forced GCC accepted arbitrary probe identity: ${error}")
+endif()
+
 file(GLOB stale_hidden "${OUTPUT_DIR}/.simple.central-*")
-file(REMOVE ${stale_hidden})
+file(REMOVE_RECURSE ${stale_hidden})
 file(REMOVE "${log}")
 set(feonly_output "${OUTPUT_DIR}/feonly.o")
 execute_process(

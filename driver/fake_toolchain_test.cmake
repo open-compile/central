@@ -25,6 +25,27 @@ if(NOT contents STREQUAL expected)
   message(FATAL_ERROR "unexpected fake tool log: ${contents}")
 endif()
 
+set(witness "${OUTPUT_DIR}/fake-toolchain-output-witness")
+file(REMOVE "${output}" "${witness}")
+file(WRITE "${output}" "placeholder\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E create_hardlink
+                "${output}" "${witness}" RESULT_VARIABLE hardlink_result)
+if(NOT hardlink_result EQUAL 0)
+  message(FATAL_ERROR "could not create inode-replacement witness")
+endif()
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "${FAKE_TOOLCHAIN}" -c input.s -o "${output}"
+  RESULT_VARIABLE replacement_result)
+file(READ "${output}" replacement_contents)
+file(READ "${witness}" witness_contents)
+if(NOT replacement_result EQUAL 0 OR
+   NOT replacement_contents STREQUAL "fake object\n" OR
+   NOT witness_contents STREQUAL "placeholder\n")
+  message(FATAL_ERROR "fake tool did not replace the output inode")
+endif()
+file(REMOVE "${witness}")
+
 file(REMOVE "${output}")
 execute_process(
   COMMAND "${CMAKE_COMMAND}" -E env

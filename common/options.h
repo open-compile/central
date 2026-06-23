@@ -43,6 +43,12 @@ struct DRIVER_RESERVED_FILE {
   std::uint64_t inode = 0;
 };
 
+struct DRIVER_WORK_DIRECTORY {
+  string path;
+  std::uint64_t device = 0;
+  std::uint64_t inode = 0;
+};
+
 // 各类优化 pass 的开关
 enum OPT_KIND {
   // 基础
@@ -161,10 +167,11 @@ public:
   string object_output_file;
   string executable_output_file;
   string final_output_file;
-  // --keep publication destinations. Working files above remain hidden and
-  // atomically reserved until the external-toolchain workflow publishes them.
+  // --keep publication destinations. Working files above live inside the
+  // invocation-private directory until the workflow publishes them.
   string retained_assembly_output_file;
   string retained_object_output_file;
+  DRIVER_WORK_DIRECTORY working_directory;
   std::vector<DRIVER_RESERVED_FILE> reserved_intermediate_files;
   BOOL keep_intermediates = FALSE;
   BOOL show_external_commands = FALSE;

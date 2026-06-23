@@ -25,6 +25,18 @@ TOOLCHAIN_DRIVER Driver(TOOLCHAIN_FAMILY family, const std::string &program,
   return TOOLCHAIN_DRIVER{family, program, std::move(target_args)};
 }
 
+const char *Family_name(TOOLCHAIN_FAMILY family) {
+  return family == TOOLCHAIN_FAMILY::CLANG
+             ? "clang"
+             : family == TOOLCHAIN_FAMILY::GCC ? "gcc" : "auto";
+}
+
+const char *Requested_family_name(EXTERNAL_TOOLCHAIN_FAMILY family) {
+  return family == EXTERNAL_TOOLCHAIN_FAMILY::CLANG
+             ? "clang"
+             : family == EXTERNAL_TOOLCHAIN_FAMILY::GCC ? "gcc" : "auto";
+}
+
 void Add_if_requested(const TOOLCHAIN_DRIVER &driver,
                       const TOOLCHAIN_REQUEST &request,
                       std::vector<TOOLCHAIN_DRIVER> *drivers) {
@@ -148,6 +160,17 @@ std::string Failure(const char *phase, const std::string &triple,
          detail;
 }
 
+void Write_launch_errno(int fd, int value) {
+  const char *bytes = reinterpret_cast<const char *>(&value);
+  size_t written = 0;
+  while (written < sizeof(value)) {
+    const ssize_t count = write(fd, bytes + written, sizeof(value) - written);
+    if (count < 0 && errno == EINTR) continue;
+    if (count <= 0) break;
+    written += static_cast<size_t>(count);
+  }
+}
+
 TOOLCHAIN_RUN_RESULT Run_probe_command(const std::vector<std::string> &argv,
                                        const std::string &triple,
                                        std::string *output) {
@@ -192,7 +215,7 @@ TOOLCHAIN_RUN_RESULT Run_probe_command(const std::vector<std::string> &argv,
     if (dup2(output_pipe[1], STDOUT_FILENO) < 0 ||
         dup2(output_pipe[1], STDERR_FILENO) < 0) {
       const int saved = errno;
-      (void)!write(launch_pipe[1], &saved, sizeof(saved));
+      Write_launch_errno(launch_pipe[1], saved);
       _exit(127);
     }
     close(output_pipe[1]);
@@ -203,7 +226,7 @@ TOOLCHAIN_RUN_RESULT Run_probe_command(const std::vector<std::string> &argv,
     child_argv.push_back(nullptr);
     execvp(child_argv[0], child_argv.data());
     const int saved = errno;
-    (void)!write(launch_pipe[1], &saved, sizeof(saved));
+    Write_launch_errno(launch_pipe[1], saved);
     _exit(127);
   }
 
@@ -269,12 +292,18 @@ std::string Lower(std::string value) {
 
 bool Family_matches(TOOLCHAIN_FAMILY family, const std::string &version) {
   const std::string lower = Lower(version);
-  if (family == TOOLCHAIN_FAMILY::GCC)
-    return lower.find("clang") == std::string::npos;
+  if (family == TOOLCHAIN_FAMILY::GCC) {
+    const bool credible = lower.find("gcc") != std::string::npos ||
+                          lower.find("gnu compiler collection") !=
+                              std::string::npos ||
+                          lower.find("free software foundation") !=
+                              std::string::npos;
+    return credible && lower.find("clang") == std::string::npos;
+  }
   if (family == TOOLCHAIN_FAMILY::CLANG) {
-    return lower.find("free software foundation") == std::string::npos &&
-           (lower.find("gcc") == std::string::npos ||
-            lower.find("clang") != std::string::npos);
+    return lower.find("clang") != std::string::npos &&
+           lower.find("gnu compiler collection") == std::string::npos &&
+           lower.find("free software foundation") == std::string::npos;
   }
   return true;
 }
@@ -301,7 +330,14 @@ TOOLCHAIN_RUN_RESULT Run_tool_command(const std::vector<std::string> &argv,
                            "launch=" + std::string(std::strerror(errno)));
     return result;
   }
-  fcntl(launch_pipe[1], F_SETFD, FD_CLOEXEC);
+  if (fcntl(launch_pipe[1], F_SETFD, FD_CLOEXEC) != 0) {
+    const int saved = errno;
+    close(launch_pipe[0]);
+    close(launch_pipe[1]);
+    result.error = Failure(phase, triple, argv,
+                           "launch=" + std::string(std::strerror(saved)));
+    return result;
+  }
 
   const pid_t pid = fork();
   if (pid < 0) {
@@ -321,7 +357,7 @@ TOOLCHAIN_RUN_RESULT Run_tool_command(const std::vector<std::string> &argv,
     child_argv.push_back(nullptr);
     execvp(child_argv[0], child_argv.data());
     const int saved = errno;
-    (void)!write(launch_pipe[1], &saved, sizeof(saved));
+    Write_launch_errno(launch_pipe[1], saved);
     _exit(127);
   }
 
@@ -342,6 +378,10 @@ TOOLCHAIN_RUN_RESULT Run_tool_command(const std::vector<std::string> &argv,
   if (launch_bytes > 0) {
     result.error = Failure(phase, triple, argv,
                            "launch=" + std::string(std::strerror(child_errno)));
+    return result;
+  }
+  if (launch_bytes < 0) {
+    result.error = Failure(phase, triple, argv, "launch=pipe-read-error");
     return result;
   }
 
@@ -388,7 +428,8 @@ bool Discover_toolchain(const std::string &triple,
     }
     last_error = result.ok()
                      ? Failure("probe", triple, probe,
-                               "status=0 family-identity-mismatch")
+                               "status=0 family-identity-mismatch candidate-family=" +
+                                   std::string(Family_name(candidate.family)))
                      : result.error;
   }
   *error = "no usable external toolchain for target " + triple;
@@ -454,35 +495,71 @@ TOOLCHAIN_FAMILY Requested_family(EXTERNAL_TOOLCHAIN_FAMILY family) {
   return TOOLCHAIN_FAMILY::AUTO;
 }
 
-const DRIVER_RESERVED_FILE *Owned_file(const COMPILER_CONFIG &config,
-                                       const std::string &path) {
-  for (const auto &owned : config.reserved_intermediate_files) {
-    if (owned.path == path) return &owned;
+DRIVER_RESERVED_FILE *Owned_file(COMPILER_CONFIG *config,
+                                 const std::string &path) {
+  for (auto &owned : config->reserved_intermediate_files) {
+    if (owned.path == path)
+      return &owned;
   }
   return nullptr;
 }
 
-bool Verify_owned(const COMPILER_CONFIG &config, const std::string &path,
-                  bool require_content, std::string *error) {
-  const DRIVER_RESERVED_FILE *owned = Owned_file(config, path);
+int Open_work_directory(const COMPILER_CONFIG &config, std::string *error) {
+  const int fd = open(config.working_directory.path.c_str(),
+                      O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
   struct stat info;
-  if (owned == nullptr || lstat(path.c_str(), &info) != 0 ||
-      !S_ISREG(info.st_mode) ||
-      static_cast<std::uint64_t>(info.st_dev) != owned->device ||
-      static_cast<std::uint64_t>(info.st_ino) != owned->inode) {
-    *error = "owned output identity changed: " + path;
-    return false;
+  if (fd < 0 || fstat(fd, &info) != 0 || !S_ISDIR(info.st_mode) ||
+      (info.st_mode & 0777) != 0700 ||
+      static_cast<std::uint64_t>(info.st_dev) !=
+          config.working_directory.device ||
+      static_cast<std::uint64_t>(info.st_ino) !=
+          config.working_directory.inode) {
+    const int saved = errno == 0 ? EINVAL : errno;
+    if (fd >= 0) close(fd);
+    *error = "owned working directory identity changed: " +
+             config.working_directory.path + ": " + std::strerror(saved);
+    return -1;
   }
-  if (require_content && info.st_size == 0) {
-    *error = "missing output (reserved file was not written): " + path;
-    return false;
-  }
-  return true;
+  return fd;
 }
 
-std::string Directory(const std::string &path) {
-  const size_t slash = path.find_last_of('/');
-  return slash == std::string::npos ? "" : path.substr(0, slash + 1);
+bool Work_name(const COMPILER_CONFIG &config, const std::string &path,
+               std::string *name) {
+  const std::string prefix = config.working_directory.path + "/";
+  if (path.compare(0, prefix.size(), prefix) != 0) return false;
+  *name = path.substr(prefix.size());
+  return !name->empty() && name->find('/') == std::string::npos;
+}
+
+bool Record_working_file(COMPILER_CONFIG *config, const std::string &path,
+                         std::string *error) {
+  std::string name;
+  if (!Work_name(*config, path, &name)) {
+    *error = "working output escapes owned directory: " + path;
+    return false;
+  }
+  const int directory_fd = Open_work_directory(*config, error);
+  if (directory_fd < 0) return false;
+  struct stat info;
+  const bool valid =
+      fstatat(directory_fd, name.c_str(), &info, AT_SYMLINK_NOFOLLOW) == 0 &&
+      S_ISREG(info.st_mode) && info.st_size > 0;
+  const int saved = errno;
+  close(directory_fd);
+  if (!valid) {
+    *error = "missing output or non-regular output in owned directory: " +
+             path + ": " + std::strerror(saved);
+    return false;
+  }
+  DRIVER_RESERVED_FILE *owned = Owned_file(config, path);
+  if (owned == nullptr) {
+    config->reserved_intermediate_files.push_back(DRIVER_RESERVED_FILE());
+    owned = &config->reserved_intermediate_files.back();
+  }
+  owned->path = path;
+  owned->device = static_cast<std::uint64_t>(info.st_dev);
+  owned->inode = static_cast<std::uint64_t>(info.st_ino);
+  return true;
 }
 
 std::string Name(const std::string &path) {
@@ -490,32 +567,61 @@ std::string Name(const std::string &path) {
   return path.substr(slash == std::string::npos ? 0 : slash + 1);
 }
 
-bool Copy_owned_atomically(const COMPILER_CONFIG &config,
+bool Verify_owned_at(COMPILER_CONFIG *config, int directory_fd,
+                     const std::string &path, std::string *name,
+                     std::string *error) {
+  DRIVER_RESERVED_FILE *owned = Owned_file(config, path);
+  struct stat info;
+  if (owned == nullptr || !Work_name(*config, path, name) ||
+      fstatat(directory_fd, name->c_str(), &info, AT_SYMLINK_NOFOLLOW) != 0 ||
+      !S_ISREG(info.st_mode) || info.st_size == 0 ||
+      static_cast<std::uint64_t>(info.st_dev) != owned->device ||
+      static_cast<std::uint64_t>(info.st_ino) != owned->inode) {
+    *error = "owned output identity changed: " + path;
+    return false;
+  }
+  return true;
+}
+
+void Set_first_error(std::string *error, const std::string &message) {
+  if (error->empty()) *error = message;
+}
+
+bool Copy_owned_atomically(COMPILER_CONFIG *config,
                            const std::string &source,
                            const std::string &destination,
                            std::string *error) {
   if (destination.empty()) return true;
-  if (!Verify_owned(config, source, true, error)) return false;
-  std::string pattern = Directory(destination) + "." + Name(destination) +
-                        ".central-publish-XXXXXX";
+  const int directory_fd = Open_work_directory(*config, error);
+  if (directory_fd < 0) return false;
+  std::string source_name;
+  if (!Verify_owned_at(config, directory_fd, source, &source_name, error)) {
+    close(directory_fd);
+    return false;
+  }
+  std::string pattern = config->working_directory.path + "/publish-XXXXXX";
   std::vector<char> temporary(pattern.begin(), pattern.end());
   temporary.push_back('\0');
   const int output = mkstemp(temporary.data());
   if (output < 0) {
     *error = "cannot reserve publication for " + destination + ": " +
              std::strerror(errno);
+    close(directory_fd);
     return false;
   }
-  const int input = open(source.c_str(), O_RDONLY | O_NOFOLLOW);
-  bool ok = input >= 0;
-  const DRIVER_RESERVED_FILE *owned = Owned_file(config, source);
+  const std::string temporary_path = temporary.data();
+  const std::string temporary_name = Name(temporary_path);
+  const int input = openat(directory_fd, source_name.c_str(),
+                           O_RDONLY | O_NOFOLLOW);
+  bool ok = true;
   struct stat input_info;
-  if (ok &&
-      (owned == nullptr || fstat(input, &input_info) != 0 ||
-       !S_ISREG(input_info.st_mode) ||
-       static_cast<std::uint64_t>(input_info.st_dev) != owned->device ||
-       static_cast<std::uint64_t>(input_info.st_ino) != owned->inode)) {
-    *error = "owned input identity changed while publishing: " + source;
+  DRIVER_RESERVED_FILE *owned = Owned_file(config, source);
+  if (input < 0 || owned == nullptr || fstat(input, &input_info) != 0 ||
+      !S_ISREG(input_info.st_mode) ||
+      static_cast<std::uint64_t>(input_info.st_dev) != owned->device ||
+      static_cast<std::uint64_t>(input_info.st_ino) != owned->inode) {
+    Set_first_error(error,
+                    "owned input identity changed while publishing: " + source);
     ok = false;
   }
   char buffer[16384];
@@ -524,6 +630,8 @@ bool Copy_owned_atomically(const COMPILER_CONFIG &config,
     if (count == 0) break;
     if (count < 0) {
       if (errno == EINTR) continue;
+      Set_first_error(error, "cannot read publication input: " +
+                                 std::string(std::strerror(errno)));
       ok = false;
       break;
     }
@@ -533,36 +641,60 @@ bool Copy_owned_atomically(const COMPILER_CONFIG &config,
           write(output, buffer + written, static_cast<size_t>(count - written));
       if (amount < 0 && errno == EINTR) continue;
       if (amount <= 0) {
+        Set_first_error(error, "cannot write publication output: " +
+                                   std::string(std::strerror(errno)));
         ok = false;
         break;
       }
       written += amount;
     }
   }
-  if (input >= 0 && close(input) != 0) ok = false;
-  if (fsync(output) != 0 || close(output) != 0) ok = false;
-  if (ok && !Verify_owned(config, source, true, error)) ok = false;
-  if (ok && rename(temporary.data(), destination.c_str()) != 0) ok = false;
-  if (!ok) {
-    const int saved = errno;
-    unlink(temporary.data());
-    if (error->empty()) {
-      *error = "cannot publish " + destination + ": " +
-               std::strerror(saved);
-    }
-    return false;
+  if (input >= 0 && close(input) != 0) {
+    Set_first_error(error, "cannot close publication input: " +
+                               std::string(std::strerror(errno)));
+    ok = false;
   }
-  return true;
+  if (fsync(output) != 0) {
+    Set_first_error(error, "cannot sync publication output: " +
+                               std::string(std::strerror(errno)));
+    ok = false;
+  }
+  if (close(output) != 0) {
+    Set_first_error(error, "cannot close publication output: " +
+                               std::string(std::strerror(errno)));
+    ok = false;
+  }
+  if (ok && !Record_working_file(config, temporary_path, error)) ok = false;
+  if (ok && renameat(directory_fd, temporary_name.c_str(), AT_FDCWD,
+                     destination.c_str()) != 0) {
+    Set_first_error(error, "cannot publish " + destination + ": " +
+                               std::string(std::strerror(errno)));
+    ok = false;
+  }
+  if (!ok) {
+    unlinkat(directory_fd, temporary_name.c_str(), 0);
+  }
+  close(directory_fd);
+  return ok;
 }
 
 bool Publish_owned(COMPILER_CONFIG *config, const std::string &source,
                    const std::string &destination, std::string *error) {
-  if (!Verify_owned(*config, source, true, error)) return false;
-  if (rename(source.c_str(), destination.c_str()) != 0) {
-    *error = "cannot atomically publish " + destination + ": " +
-             std::strerror(errno);
+  const int directory_fd = Open_work_directory(*config, error);
+  if (directory_fd < 0) return false;
+  std::string source_name;
+  if (!Verify_owned_at(config, directory_fd, source, &source_name, error)) {
+    close(directory_fd);
     return false;
   }
+  if (renameat(directory_fd, source_name.c_str(), AT_FDCWD,
+               destination.c_str()) != 0) {
+    *error = "cannot atomically publish " + destination + ": " +
+             std::strerror(errno);
+    close(directory_fd);
+    return false;
+  }
+  close(directory_fd);
   return true;
 }
 
@@ -583,9 +715,14 @@ std::vector<TOOLCHAIN_LINK_ITEM> Convert_link_items(
 }
 
 std::string Phase_failure(const char *phase, const COMPILER_CONFIG &config,
+                          const TOOLCHAIN_DRIVER &driver,
                           const std::vector<std::string> &argv,
                           const std::string &detail) {
-  return Failure(phase, config.target.triple, argv, detail);
+  return Failure(phase, config.target.triple, argv,
+                 "requested-family=" +
+                     std::string(Requested_family_name(config.toolchain_family)) +
+                     " selected-family=" + Family_name(driver.family) + " " +
+                     detail);
 }
 
 }  // namespace
@@ -595,15 +732,26 @@ int Run_external_toolchain(COMPILER_CONFIG *config, std::string *error) {
   TOOLCHAIN_REQUEST request;
   request.family = Requested_family(config->toolchain_family);
   TOOLCHAIN_DRIVER driver;
-  if (!Discover_toolchain(config->target.triple, request, &driver, error))
+  if (!Discover_toolchain(config->target.triple, request, &driver, error)) {
+    *error += " requested-family=" +
+              std::string(Requested_family_name(config->toolchain_family));
     return 1;
+  }
+
+  std::string output_error;
+  if (!Record_working_file(config, config->assembly_output_file,
+                           &output_error)) {
+    *error = Phase_failure("object", *config, driver, {},
+                           "status=missing-input " + output_error);
+    return 1;
+  }
 
   const auto assemble = Build_assemble_command(
       driver, config->assembly_output_file, config->object_output_file,
       config->assembler_arg_groups);
   std::vector<std::string> final_argv = assemble.argv;
   if (!assemble.ok()) {
-    *error = Phase_failure("object", *config, assemble.argv,
+    *error = Phase_failure("object", *config, driver, assemble.argv,
                            "status=configuration-error " + assemble.error);
     return 1;
   }
@@ -613,12 +761,13 @@ int Run_external_toolchain(COMPILER_CONFIG *config, std::string *error) {
   auto run = Run_tool_command(assemble.argv, "object", config->target.triple,
                               config->show_external_commands);
   if (!run.ok()) {
-    *error = run.error;
+    *error = run.error + " requested-family=" +
+             Requested_family_name(config->toolchain_family) +
+             " selected-family=" + Family_name(driver.family);
     return run.launched ? run.status : 1;
   }
-  std::string output_error;
-  if (!Verify_owned(*config, config->object_output_file, true, &output_error)) {
-    *error = Phase_failure("object", *config, assemble.argv,
+  if (!Record_working_file(config, config->object_output_file, &output_error)) {
+    *error = Phase_failure("object", *config, driver, assemble.argv,
                            "status=0 " + output_error);
     return 1;
   }
@@ -629,7 +778,7 @@ int Run_external_toolchain(COMPILER_CONFIG *config, std::string *error) {
         Convert_link_items(config->link_items), config->executable_output_file);
     final_argv = link.argv;
     if (!link.ok()) {
-      *error = Phase_failure("link", *config, link.argv,
+      *error = Phase_failure("link", *config, driver, link.argv,
                              "status=configuration-error " + link.error);
       return 1;
     }
@@ -639,32 +788,34 @@ int Run_external_toolchain(COMPILER_CONFIG *config, std::string *error) {
     run = Run_tool_command(link.argv, "link", config->target.triple,
                            config->show_external_commands);
     if (!run.ok()) {
-      *error = run.error;
+      *error = run.error + " requested-family=" +
+               Requested_family_name(config->toolchain_family) +
+               " selected-family=" + Family_name(driver.family);
       return run.launched ? run.status : 1;
     }
-    if (!Verify_owned(*config, config->executable_output_file, true,
-                      &output_error)) {
-      *error = Phase_failure("link", *config, link.argv,
+    if (!Record_working_file(config, config->executable_output_file,
+                             &output_error)) {
+      *error = Phase_failure("link", *config, driver, link.argv,
                              "status=0 " + output_error);
       return 1;
     }
   }
 
   if (config->keep_intermediates &&
-      !Copy_owned_atomically(*config, config->assembly_output_file,
+      !Copy_owned_atomically(config, config->assembly_output_file,
                              config->retained_assembly_output_file, error)) {
     *error = Phase_failure(config->output_mode == DRIVER_OUTPUT_MODE::LINK
                                ? "link"
                                : "object",
-                           *config, final_argv,
+                           *config, driver, final_argv,
                            "status=publication-error " + *error);
     return 1;
   }
   if (config->output_mode == DRIVER_OUTPUT_MODE::LINK &&
       config->keep_intermediates &&
-      !Copy_owned_atomically(*config, config->object_output_file,
+      !Copy_owned_atomically(config, config->object_output_file,
                              config->retained_object_output_file, error)) {
-    *error = Phase_failure("link", *config, final_argv,
+    *error = Phase_failure("link", *config, driver, final_argv,
                            "status=publication-error " + *error);
     return 1;
   }
@@ -678,7 +829,7 @@ int Run_external_toolchain(COMPILER_CONFIG *config, std::string *error) {
     *error = Phase_failure(config->output_mode == DRIVER_OUTPUT_MODE::LINK
                                ? "link"
                                : "object",
-                           *config, final_argv,
+                           *config, driver, final_argv,
                            "status=publication-error " + *error);
     return 1;
   }

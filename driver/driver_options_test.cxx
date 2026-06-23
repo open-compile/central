@@ -49,8 +49,10 @@ static bool Is_regular_file(const std::string &path) {
   return lstat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode);
 }
 
-static std::string Reserved_path(const DRIVER_RESERVED_FILE &file) {
-  return file.path;
+static bool Is_private_directory(const std::string &path) {
+  struct stat info;
+  return lstat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode) &&
+         (info.st_mode & 0777) == 0700;
 }
 
 static void Test_family_policy_and_malformed_groups() {
@@ -201,10 +203,18 @@ static void Test_normal_output_plans() {
   CHECK(object.retained_object_output_file.empty());
   CHECK(object.assembly && object.object_gen);
   CHECK(object.assembly_output_file != object.final_output_file);
-  CHECK(object.reserved_intermediate_files.size() == 2);
-  CHECK(Is_regular_file(object.assembly_output_file));
-  CHECK(Is_regular_file(object.object_output_file));
+  CHECK(object.reserved_intermediate_files.empty());
+  CHECK(Is_private_directory(object.working_directory.path));
+  struct stat destination_directory_info;
+  struct stat work_directory_info;
+  CHECK(stat(dir.c_str(), &destination_directory_info) == 0);
+  CHECK(stat(object.working_directory.path.c_str(), &work_directory_info) == 0);
+  CHECK(destination_directory_info.st_dev == work_directory_info.st_dev);
+  CHECK(!Is_regular_file(object.assembly_output_file));
+  CHECK(!Is_regular_file(object.object_output_file));
+  const std::string object_work = object.working_directory.path;
   Cleanup_reserved_intermediates(&object);
+  CHECK(access(object_work.c_str(), F_OK) != 0);
 
   COMPILER_CONFIG link;
   CHECK(Configure_driver_outputs(DRIVER_OUTPUT_MODE::LINK, source,
@@ -212,9 +222,10 @@ static void Test_normal_output_plans() {
   CHECK(link.final_output_file == dir + "/program");
   CHECK(link.retained_assembly_output_file.empty());
   CHECK(link.retained_object_output_file.empty());
-  CHECK(link.reserved_intermediate_files.size() == 3);
-  CHECK(Is_regular_file(link.assembly_output_file));
-  CHECK(Is_regular_file(link.object_output_file));
+  CHECK(link.reserved_intermediate_files.empty());
+  CHECK(Is_private_directory(link.working_directory.path));
+  CHECK(!Is_regular_file(link.assembly_output_file));
+  CHECK(!Is_regular_file(link.object_output_file));
   Cleanup_reserved_intermediates(&link);
 
   COMPILER_CONFIG keep;
@@ -224,9 +235,8 @@ static void Test_normal_output_plans() {
   CHECK(keep.object_output_file != dir + "/hello.o");
   CHECK(keep.retained_assembly_output_file == dir + "/hello.s");
   CHECK(keep.retained_object_output_file == dir + "/hello.o");
-  CHECK(keep.reserved_intermediate_files.size() == 3);
-  CHECK(Is_regular_file(keep.assembly_output_file));
-  CHECK(Is_regular_file(keep.object_output_file));
+  CHECK(keep.reserved_intermediate_files.empty());
+  CHECK(Is_private_directory(keep.working_directory.path));
   Cleanup_reserved_intermediates(&keep);
 
   const std::string assembly_source = dir + "/collision.s";
@@ -239,7 +249,8 @@ static void Test_normal_output_plans() {
   CHECK(keep_source_collision.retained_assembly_output_file.empty());
   CHECK(keep_source_collision.retained_object_output_file ==
         dir + "/collision.o");
-  CHECK(keep_source_collision.reserved_intermediate_files.size() == 3);
+  CHECK(keep_source_collision.reserved_intermediate_files.empty());
+  CHECK(Is_private_directory(keep_source_collision.working_directory.path));
   Cleanup_reserved_intermediates(&keep_source_collision);
 
   unlink(assembly_source.c_str());
@@ -263,23 +274,12 @@ static void Test_atomic_reservation_collision_and_cleanup() {
   CHECK(config.output_mode == DRIVER_OUTPUT_MODE::LINK);
   CHECK(config.assembly_output_file != visible_assembly);
   CHECK(config.object_output_file != config.final_output_file);
-  CHECK(config.reserved_intermediate_files.size() == 3);
-  for (const DRIVER_RESERVED_FILE &file : config.reserved_intermediate_files)
-    CHECK(Is_regular_file(Reserved_path(file)));
-
-  std::ofstream reopen(config.assembly_output_file,
-                       std::ios::out | std::ios::trunc);
-  CHECK(static_cast<bool>(reopen));
-  reopen << "assembly\n";
-  reopen.close();
-  CHECK(Is_regular_file(config.assembly_output_file));
-
-  std::vector<std::string> owned;
-  for (const DRIVER_RESERVED_FILE &file : config.reserved_intermediate_files)
-    owned.push_back(Reserved_path(file));
+  CHECK(config.reserved_intermediate_files.empty());
+  CHECK(Is_private_directory(config.working_directory.path));
+  const std::string work = config.working_directory.path;
   Cleanup_reserved_intermediates(&config);
   CHECK(config.reserved_intermediate_files.empty());
-  for (const std::string &path : owned) CHECK(access(path.c_str(), F_OK) != 0);
+  CHECK(access(work.c_str(), F_OK) != 0);
   CHECK(access(visible_assembly.c_str(), F_OK) == 0);
   CHECK(access(victim.c_str(), F_OK) == 0);
 
@@ -289,36 +289,27 @@ static void Test_atomic_reservation_collision_and_cleanup() {
   rmdir(dir.c_str());
 }
 
-static void Test_cleanup_refuses_replaced_owned_path() {
+static void Test_cleanup_refuses_replaced_work_directory() {
   const std::string dir = Make_temp_dir();
   const std::string source = dir + "/hello.c";
-  const std::string victim = dir + "/victim";
   Write_file(source, "source\n");
-  Write_file(victim, "victim\n");
 
   COMPILER_CONFIG config;
   std::string error;
   CHECK(Configure_driver_outputs(DRIVER_OUTPUT_MODE::LINK, source,
                                  dir + "/program", false, &config, &error));
-  CHECK(config.reserved_intermediate_files.size() == 3);
-  if (config.reserved_intermediate_files.size() != 3) return;
-  const std::string replaced =
-      Reserved_path(config.reserved_intermediate_files[0]);
-  const std::string untouched =
-      Reserved_path(config.reserved_intermediate_files[1]);
-  CHECK(unlink(replaced.c_str()) == 0);
-  CHECK(symlink(victim.c_str(), replaced.c_str()) == 0);
+  const std::string replaced = config.working_directory.path;
+  const std::string original = replaced + ".original";
+  CHECK(rename(replaced.c_str(), original.c_str()) == 0);
+  CHECK(mkdir(replaced.c_str(), 0700) == 0);
 
   Cleanup_reserved_intermediates(&config);
   CHECK(config.reserved_intermediate_files.empty());
-  struct stat replacement_info;
-  CHECK(lstat(replaced.c_str(), &replacement_info) == 0 &&
-        S_ISLNK(replacement_info.st_mode));
-  CHECK(access(victim.c_str(), F_OK) == 0);
-  CHECK(access(untouched.c_str(), F_OK) != 0);
+  CHECK(Is_private_directory(replaced));
+  CHECK(Is_private_directory(original));
 
-  unlink(replaced.c_str());
-  unlink(victim.c_str());
+  rmdir(replaced.c_str());
+  rmdir(original.c_str());
   unlink(source.c_str());
   rmdir(dir.c_str());
 }
@@ -346,7 +337,7 @@ int main() {
   Test_source_output_identity_is_rejected();
   Test_normal_output_plans();
   Test_atomic_reservation_collision_and_cleanup();
-  Test_cleanup_refuses_replaced_owned_path();
+  Test_cleanup_refuses_replaced_work_directory();
   Test_legacy_fe_only_preprocess_state_reserves_nothing();
   if (failures != 0)
     std::cerr << failures << " driver option checks failed" << std::endl;

@@ -67,6 +67,15 @@ if(BUILD_TESTING)
       -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/external_toolchain_execution_test.cmake)
 
+  if(APPLE)
+    add_test(NAME real_macos_toolchain_test
+      COMMAND ${CMAKE_COMMAND}
+        -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>
+        -DSOURCE=${OCC_MAIN_DIR}/testcase/simple/add2_main.sy
+        -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/real_macos_toolchain_test.cmake)
+  endif()
+
   add_executable(toolchain_test toolchain_test.cxx toolchain.cxx
     driver_options.cxx)
   target_include_directories(toolchain_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}

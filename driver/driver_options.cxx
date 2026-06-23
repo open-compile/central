@@ -1,6 +1,7 @@
 #include "driver_options.h"
 
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -173,43 +174,38 @@ bool Path_conflicts(const std::string &path,
   return false;
 }
 
-bool Reserve_intermediate(
-    const std::string &directory, const std::string &source_base,
-    const std::string &extension, COMPILER_CONFIG *config,
-    std::string *reserved, std::string *error) {
-  std::string pattern = directory + "." + source_base + ".central-XXXXXX" +
-                        extension;
+bool Reserve_work_directory(const std::string &directory,
+                            const std::string &source_base,
+                            COMPILER_CONFIG *config, std::string *error) {
+  std::string pattern = directory + "." + source_base + ".central-XXXXXX";
   std::vector<char> storage(pattern.begin(), pattern.end());
   storage.push_back('\0');
-  const int fd = mkstemps(storage.data(), static_cast<int>(extension.size()));
-  if (fd < 0) {
-    *error = "cannot reserve intermediate file '" + pattern + "': " +
+  if (mkdtemp(storage.data()) == nullptr) {
+    *error = "cannot reserve intermediate directory '" + pattern + "': " +
              std::strerror(errno);
     return false;
   }
-  struct stat reserved_info;
-  const bool identified = fstat(fd, &reserved_info) == 0;
-  if (!identified || !S_ISREG(reserved_info.st_mode)) {
-    const int saved_errno = identified ? EINVAL : errno;
-    close(fd);
-    unlink(storage.data());
-    *error = "cannot identify reserved intermediate file '" +
-             std::string(storage.data()) + "': " + std::strerror(saved_errno);
-    return false;
-  }
-  if (close(fd) != 0) {
+  if (chmod(storage.data(), 0700) != 0) {
     const int saved_errno = errno;
-    unlink(storage.data());
-    *error = "cannot close reserved intermediate file '" +
+    rmdir(storage.data());
+    *error = "cannot protect intermediate directory '" +
              std::string(storage.data()) + "': " + std::strerror(saved_errno);
     return false;
   }
-  *reserved = storage.data();
-  DRIVER_RESERVED_FILE owned;
-  owned.path = *reserved;
-  owned.device = static_cast<std::uint64_t>(reserved_info.st_dev);
-  owned.inode = static_cast<std::uint64_t>(reserved_info.st_ino);
-  config->reserved_intermediate_files.push_back(owned);
+  struct stat reserved_info;
+  if (lstat(storage.data(), &reserved_info) != 0 ||
+      !S_ISDIR(reserved_info.st_mode)) {
+    const int saved_errno = errno == 0 ? EINVAL : errno;
+    rmdir(storage.data());
+    *error = "cannot identify intermediate directory '" +
+             std::string(storage.data()) + "': " + std::strerror(saved_errno);
+    return false;
+  }
+  config->working_directory.path = storage.data();
+  config->working_directory.device =
+      static_cast<std::uint64_t>(reserved_info.st_dev);
+  config->working_directory.inode =
+      static_cast<std::uint64_t>(reserved_info.st_ino);
   return true;
 }
 
@@ -342,6 +338,7 @@ bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
   config->final_output_file.clear();
   config->retained_assembly_output_file.clear();
   config->retained_object_output_file.clear();
+  config->working_directory = DRIVER_WORK_DIRECTORY();
   // PREPROCESS is the legacy FE-only/no-output path. Run_preprocess is still a
   // stub; implementing a real preprocessor is outside external-toolchain work.
   if (mode == DRIVER_OUTPUT_MODE::PREPROCESS) return true;
@@ -379,22 +376,15 @@ bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
   } else {
     config->final_output_file = final_output;
     const std::string directory = Directory(config->final_output_file);
-    if (!Reserve_intermediate(directory, source_base, ".s", config,
-                              &config->assembly_output_file, error)) {
+    if (!Reserve_work_directory(directory, source_base, config, error)) {
       Cleanup_reserved_intermediates(config);
       return false;
     }
-    if (!Reserve_intermediate(directory, source_base, ".o", config,
-                              &config->object_output_file, error)) {
-      Cleanup_reserved_intermediates(config);
-      return false;
-    }
-    if (mode == DRIVER_OUTPUT_MODE::LINK &&
-        !Reserve_intermediate(directory, source_base, ".out", config,
-                              &config->executable_output_file, error)) {
-      Cleanup_reserved_intermediates(config);
-      return false;
-    }
+    config->assembly_output_file = config->working_directory.path + "/assembly.s";
+    config->object_output_file = config->working_directory.path + "/object.o";
+    if (mode == DRIVER_OUTPUT_MODE::LINK)
+      config->executable_output_file =
+          config->working_directory.path + "/executable";
     if (keep_intermediates) {
       config->retained_assembly_output_file = Retained_path(
           directory, source_base, ".s",
@@ -412,16 +402,40 @@ bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
 }
 
 void Cleanup_reserved_intermediates(COMPILER_CONFIG *config) {
+  const DRIVER_WORK_DIRECTORY directory = config->working_directory;
+  const int directory_fd = directory.path.empty()
+                               ? -1
+                               : open(directory.path.c_str(),
+                                      O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+  struct stat directory_info;
+  const bool directory_owned =
+      directory_fd >= 0 && fstat(directory_fd, &directory_info) == 0 &&
+      S_ISDIR(directory_info.st_mode) &&
+      (directory_info.st_mode & 0777) == 0700 &&
+      static_cast<std::uint64_t>(directory_info.st_dev) == directory.device &&
+      static_cast<std::uint64_t>(directory_info.st_ino) == directory.inode;
   for (const DRIVER_RESERVED_FILE &owned :
        config->reserved_intermediate_files) {
+    if (!directory_owned || Directory(owned.path) != directory.path + "/")
+      continue;
     struct stat current;
-    if (lstat(owned.path.c_str(), &current) != 0 ||
+    const std::string name = owned.path.substr(directory.path.size() + 1);
+    if (name.empty() || name.find('/') != std::string::npos ||
+        fstatat(directory_fd, name.c_str(), &current, AT_SYMLINK_NOFOLLOW) != 0 ||
         !S_ISREG(current.st_mode) ||
         static_cast<std::uint64_t>(current.st_dev) != owned.device ||
         static_cast<std::uint64_t>(current.st_ino) != owned.inode) {
       continue;
     }
-    unlink(owned.path.c_str());
+    unlinkat(directory_fd, name.c_str(), 0);
   }
+  if (directory_fd >= 0) close(directory_fd);
+  struct stat current_directory;
+  if (directory_owned && lstat(directory.path.c_str(), &current_directory) == 0 &&
+      S_ISDIR(current_directory.st_mode) &&
+      static_cast<std::uint64_t>(current_directory.st_dev) == directory.device &&
+      static_cast<std::uint64_t>(current_directory.st_ino) == directory.inode)
+    rmdir(directory.path.c_str());
   config->reserved_intermediate_files.clear();
+  config->working_directory = DRIVER_WORK_DIRECTORY();
 }
