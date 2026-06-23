@@ -1,6 +1,12 @@
 #include "driver_options.h"
 
-#include <sstream>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <cerrno>
+#include <climits>
+#include <cstdlib>
+#include <cstring>
 
 namespace {
 
@@ -15,19 +21,34 @@ bool Is_link_file(const std::string &arg) {
          Has_suffix(arg, ".so") || Has_suffix(arg, ".dylib");
 }
 
+struct FILTERED_OPTION_METADATA {
+  const char *name;
+  bool takes_separate_value;
+};
+
+const FILTERED_OPTION_METADATA kFiltered_options[] = {
+    {"-o", true},             {"--output", true},
+    {"-x", true},             {"--language", true},
+    {"--log", true},          {"--loglevel", true},
+    {"--felevel", true},       {"--feloglevel", true},
+    {"--belevel", true},       {"--beloglevel", true},
+    {"--cglevel", true},       {"--cgloglevel", true},
+    {"--graloglevel", true},   {"--linkerlevel", true},
+    {"--linkerloglevel", true}, {"--symtablevel", true},
+    {"--symtabloglevel", true}, {"-O", true},
+    {"-m", true},             {"--width", true},
+    {"--arch", true},         {"--march", true},
+    {"--target", true},       {"-I", true},
+    {"--include", true},      {"-i", true},
+    {"--include-sys", true},  {"--dump-ir-after", true},
+    {"--load-ir", true},
+};
+
 bool Option_takes_separate_value(const std::string &arg) {
-  return arg == "-o" || arg == "--output" || arg == "-x" ||
-         arg == "--language" || arg == "--log" || arg == "--loglevel" ||
-         arg == "--felevel" || arg == "--feloglevel" ||
-         arg == "--belevel" || arg == "--beloglevel" ||
-         arg == "--cglevel" || arg == "--cgloglevel" ||
-         arg == "--graloglevel" || arg == "--linkerlevel" ||
-         arg == "--linkerloglevel" || arg == "--symtablevel" ||
-         arg == "--symtabloglevel" || arg == "-O" || arg == "-m" ||
-         arg == "--width" || arg == "--arch" || arg == "--march" ||
-         arg == "--target" || arg == "-I" || arg == "--include" ||
-         arg == "-i" || arg == "--include-sys" ||
-         arg == "--dump-ir-after" || arg == "--load-ir";
+  for (const auto &metadata : kFiltered_options) {
+    if (arg == metadata.name) return metadata.takes_separate_value;
+  }
+  return false;
 }
 
 bool Split_group(const std::string &arg, size_t prefix_size,
@@ -69,6 +90,12 @@ void Add_linker_group(const std::vector<std::string> &args,
   config->link_items.push_back(item);
 }
 
+void Add_source_object(COMPILER_CONFIG *config) {
+  DRIVER_LINK_ITEM item;
+  item.kind = DRIVER_LINK_ITEM_KIND::SOURCE_OBJECT;
+  config->link_items.push_back(item);
+}
+
 bool Set_family(EXTERNAL_TOOLCHAIN_FAMILY family, COMPILER_CONFIG *config,
                 std::string *error) {
   if (config->toolchain_family != EXTERNAL_TOOLCHAIN_FAMILY::AUTO &&
@@ -93,42 +120,94 @@ std::string Directory(const std::string &path) {
   return slash == std::string::npos ? "" : path.substr(0, slash + 1);
 }
 
-std::string Intermediate_path(const std::string &directory,
-                              const std::string &source_base,
-                              const std::string &extension, bool keep,
-                              long process_id) {
-  if (keep) return directory + source_base + extension;
-  std::ostringstream path;
-  path << directory << "." << source_base << ".central-" << process_id
-       << extension;
-  return path.str();
+std::string Absolute_lexical_path(const std::string &path) {
+  std::string absolute = path;
+  if (absolute.empty() || absolute[0] != '/') {
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, sizeof(cwd)) == nullptr) return path;
+    absolute = std::string(cwd) + "/" + absolute;
+  }
+
+  std::vector<std::string> components;
+  size_t start = 0;
+  while (start <= absolute.size()) {
+    const size_t slash = absolute.find('/', start);
+    const std::string component = absolute.substr(
+        start, slash == std::string::npos ? std::string::npos : slash - start);
+    if (component.empty() || component == ".") {
+    } else if (component == "..") {
+      if (!components.empty()) components.pop_back();
+    } else {
+      components.push_back(component);
+    }
+    if (slash == std::string::npos) break;
+    start = slash + 1;
+  }
+
+  std::string result = "/";
+  for (size_t i = 0; i < components.size(); ++i) {
+    if (i != 0) result += '/';
+    result += components[i];
+  }
+  return result;
 }
 
-bool Path_is_occupied(const std::string &path,
-                      const std::vector<std::string> &occupied) {
-  for (const std::string &other : occupied) {
-    if (path == other) return true;
+bool Paths_equivalent(const std::string &left, const std::string &right) {
+  if (Absolute_lexical_path(left) == Absolute_lexical_path(right)) return true;
+
+  struct stat left_info;
+  struct stat right_info;
+  if (stat(left.c_str(), &left_info) == 0 &&
+      stat(right.c_str(), &right_info) == 0) {
+    return left_info.st_dev == right_info.st_dev &&
+           left_info.st_ino == right_info.st_ino;
   }
   return false;
 }
 
-std::string Safe_intermediate_path(
-    const std::string &directory, const std::string &source_base,
-    const std::string &extension, bool keep, long process_id,
-    const std::vector<std::string> &occupied) {
-  std::string path = Intermediate_path(directory, source_base, extension, keep,
-                                       process_id);
-  if (!Path_is_occupied(path, occupied)) return path;
-
-  path = Intermediate_path(directory, source_base, extension, false,
-                           process_id);
-  for (unsigned suffix = 1; Path_is_occupied(path, occupied); ++suffix) {
-    std::ostringstream alternate;
-    alternate << directory << "." << source_base << ".central-" << process_id
-              << "-" << suffix << extension;
-    path = alternate.str();
+bool Path_conflicts(const std::string &path,
+                    const std::vector<std::string> &occupied) {
+  for (const std::string &other : occupied) {
+    if (Paths_equivalent(path, other)) return true;
   }
-  return path;
+  return false;
+}
+
+bool Reserve_intermediate(
+    const std::string &directory, const std::string &source_base,
+    const std::string &extension, bool keep,
+    const std::vector<std::string> &occupied, COMPILER_CONFIG *config,
+    std::string *reserved, std::string *error) {
+  const std::string visible = directory + source_base + extension;
+  if (keep && !Path_conflicts(visible, occupied)) {
+    struct stat visible_info;
+    if (lstat(visible.c_str(), &visible_info) != 0 ||
+        S_ISREG(visible_info.st_mode)) {
+      *reserved = visible;
+      return true;
+    }
+  }
+
+  std::string pattern = directory + "." + source_base + ".central-XXXXXX" +
+                        extension;
+  std::vector<char> storage(pattern.begin(), pattern.end());
+  storage.push_back('\0');
+  const int fd = mkstemps(storage.data(), static_cast<int>(extension.size()));
+  if (fd < 0) {
+    *error = "cannot reserve intermediate file '" + pattern + "': " +
+             std::strerror(errno);
+    return false;
+  }
+  if (close(fd) != 0) {
+    const int saved_errno = errno;
+    unlink(storage.data());
+    *error = "cannot close reserved intermediate file '" +
+             std::string(storage.data()) + "': " + std::strerror(saved_errno);
+    return false;
+  }
+  *reserved = storage.data();
+  config->reserved_intermediate_files.push_back(*reserved);
+  return true;
 }
 
 }  // namespace
@@ -141,8 +220,24 @@ bool Consume_external_driver_options(int argc, char **argv,
   error->clear();
   if (argc > 0) filtered_args->push_back(argv[0]);
 
+  bool end_of_options = false;
+
   for (int i = 1; i < argc; ++i) {
     const std::string arg(argv[i]);
+    if (end_of_options) {
+      if (Is_link_file(arg)) {
+        Add_link_input(arg, config);
+      } else {
+        Add_source_object(config);
+        filtered_args->push_back(arg);
+      }
+      continue;
+    }
+    if (arg == "--") {
+      end_of_options = true;
+      filtered_args->push_back(arg);
+      continue;
+    }
     if (arg == "-clang" || arg == "--clang") {
       if (!Set_family(EXTERNAL_TOOLCHAIN_FAMILY::CLANG, config, error))
         return false;
@@ -205,6 +300,7 @@ bool Consume_external_driver_options(int argc, char **argv,
       Add_link_input(arg, config);
       continue;
     }
+    if (!arg.empty() && arg[0] != '-') Add_source_object(config);
     filtered_args->push_back(arg);
   }
   return true;
@@ -213,14 +309,26 @@ bool Consume_external_driver_options(int argc, char **argv,
 bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
                               const std::string &source_file,
                               const std::string &requested_output,
-                              bool keep_intermediates, long process_id,
+                              bool keep_intermediates,
                               COMPILER_CONFIG *config, std::string *error) {
   error->clear();
+  Cleanup_reserved_intermediates(config);
   if (config->toolchain_mode == EXTERNAL_TOOLCHAIN_MODE::OFF &&
+      mode != DRIVER_OUTPUT_MODE::PREPROCESS &&
       mode != DRIVER_OUTPUT_MODE::ASSEMBLY) {
-    *error = "--toolchain=off is only valid with -S";
+    *error = "--toolchain=off is only valid with -E or -S";
     return false;
   }
+
+  config->output_mode = mode;
+  config->keep_intermediates = keep_intermediates ? TRUE : FALSE;
+  config->assembly = FALSE;
+  config->object_gen = FALSE;
+  config->output_file.clear();
+  config->assembly_output_file.clear();
+  config->object_output_file.clear();
+  config->final_output_file.clear();
+  if (mode == DRIVER_OUTPUT_MODE::PREPROCESS) return true;
 
   const std::string source_base = Basename_without_extension(source_file);
   if (source_base.empty()) {
@@ -229,34 +337,55 @@ bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
     return false;
   }
 
-  config->output_mode = mode;
-  config->keep_intermediates = keep_intermediates ? TRUE : FALSE;
   config->assembly = TRUE;
   config->object_gen = mode == DRIVER_OUTPUT_MODE::OBJECT ? TRUE : FALSE;
 
+  const std::string final_output = requested_output.empty()
+                                       ? (mode == DRIVER_OUTPUT_MODE::ASSEMBLY
+                                              ? source_base + ".s"
+                                              : mode == DRIVER_OUTPUT_MODE::OBJECT
+                                                    ? source_base + ".o"
+                                                    : "a.out")
+                                       : requested_output;
+  if (Paths_equivalent(source_file, final_output)) {
+    *error = "output file '" + final_output +
+             "' is the same as source file '" + source_file + "'";
+    return false;
+  }
+
   if (mode == DRIVER_OUTPUT_MODE::ASSEMBLY) {
-    config->assembly_output_file =
-        requested_output.empty() ? source_base + ".s" : requested_output;
+    config->assembly_output_file = final_output;
     config->object_output_file.clear();
     config->final_output_file = config->assembly_output_file;
   } else {
-    config->final_output_file = requested_output.empty()
-                                    ? (mode == DRIVER_OUTPUT_MODE::OBJECT
-                                           ? source_base + ".o"
-                                           : "a.out")
-                                    : requested_output;
+    config->final_output_file = final_output;
     const std::string directory = Directory(config->final_output_file);
-    config->assembly_output_file = Safe_intermediate_path(
-        directory, source_base, ".s", keep_intermediates, process_id,
-        {config->final_output_file});
+    if (!Reserve_intermediate(directory, source_base, ".s", keep_intermediates,
+                              {source_file, config->final_output_file}, config,
+                              &config->assembly_output_file, error)) {
+      Cleanup_reserved_intermediates(config);
+      return false;
+    }
     if (mode == DRIVER_OUTPUT_MODE::OBJECT) {
       config->object_output_file = config->final_output_file;
     } else {
-      config->object_output_file = Safe_intermediate_path(
-          directory, source_base, ".o", keep_intermediates, process_id,
-          {config->final_output_file, config->assembly_output_file});
+      if (!Reserve_intermediate(
+              directory, source_base, ".o", keep_intermediates,
+              {source_file, config->final_output_file,
+               config->assembly_output_file},
+              config, &config->object_output_file, error)) {
+        Cleanup_reserved_intermediates(config);
+        return false;
+      }
     }
   }
   config->output_file = config->assembly_output_file;
   return true;
+}
+
+void Cleanup_reserved_intermediates(COMPILER_CONFIG *config) {
+  for (const std::string &path : config->reserved_intermediate_files) {
+    unlink(path.c_str());
+  }
+  config->reserved_intermediate_files.clear();
 }

@@ -518,7 +518,17 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
   std::vector<std::string> filtered_args;
   filtered_args.reserve(external_filtered_args.size());
   filtered_args.push_back(external_filtered_args[0]);
+  bool end_of_options = false;
   for (UINT32 i = 1; i < external_filtered_args.size(); ++i) {
+    if (end_of_options) {
+      filtered_args.push_back(external_filtered_args[i]);
+      continue;
+    }
+    if (external_filtered_args[i] == "--") {
+      end_of_options = true;
+      filtered_args.push_back(external_filtered_args[i]);
+      continue;
+    }
     std::string err;
     if (Parse_grouped_driver_option(external_filtered_args[i], conf, &err)) {
       if (!err.empty()) {
@@ -620,27 +630,30 @@ int Parse_args(int argc, char **argv, char **envp, COMPILER_CONFIG &conf) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Enabled Preprocess Mode \n"));
   }
   DRIVER_OUTPUT_MODE output_mode = DRIVER_OUTPUT_MODE::LINK;
-  if (assembly) {
+  if (preprocess) {
+    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Only Running Preprocess \n"));
+    output_mode = DRIVER_OUTPUT_MODE::PREPROCESS;
+  } else if (assembly) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Enabled Assembly Mode \n"));
     output_mode = DRIVER_OUTPUT_MODE::ASSEMBLY;
   } else if (object) {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Enabled Object Generation Mode \n"));
     output_mode = DRIVER_OUTPUT_MODE::OBJECT;
-  } else if (preprocess) {
-    Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "Only Running Preprocess \n"));
   } else {
     Is_Trace(Tracing(COMPONENT_DRIVER, TRACE_OPTIONS), (TFile, "By Default Enabled Link Mode \n"));
   }
 
-  if (!preprocess) {
-    std::string output_error;
-    const std::string requested_output = output_file ? output_file.Get() : "";
-    if (!Configure_driver_outputs(output_mode, file_vec[0], requested_output,
-                                  keep, static_cast<long>(getpid()), &conf,
-                                  &output_error)) {
-      std::cerr << output_error << std::endl;
-      exit(EXIT_OPTION_ERR);
-    }
+  if (preprocess && load_ir) {
+    std::cerr << "-E cannot be combined with --load-ir" << std::endl;
+    exit(EXIT_OPTION_ERR);
+  }
+
+  std::string output_error;
+  const std::string requested_output = output_file ? output_file.Get() : "";
+  if (!Configure_driver_outputs(output_mode, file_vec[0], requested_output,
+                                keep, &conf, &output_error)) {
+    std::cerr << output_error << std::endl;
+    exit(EXIT_OPTION_ERR);
   }
 
   if (conf.object_gen && !conf.target.integrated_object_supported) {
@@ -804,6 +817,8 @@ INT32 Execute(COMPILER_CONFIG &config) {
   }
   // Run FE
   Run_component(COMPONENT_FE, config);
+
+  if (config.output_mode == DRIVER_OUTPUT_MODE::PREPROCESS) return 0;
 
   if (!config.fe_only) {
     if (config.assembly || config.object_gen) {

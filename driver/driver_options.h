@@ -14,7 +14,9 @@ bool Consume_external_driver_options(int argc, char **argv,
 bool Configure_driver_outputs(DRIVER_OUTPUT_MODE mode,
                               const std::string &source_file,
                               const std::string &requested_output,
-                              bool keep_intermediates, long process_id,
+                              bool keep_intermediates,
                               COMPILER_CONFIG *config, std::string *error);
+
+void Cleanup_reserved_intermediates(COMPILER_CONFIG *config);
 
 #endif  // OCC_DRIVER_OPTIONS_H

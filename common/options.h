@@ -24,11 +24,11 @@
 using STRVEC = std::vector<std::string>;
 using std::string;
 
-enum class DRIVER_OUTPUT_MODE { ASSEMBLY, OBJECT, LINK };
+enum class DRIVER_OUTPUT_MODE { PREPROCESS, ASSEMBLY, OBJECT, LINK };
 enum class EXTERNAL_TOOLCHAIN_MODE { AUTO, REQUIRED, OFF };
 enum class EXTERNAL_TOOLCHAIN_FAMILY { AUTO, CLANG, GCC };
 
-enum class DRIVER_LINK_ITEM_KIND { INPUT, LINKER_ARG_GROUP };
+enum class DRIVER_LINK_ITEM_KIND { INPUT, SOURCE_OBJECT, LINKER_ARG_GROUP };
 
 struct DRIVER_LINK_ITEM {
   DRIVER_LINK_ITEM_KIND kind = DRIVER_LINK_ITEM_KIND::INPUT;
@@ -153,6 +153,7 @@ public:
   string assembly_output_file;
   string object_output_file;
   string final_output_file;
+  std::vector<string> reserved_intermediate_files;
   BOOL keep_intermediates = FALSE;
 
   // 优化器配置（新增）

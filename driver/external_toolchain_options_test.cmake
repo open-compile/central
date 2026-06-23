@@ -54,6 +54,17 @@ if(NOT EXISTS "${default_output}")
   message(FATAL_ERROR "-S default did not create ${default_output}")
 endif()
 
+set(dash_source "${OUTPUT_DIR}/-dash-source.c")
+set(dash_output "${OUTPUT_DIR}/dash-source.s")
+configure_file("${SOURCE}" "${dash_source}" COPYONLY)
+file(REMOVE "${dash_output}")
+run_success(end_of_options
+  -S -CG:lra=0 --toolchain=off -o "${dash_output}" -- "-dash-source.c")
+if(NOT EXISTS "${dash_output}")
+  message(FATAL_ERROR "-- did not preserve a dash-prefixed source")
+endif()
+file(REMOVE "${dash_source}" "${dash_output}")
+
 run_option_error(mutually_exclusive_families "mutually exclusive"
   -S -clang -gcc "${SOURCE}")
 run_option_error(invalid_toolchain_policy "invalid --toolchain value"
@@ -66,5 +77,9 @@ run_option_error(toolchain_off_object "--toolchain=off"
   -c --toolchain=off "${SOURCE}")
 run_option_error(toolchain_off_link "--toolchain=off"
   --toolchain=off "${SOURCE}")
+run_option_error(preprocess_load_ir "-E cannot be combined"
+  -E "${SOURCE}" --load-ir missing.irb)
+run_option_error(source_output_alias "same as source"
+  -S "${SOURCE}" -o "${SOURCE}")
 run_option_error(multiple_sources "exactly one source"
   -S "${SOURCE}" "${SECOND_SOURCE}")

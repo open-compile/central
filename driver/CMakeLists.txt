@@ -34,6 +34,15 @@ if(BUILD_TESTING)
           ${OCC_MAIN_DIR}/lib)
   add_test(NAME driver_options_test COMMAND driver_options_test)
 
+  add_executable(driver_options_release_test
+    driver_options_test.cxx driver_options.cxx)
+  target_compile_definitions(driver_options_release_test PRIVATE NDEBUG)
+  target_include_directories(driver_options_release_test PRIVATE
+          ${CMAKE_CURRENT_SOURCE_DIR}
+          ${OCC_MAIN_DIR}/common
+          ${OCC_MAIN_DIR}/lib)
+  add_test(NAME driver_options_release_test COMMAND driver_options_release_test)
+
   add_test(NAME external_toolchain_options_test
     COMMAND ${CMAKE_COMMAND}
       -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>

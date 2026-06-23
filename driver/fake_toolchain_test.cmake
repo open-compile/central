@@ -18,6 +18,48 @@ if(NOT run_result EQUAL 0 OR NOT EXISTS "${output}" OR NOT EXISTS "${log}")
   message(FATAL_ERROR "fake tool invocation did not log and create -o output")
 endif()
 file(READ "${log}" contents)
-if(NOT contents MATCHES "fake_toolchain.*-target.*test-triple.*input.s.*-o.*fake-toolchain-output.o")
+get_filename_component(fake_name "${FAKE_TOOLCHAIN}" NAME)
+set(expected "${fake_name}\t-target\ttest-triple\tinput.s\t-o\t${output}\n")
+if(NOT contents STREQUAL expected)
   message(FATAL_ERROR "unexpected fake tool log: ${contents}")
+endif()
+
+file(REMOVE "${output}")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "CENTRAL_FAKE_TOOL_OBJECT_EXIT=17"
+          "${FAKE_TOOLCHAIN}" -c input.s -o "${output}"
+  RESULT_VARIABLE object_result)
+if(NOT object_result EQUAL 17 OR EXISTS "${output}")
+  message(FATAL_ERROR "fake object failure control did not return 17")
+endif()
+
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "CENTRAL_FAKE_TOOL_LINK_EXIT=19"
+          "${FAKE_TOOLCHAIN}" input.o -o "${output}"
+  RESULT_VARIABLE link_result)
+if(NOT link_result EQUAL 19 OR EXISTS "${output}")
+  message(FATAL_ERROR "fake link failure control did not return 19")
+endif()
+
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "CENTRAL_FAKE_TOOL_LOG=${log}"
+          "CENTRAL_FAKE_TOOL_SKIP_OUTPUT=1"
+          "${FAKE_TOOLCHAIN}" -c input.s -o "${output}"
+  RESULT_VARIABLE skip_result)
+if(NOT skip_result EQUAL 0 OR EXISTS "${output}")
+  message(FATAL_ERROR "fake skip-output control created an output")
+endif()
+
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env
+          "CENTRAL_FAKE_TOOL_PROBE_EXIT=23"
+          "${FAKE_TOOLCHAIN}" --version
+  RESULT_VARIABLE probe_result)
+if(NOT probe_result EQUAL 23)
+  message(FATAL_ERROR "fake probe failure control did not return 23")
 endif()
