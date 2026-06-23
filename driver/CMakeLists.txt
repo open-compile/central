@@ -6,7 +6,7 @@ cmake_policy(SET CMP0003 NEW)
 set(DRIVER_TARGET_NAME compiler)
 
 add_compile_options(-DDebug_Mode=1 -std=c++11)
-add_executable(${DRIVER_TARGET_NAME} main.cxx)
+add_executable(${DRIVER_TARGET_NAME} main.cxx toolchain.cxx)
 target_include_directories(${DRIVER_TARGET_NAME} PRIVATE
         ${OCC_MAIN_DIR}/common
         ${OCC_MAIN_DIR}/cg
@@ -20,6 +20,10 @@ INSTALL(TARGETS ${DRIVER_TARGET_NAME}
 )
 
 if(BUILD_TESTING)
+  add_executable(toolchain_test toolchain_test.cxx toolchain.cxx)
+  target_include_directories(toolchain_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+  add_test(NAME toolchain_test COMMAND toolchain_test)
+
   add_test(NAME target_cli_test
     COMMAND ${CMAKE_COMMAND}
       -DCOMPILER=$<TARGET_FILE:${DRIVER_TARGET_NAME}>
