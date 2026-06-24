@@ -110,9 +110,12 @@ void CFG_FROM_IR::Build_function_body(IR_ITER block_iter) {
       LABEL_IDX lbl = node->Get_label_num();
       // 记录跳转目标（前驱 = 当前 bb）
       Record_goto(_cur_bb, lbl);
-      // 当前 BB 结束，新开一个 fall-through BB
+      // 保存分支 BB，然后切到 fall-through BB
+      SSABB *branch_bb = _cur_bb;
       End_bb();
-      // fall-through 不会再有 label，但是它的后继由 Fixup_branches 在 label 修复时确立
+      // 建立 fall-through 边：branch_bb → 新的 _cur_bb
+      branch_bb->Add_succ(_cur_bb);
+      _cur_bb->Add_pred(branch_bb);
     } else if (opr == OPR_RETURN || opr == OPR_RETURN_VAL) {
       _cur_bb->Set_flag(BB_FLAG_EXIT);
       End_bb();

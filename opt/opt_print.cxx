@@ -48,8 +48,8 @@ void SSA_CFG_BB_BASE<NODE_TYPE>::Print_pretty(FILE *f) const {
     fprintf(f, " %u", (*it)->Get_id());
   }
   fprintf(f, "\n");
-  if (this->Get_idom()) {
-    fprintf(f, "  idom=%u\n", this->Get_idom()->Get_id());
+  if (this->get_idom(true)) {
+    fprintf(f, "  idom=%u\n", this->get_idom(true)->Get_id());
   }
   for (auto *phi : _phi_list) phi->Print(f);
   for (auto *s : _stmtreps) s->Print_pretty(f);
@@ -60,7 +60,7 @@ void SSA_CFG_BB_BASE<NODE_TYPE>::Print_dom(FILE *f) const {
   if (!f) f = stderr;
   fprintf(f, "BB[%u] idom=%u dom_kids=",
           this->Get_id(),
-          this->Get_idom() ? this->Get_idom()->Get_id() : 0);
+          this->get_idom(true) ? this->get_idom(true)->Get_id() : 0);
   for (auto it = this->Dom_begin(); it != this->Dom_end(); ++it) {
     fprintf(f, " %u", (*it)->Get_id());
   }

@@ -334,8 +334,8 @@ public:
   const_bb_iterator  Cd_begin()   const { return _cd_list.begin();   }
   const_bb_iterator  Cd_end()     const { return _cd_list.end();     }
 
-  // if dom is TRUE, _idom is returned
-  BB_TYPE* get_idom(bool dom) {
+  // if dom is TRUE, _idom is returned (no assertion, safe before DOM is built)
+  BB_TYPE* get_idom(bool dom) const {
     return (dom) ? _idom : _ipdom;
   }
   // if dom is TRUE, _idom is set to node
