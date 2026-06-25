@@ -179,62 +179,162 @@ std::string Native_target_name(HOST_OS os, HOST_ARCH arch) {
   return std::string();
 }
 
-bool Detect_native_target(std::string *triple, std::string *error) {
-  HOST_OS os = HOST_OS::UNSUPPORTED;
+namespace {
+
+// Check whether `variant` contains `token` as a '+'-separated segment.
+// Empty variant never contains anything. Used by Resolve_native_target.
+bool Variant_includes_token(const std::string &variant, const char *token) {
+  if (variant.empty() || token == nullptr || token[0] == '\0') return false;
+  const size_t token_len = std::char_traits<char>::length(token);
+  size_t start = 0;
+  while (start <= variant.size()) {
+    size_t end = variant.find('+', start);
+    if (end == std::string::npos) end = variant.size();
+    if (end - start == token_len &&
+        variant.compare(start, token_len, token) == 0) {
+      return true;
+    }
+    if (end == variant.size()) break;
+    start = end + 1;
+  }
+  return false;
+}
+
+HOST_DESC Parse_arch_segment(const std::string &arch) {
+  HOST_DESC h{HOST_OS::UNSUPPORTED, HOST_ARCH::UNSUPPORTED, ""};
+  if (arch == "armv7") {
+    h.arch = HOST_ARCH::ARMV7;
+  } else if (arch == "aarch64" || arch == "arm64") {
+    h.arch = HOST_ARCH::AARCH64;
+  } else if (arch == "i386") {
+    h.arch = HOST_ARCH::I386;
+  } else if (arch == "x86_64") {
+    h.arch = HOST_ARCH::X86_64;
+  }
+  return h;
+}
+
+HOST_OS Parse_os_segment(const std::string &os) {
+  if (os == "linux") return HOST_OS::LINUX;
+  if (os == "darwin" || os == "apple") return HOST_OS::DARWIN;
+  return HOST_OS::UNSUPPORTED;
+}
+
+}  // namespace
+
+HOST_DESC Parse_host_desc(const std::string &platform_name) {
+  HOST_DESC h{HOST_OS::UNSUPPORTED, HOST_ARCH::UNSUPPORTED, ""};
+  if (platform_name.empty()) return h;
+
+  // Split off the optional "+variant..." suffix.
+  std::string head = platform_name;
+  std::string variant;
+  const size_t plus = head.find('+');
+  if (plus != std::string::npos) {
+    variant = head.substr(plus + 1);
+    head = head.substr(0, plus);
+  }
+
+  // head must be "<arch>-<os>". Split on the first '-'.
+  const size_t dash = head.find('-');
+  if (dash == std::string::npos || dash == 0 || dash + 1 == head.size()) {
+    return h;  // malformed: no '-' separator
+  }
+  const std::string arch_seg = head.substr(0, dash);
+  const std::string os_seg = head.substr(dash + 1);
+
+  HOST_DESC partial = Parse_arch_segment(arch_seg);
+  partial.os = Parse_os_segment(os_seg);
+  // Either side being unknown makes the whole platform name malformed;
+  // signal UNSUPPORTED on both axes so callers can detect bad input uniformly.
+  if (partial.os == HOST_OS::UNSUPPORTED ||
+      partial.arch == HOST_ARCH::UNSUPPORTED) {
+    partial.os = HOST_OS::UNSUPPORTED;
+    partial.arch = HOST_ARCH::UNSUPPORTED;
+  }
+  partial.variant = variant;
+  return partial;
+}
+
+HOST_DESC Current_host() {
+#if defined(SIMULATE_HOST_AS_PLATFORM)
+  return Parse_host_desc(SIMULATE_HOST_AS_PLATFORM);
+#else
+  HOST_DESC h{HOST_OS::UNSUPPORTED, HOST_ARCH::UNSUPPORTED, ""};
+
 #if defined(__APPLE__)
-  os = HOST_OS::DARWIN;
+  h.os = HOST_OS::DARWIN;
 #elif defined(__linux__)
-  os = HOST_OS::LINUX;
+  h.os = HOST_OS::LINUX;
 #endif
 
-  HOST_ARCH arch = HOST_ARCH::UNSUPPORTED;
-  const char *arch_error = "unsupported native host architecture";
 #if defined(__aarch64__)
 #if defined(__ILP32__)
-  arch_error = "unsupported native AArch64 ILP32 ABI";
-#elif defined(__AARCH64EB__)
-  arch_error = "unsupported native big-endian AArch64 host";
-#else
-  arch = HOST_ARCH::AARCH64;
+  h.variant = "ilp32";
+#elif !defined(__AARCH64EB__)
+  h.arch = HOST_ARCH::AARCH64;
 #endif
 #elif defined(__arm__)
-#if defined(__ARMEB__)
-  arch_error = "unsupported native big-endian ARM host";
-#elif !defined(__ARM_ARCH) || __ARM_ARCH < 7
-  arch_error = "unsupported native ARM architecture below ARMv7";
-#elif !defined(__ARM_PCS_VFP)
-  arch_error = "unsupported native ARM ABI without hard-float calling convention";
-#else
-  arch = HOST_ARCH::ARMV7;
+#if !defined(__ARMEB__) && defined(__ARM_ARCH) && __ARM_ARCH >= 7 && \
+    defined(__ARM_PCS_VFP)
+  h.arch = HOST_ARCH::ARMV7;
 #endif
 #elif defined(__x86_64__)
 #if defined(__ILP32__)
-  arch_error = "unsupported native x86_64 ILP32 ABI";
+  h.variant = "ilp32";
 #else
-  arch = HOST_ARCH::X86_64;
+  h.arch = HOST_ARCH::X86_64;
 #endif
 #elif defined(__i386__)
-  arch = HOST_ARCH::I386;
+  h.arch = HOST_ARCH::I386;
 #endif
 
+  return h;
+#endif
+}
+
+bool Resolve_native_target(const HOST_DESC &host,
+                           std::string *triple, std::string *error) {
   if (triple != nullptr) triple->clear();
-  if (os == HOST_OS::UNSUPPORTED) {
+
+  if (host.os == HOST_OS::UNSUPPORTED) {
     if (error != nullptr) *error = "unsupported native host operating system";
     return false;
   }
-  if (arch == HOST_ARCH::UNSUPPORTED) {
-    if (error != nullptr) *error = arch_error;
+
+  // ABI 变体拒绝：当前只识别 ilp32。变体字段里只要有 ilp32 token，
+  // 就按对应 arch 给出含 "ILP32" 字样的错误。
+  if (Variant_includes_token(host.variant, "ilp32")) {
+    if (error != nullptr) {
+      const char *arch_name =
+          host.arch == HOST_ARCH::AARCH64 ? "AArch64" :
+          host.arch == HOST_ARCH::X86_64 ? "x86_64" :
+          host.arch == HOST_ARCH::ARMV7 ? "ARM" :
+          host.arch == HOST_ARCH::I386 ? "i386" : "host";
+      *error = std::string("unsupported native ") + arch_name +
+               " ILP32 ABI";
+    }
     return false;
   }
 
-  const std::string native = Native_target_name(os, arch);
+  if (host.arch == HOST_ARCH::UNSUPPORTED) {
+    if (error != nullptr) *error = "unsupported native host architecture";
+    return false;
+  }
+
+  const std::string native = Native_target_name(host.os, host.arch);
   if (native.empty()) {
-    if (error != nullptr) *error = "unsupported native host OS/architecture combination";
+    if (error != nullptr)
+      *error = "unsupported native host OS/architecture combination";
     return false;
   }
   if (triple != nullptr) *triple = native;
   if (error != nullptr) error->clear();
   return true;
+}
+
+bool Detect_native_target(std::string *triple, std::string *error) {
+  return Resolve_native_target(Current_host(), triple, error);
 }
 
 bool Resolve_configured_target(const std::string &name,
